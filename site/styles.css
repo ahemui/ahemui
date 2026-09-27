@@ -275,7 +275,7 @@ h1 { font-size: clamp(44px, 8vw, 92px); font-weight: 800; letter-spacing: -0.045
 /* tally / now or batch / team */
 .loop { padding-top: 40px; }
 .loop h2 { text-align: center; text-wrap: balance; }
-.loop .sub { max-width: 60ch; font-size: 19px; margin: 0 auto 40px; text-align: center; color: var(--muted); text-wrap: balance; }
+.loop .sub { max-width: 76ch; font-size: 19px; margin: 0 auto 40px; text-align: center; color: var(--muted); text-wrap: balance; }
 .trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .trio article { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; background: var(--panel); }
 .trio h3 { margin-bottom: 8px; }
