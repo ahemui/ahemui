@@ -4,14 +4,14 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { SnapStore } from "../src/store.js";
+import { AhemStore } from "../src/store.js";
 
 let root: string;
-let store: SnapStore;
+let store: AhemStore;
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "snap-"));
-  store = await SnapStore.init(root);
+  root = await mkdtemp(join(tmpdir(), "ahemui-"));
+  store = await AhemStore.init(root);
 });
 afterEach(() => rm(root, { recursive: true, force: true }));
 
@@ -21,7 +21,7 @@ test("create writes a readable markdown item with screenshot", async () => {
     { data: Buffer.from("fake"), ext: "webp" },
   );
   assert.equal(it.status, "open");
-  const md = await readFile(join(root, ".snap/items", it.id, "item.md"), "utf8");
+  const md = await readFile(join(root, ".ahemui/items", it.id, "item.md"), "utf8");
   assert.match(md, /^---\nid: /);
   assert.match(md, /source: src\/Pricing.vue:42/);
   assert.match(md, /\n---\n\nMake the CTA full width\n$/);
@@ -69,7 +69,7 @@ test("find walks up to the repo root", async () => {
   const { mkdir } = await import("node:fs/promises");
   const nested = join(root, "src", "deep");
   await mkdir(nested, { recursive: true });
-  assert.equal(SnapStore.find(nested).root, root);
+  assert.equal(AhemStore.find(nested).root, root);
 });
 
 test("absolute source paths become repo-relative", async () => {
@@ -114,7 +114,7 @@ test("triage sets and clears classification; filters and work order use it", asy
   const cleared = await store.triage(prod.id, { priority: null, labels: null });
   assert.equal(cleared.priority, undefined);
   assert.equal(cleared.labels, undefined);
-  assert.doesNotMatch(await readFile(join(root, ".snap/items", prod.id, "item.md"), "utf8"), /priority:/);
+  assert.doesNotMatch(await readFile(join(root, ".ahemui/items", prod.id, "item.md"), "utf8"), /priority:/);
 });
 
 test("start-now items jump the queue", async () => {
@@ -130,7 +130,7 @@ test("watcher presence: waiting needs a live process, working expires", async ()
   assert.equal(await store.watcher(), null);
   await store.setWatcher({ state: "waiting", pid: process.pid, by: "me" });
   assert.equal((await store.watcher())?.state, "waiting");
-  assert.match(await readFile(join(root, ".snap/.gitignore"), "utf8"), /\.watcher\.json/);
+  assert.match(await readFile(join(root, ".ahemui/.gitignore"), "utf8"), /\.watcher\.json/);
   await store.setWatcher({ state: "waiting", pid: 999_999_999, by: "gone" });
   assert.equal(await store.watcher(), null);
   await store.setWatcher({ state: "working", pid: 999_999_999, item: "X" });
@@ -140,7 +140,7 @@ test("watcher presence: waiting needs a live process, working expires", async ()
 });
 
 test("tracker config and item links", async () => {
-  const cfg = await store.setTracker({ kind: "linear", target: "Linear team ENG", labels: ["snap"] });
+  const cfg = await store.setTracker({ kind: "linear", target: "Linear team ENG", labels: ["ahemui"] });
   assert.equal(cfg.tracker?.sync, "manual");
   assert.equal((await store.config()).tracker?.target, "Linear team ENG");
   const it = await store.create({ prompt: "x", anchor: {} });

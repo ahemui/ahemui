@@ -1,39 +1,39 @@
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { parseArgs } from "node:util";
-import { defaultAuthor, type Item, PRIORITIES, type Shot, SnapError, SnapStore, STATUSES, type Status, TYPES, workOrder } from "@snap/core";
+import { defaultAuthor, type Item, PRIORITIES, type Shot, AhemError, AhemStore, STATUSES, type Status, TYPES, workOrder } from "@ahemui/core";
 import { relative } from "node:path";
 import { exportBoard, openInBrowser } from "./board.js";
 import { serve } from "./server.js";
 import { updateProject } from "./update.js";
 import { waitForStartNow } from "./wait.js";
 
-const HELP = `snap — visual feedback backlog stored in .snap/
+const HELP = `ahemui — visual feedback backlog stored in .ahemui/
 
 usage:
-  snap init [--origin <url>]... [--port <n>]
-  snap serve [--port <n>]
-  snap board [--no-open]          open the live backlog board (starts snap serve if it isn't running)
-  snap export [--out <file>]      write a read-only backlog snapshot (default .snap/backlog.html)
-  snap list [--status <s>]... [--route <p>] [--type <t>] [--label <l>] [--area <a>] [--untriaged] [--all] [--json]
-  snap show <id> [--json]
-  snap add --prompt <text> [--source <file:line>] [--selector <css>] [--route <path>] [--shot <file>]
-  snap claim <id> [--as <name>] [--force]
-  snap resolve <id> [--done | --wontfix] [--sha <commit>] [--note <text>]   (default: review, if enabled)
-  snap triage <id> [--type <t>] [--priority <p>] [--area <a>] [--label <l>]...
-  snap reopen <id>
-  snap note <id> <text>
-  snap prune [--drop-shots <days>]
-                                  move done/wontfix items to .snap/done/, optionally dropping old screenshots
-  snap reply <id> <text>          answer Claude's question on an item
-  snap approve <id> [--note <t>]  approve an item in review
-  snap changes <id> --note <t>    send an item in review back with feedback
-  snap wait [--timeout <sec>] [--as <name>]
+  ahemui init [--origin <url>]... [--port <n>]
+  ahemui serve [--port <n>]
+  ahemui board [--no-open]          open the live backlog board (starts ahemui serve if it isn't running)
+  ahemui export [--out <file>]      write a read-only backlog snapshot (default .ahemui/backlog.html)
+  ahemui list [--status <s>]... [--route <p>] [--type <t>] [--label <l>] [--area <a>] [--untriaged] [--all] [--json]
+  ahemui show <id> [--json]
+  ahemui add --prompt <text> [--source <file:line>] [--selector <css>] [--route <path>] [--shot <file>]
+  ahemui claim <id> [--as <name>] [--force]
+  ahemui resolve <id> [--done | --wontfix] [--sha <commit>] [--note <text>]   (default: review, if enabled)
+  ahemui triage <id> [--type <t>] [--priority <p>] [--area <a>] [--label <l>]...
+  ahemui reopen <id>
+  ahemui note <id> <text>
+  ahemui prune [--drop-shots <days>]
+                                  move done/wontfix items to .ahemui/done/, optionally dropping old screenshots
+  ahemui reply <id> <text>          answer Claude's question on an item
+  ahemui approve <id> [--note <t>]  approve an item in review
+  ahemui changes <id> --note <t>    send an item in review back with feedback
+  ahemui wait [--timeout <sec>] [--as <name>]
                                   block until "Start now" items arrive, print them, exit 0 (3 on timeout)
-  snap unwatch                    clear the "Claude is watching" presence
-  snap update [--from <tgz>] [--force]
-                                  install the newest Snap package into this project (used by /snap:update)
-  snap clear [--archive] [--yes]  delete all backlog items (and with --archive, .snap/done/ too); setup stays
+  ahemui unwatch                    clear the "Claude is watching" presence
+  ahemui update [--from <tgz>] [--force]
+                                  install the newest AhemUI package into this project (used by /ahemui:update)
+  ahemui clear [--archive] [--yes]  delete all backlog items (and with --archive, .ahemui/done/ too); setup stays
 
 ids can be abbreviated to any unique prefix.
 types: ${TYPES.join(", ")} · priorities: ${PRIORITIES.join(", ")}`;
@@ -75,18 +75,18 @@ async function main(argv: string[]) {
   const [cmd, ...args] = positionals;
   if (!cmd || o.help) return console.log(HELP);
 
-  process.env.SNAP_AUTHOR ||= defaultAuthor();
+  process.env.AHEMUI_AUTHOR ||= defaultAuthor();
 
   if (cmd === "init") {
-    const store = await SnapStore.init(process.cwd(), {
+    const store = await AhemStore.init(process.cwd(), {
       ...(o.origin && { devOrigins: o.origin }),
       ...(o.port && { port: Number(o.port) }),
     });
     return console.log(`initialized ${store.dir}`);
   }
 
-  const store = SnapStore.find();
-  const id = () => args[0] ?? fail(`usage: snap ${cmd} <id>`);
+  const store = AhemStore.find();
+  const id = () => args[0] ?? fail(`usage: ahemui ${cmd} <id>`);
 
   switch (cmd) {
     case "serve": {
@@ -145,7 +145,7 @@ async function main(argv: string[]) {
       return console.log(`added ${it.id}`);
     }
     case "claim":
-      return console.log(summary(await store.claim(id(), o.as ?? process.env.SNAP_AUTHOR!, o.force)));
+      return console.log(summary(await store.claim(id(), o.as ?? process.env.AHEMUI_AUTHOR!, o.force)));
     case "resolve":
       return console.log(
         summary(await store.resolve(id(), { status: o.wontfix ? "wontfix" : o.done ? "done" : undefined, sha: o.sha, note: o.note })),
@@ -165,11 +165,11 @@ async function main(argv: string[]) {
       return console.log(summary(await store.reopen(id())));
     case "note": {
       const text = args.slice(1).join(" ");
-      if (!text) fail("usage: snap note <id> <text>");
-      return console.log(summary(await store.addNote(id(), process.env.SNAP_AUTHOR!, text)));
+      if (!text) fail("usage: ahemui note <id> <text>");
+      return console.log(summary(await store.addNote(id(), process.env.AHEMUI_AUTHOR!, text)));
     }
     case "wait": {
-      const items = await waitForStartNow(store, o.as ?? process.env.SNAP_AUTHOR!, o.timeout ? Number(o.timeout) * 1000 : 0);
+      const items = await waitForStartNow(store, o.as ?? process.env.AHEMUI_AUTHOR!, o.timeout ? Number(o.timeout) * 1000 : 0);
       if (!items.length) {
         console.log("TIMEOUT no start-now items");
         process.exit(3);
@@ -179,7 +179,7 @@ async function main(argv: string[]) {
     }
     case "update": {
       const result = updateProject(store, { from: o.from, force: o.force });
-      if (!result.apps.length) console.log("no package.json here depends on @snap/vite (was /snap:setup run?)");
+      if (!result.apps.length) console.log("no package.json here depends on ahemui (was /ahemui:setup run?)");
       for (const app of result.apps) {
         const where = relative(store.root, app.dir) || ".";
         if (!app.ok) console.log(`✗ ${where}: install failed; see the output above`);
@@ -191,7 +191,7 @@ async function main(argv: string[]) {
         const health = await fetch(`${running}/api/health`).then((r) => r.json()).catch(() => null);
         const newest = result.apps.find((a) => a.after)?.after;
         if (health?.build && newest && health.build !== newest) {
-          console.log(`\n! The dev server is still running Snap build ${health.build}. Restart it, then reload the page.`);
+          console.log(`\n! The dev server is still running AhemUI build ${health.build}. Restart it, then reload the page.`);
         }
       }
       return;
@@ -216,20 +216,20 @@ async function main(argv: string[]) {
       return console.log("no longer watching");
     case "prune": {
       const { moved, shotsDropped } = await store.prune({ dropShotsOlderThanDays: o["drop-shots"] ? Number(o["drop-shots"]) : undefined });
-      console.log(moved.length ? `moved ${moved.length} item(s) to .snap/done/` : "nothing to archive");
+      console.log(moved.length ? `moved ${moved.length} item(s) to .ahemui/done/` : "nothing to archive");
       if (shotsDropped) console.log(`removed ${shotsDropped} old screenshot(s) from archived items`);
       return;
     }
     case "reply": {
       const text = args.slice(1).join(" ");
-      if (!text) fail("usage: snap reply <id> <text>");
-      return console.log(summary(await store.reply(id(), process.env.SNAP_AUTHOR!, text)));
+      if (!text) fail("usage: ahemui reply <id> <text>");
+      return console.log(summary(await store.reply(id(), process.env.AHEMUI_AUTHOR!, text)));
     }
     case "approve":
-      return console.log(summary(await store.review(id(), process.env.SNAP_AUTHOR!, "approved", o.note)));
+      return console.log(summary(await store.review(id(), process.env.AHEMUI_AUTHOR!, "approved", o.note)));
     case "changes":
-      if (!o.note) fail("usage: snap changes <id> --note <what should change>");
-      return console.log(summary(await store.review(id(), process.env.SNAP_AUTHOR!, "changes", o.note)));
+      if (!o.note) fail("usage: ahemui changes <id> --note <what should change>");
+      return console.log(summary(await store.review(id(), process.env.AHEMUI_AUTHOR!, "changes", o.note)));
     default:
       fail(`unknown command "${cmd}"\n\n${HELP}`);
   }
@@ -245,15 +245,15 @@ function summary(it: Item): string {
   return `${MARK[it.status]}${nowMark(it)}${it.id.slice(0, 14)}  ${it.status.padEnd(11)} ${(cls || "-").padEnd(24)} ${where.padEnd(36)} ${first}`;
 }
 
-/** The running snap serve for this repo, if any (it may live inside the Vite dev server). */
-async function findServer(store: SnapStore): Promise<string | null> {
+/** The running ahemui serve for this repo, if any (it may live inside the Vite dev server). */
+async function findServer(store: AhemStore): Promise<string | null> {
   const { port } = await store.config();
   for (let p = port; p < port + 10; p++) {
     const base = `http://127.0.0.1:${p}`;
     const health = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(500) })
       .then((r) => r.json())
       .catch(() => null);
-    if (health?.name === "snap" && health.root === store.root) return base;
+    if (health?.name === "ahemui" && health.root === store.root) return base;
   }
   return null;
 }
@@ -263,7 +263,7 @@ function oneOf<T extends string>(value: string, allowed: readonly T[], what: str
   return value as T;
 }
 
-function details(it: Item, store: SnapStore): string {
+function details(it: Item, store: AhemStore): string {
   const lines = [
     `author: ${it.author}   created: ${it.created}${it.claimed_by ? `   claimed by: ${it.claimed_by}` : ""}`,
     (it.type || it.area || it.labels?.length || it.priority) &&
@@ -292,10 +292,10 @@ async function loadShot(path: string): Promise<Shot> {
 
 
 function fail(msg: string): never {
-  throw new SnapError(msg);
+  throw new AhemError(msg);
 }
 
 main(process.argv.slice(2)).catch((err) => {
-  console.error(err instanceof SnapError ? `snap: ${err.message}` : err);
+  console.error(err instanceof AhemError ? `ahemui: ${err.message}` : err);
   process.exit(1);
 });

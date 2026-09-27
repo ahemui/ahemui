@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Snap — visual feedback backlog",
+  "name": "AhemUI — visual feedback backlog",
   "version": "0.3.1",
   "description": "Highlight parts of any web app (local, staging or prod) and queue changes for Claude Code.",
   "minimum_chrome_version": "111",
@@ -17,7 +17,7 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "Snap",
+    "default_title": "AhemUI",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/16.png",

@@ -1,5 +1,5 @@
 // The page agent runs in the page's own JS world, as early as possible (a classic <script> injected first by the
-// Vite plugin, or the extension's main-world content script at document_start). It is the only part of Snap that
+// Vite plugin, or the extension's main-world content script at document_start). It is the only part of AhemUI that
 // can see framework internals and hook console/network. The overlay talks to it through DOM events and attributes,
 // which works from the extension's isolated world as well as from the page itself.
 
@@ -40,15 +40,15 @@ export interface PageAgent {
   state(el: Element): StateInfo | undefined;
 }
 
-const TAG = "data-snap-q";
-const ANSWER = "data-snap-a";
-const DOC_ANSWER = "data-snap-doc-a";
+const TAG = "data-ahemui-q";
+const ANSWER = "data-ahemui-a";
+const DOC_ANSWER = "data-ahemui-doc-a";
 
 // ——————————————————————————— client side (overlay, any world) ———————————————————————————
 
 function ask<T>(event: string, els: Element[] = []): (T | undefined)[] | T | undefined {
   els.forEach((el) => el.setAttribute(TAG, ""));
-  document.dispatchEvent(new CustomEvent(`snap:${event}`)); // listeners in every world run synchronously
+  document.dispatchEvent(new CustomEvent(`ahemui:${event}`)); // listeners in every world run synchronously
   const read = (el: Element, attr: string) => {
     const raw = el.getAttribute(attr);
     el.removeAttribute(attr);
@@ -81,18 +81,18 @@ const push = <T>(arr: T[], e: T) => {
   arr.push(e);
   if (arr.length > RING) arr.shift();
 };
-const SNAP_SERVER = /^https?:\/\/(127\.0\.0\.1|localhost):47[78]\d\//;
+const AHEMUI_SERVER = /^https?:\/\/(127\.0\.0\.1|localhost):47[78]\d\//;
 
 export function installAgent() {
   const w = window as any;
-  if (w.__snapAgent) return;
-  w.__snapAgent = true;
+  if (w.__ahemuiAgent) return;
+  w.__ahemuiAgent = true;
 
   hookConsole();
   hookNetwork();
 
   const answerEach = (event: string, fn: (el: Element) => unknown) =>
-    document.addEventListener(`snap:${event}`, () => {
+    document.addEventListener(`ahemui:${event}`, () => {
       for (const el of document.querySelectorAll(`[${TAG}]`)) {
         try {
           el.setAttribute(ANSWER, JSON.stringify(fn(el) ?? null));
@@ -102,7 +102,7 @@ export function installAgent() {
       }
     });
   const answerDoc = (event: string, fn: () => unknown) =>
-    document.addEventListener(`snap:${event}`, () => {
+    document.addEventListener(`ahemui:${event}`, () => {
       try {
         document.documentElement.setAttribute(DOC_ANSWER, JSON.stringify(fn() ?? null));
       } catch {
@@ -159,25 +159,25 @@ function hookNetwork() {
     const url = input instanceof Request ? input.url : String(input);
     try {
       const res = await originalFetch.call(this, input, init);
-      if (!res.ok && !SNAP_SERVER.test(res.url || url)) push(requests, { method, url: res.url || url, status: res.status, ms: Math.round(performance.now() - t0), t: Date.now() });
+      if (!res.ok && !AHEMUI_SERVER.test(res.url || url)) push(requests, { method, url: res.url || url, status: res.status, ms: Math.round(performance.now() - t0), t: Date.now() });
       return res;
     } catch (err) {
-      if (!SNAP_SERVER.test(url)) push(requests, { method, url, status: 0, ms: Math.round(performance.now() - t0), t: Date.now() });
+      if (!AHEMUI_SERVER.test(url)) push(requests, { method, url, status: 0, ms: Math.round(performance.now() - t0), t: Date.now() });
       throw err;
     }
   };
   const open = XMLHttpRequest.prototype.open;
   const send = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.open = function (this: any, method: string, url: string | URL, ...rest: any[]) {
-    this.__snap = { method: method.toUpperCase(), url: String(url) };
+    this.__ahemui = { method: method.toUpperCase(), url: String(url) };
     return (open as any).call(this, method, url, ...rest);
   };
   XMLHttpRequest.prototype.send = function (this: any, body?: any) {
-    const info = this.__snap;
+    const info = this.__ahemui;
     if (info) {
       const t0 = performance.now();
       this.addEventListener("loadend", () => {
-        if ((this.status >= 400 || this.status === 0) && !SNAP_SERVER.test(info.url)) {
+        if ((this.status >= 400 || this.status === 0) && !AHEMUI_SERVER.test(info.url)) {
           push(requests, { ...info, status: this.status, ms: Math.round(performance.now() - t0), t: Date.now() });
         }
       });

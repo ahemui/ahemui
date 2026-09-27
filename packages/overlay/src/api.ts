@@ -1,6 +1,6 @@
 import type { Item } from "./types.js";
 
-/** A Claude session running /snap:watch, ready to pick up "Start now" items. */
+/** A Claude session running /ahemui:watch, ready to pick up "Start now" items. */
 export interface Watcher {
   state: "waiting" | "working";
   since: string;
@@ -10,7 +10,7 @@ export interface Watcher {
 
 export interface Health {
   build?: string;
-  /** Base URL of this snap serve; its board lives at `${base}/`. */
+  /** Base URL of this ahemui serve; its board lives at `${base}/`. */
   base?: string;
   watcher?: Watcher | null;
   project?: string;
@@ -19,7 +19,7 @@ export interface Health {
   maxBytes: number;
 }
 
-/** How the overlay reaches `snap serve`: directly (Vite-injected) or through the extension's service worker. */
+/** How the overlay reaches `ahemui serve`: directly (Vite-injected) or through the extension's service worker. */
 export interface Transport {
   /** Starts connecting and keeps delivering item snapshots; `onState(null)` means disconnected. */
   start(onItems: (items: Item[], watcher?: Watcher | null) => void, onState: (health: Health | null) => void): void;
@@ -28,7 +28,7 @@ export interface Transport {
   fileSrc(id: string, name: string): Promise<string>;
 }
 
-/** Talks to snap serve from the page itself. Used by the Vite-injected overlay, whose origin the server allows. */
+/** Talks to ahemui serve from the page itself. Used by the Vite-injected overlay, whose origin the server allows. */
 export class DirectTransport implements Transport {
   private base: string | null = null;
   private retry = 0;
@@ -72,7 +72,7 @@ export class DirectTransport implements Transport {
   }
 
   async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    if (!this.base) throw new Error("not connected to snap serve");
+    if (!this.base) throw new Error("not connected to ahemui serve");
     const res = await fetch(this.base + path, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -93,7 +93,7 @@ async function probe(base: string): Promise<Health | null> {
     const res = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(800) });
     if (!res.ok) return null;
     const data = await res.json();
-    return data.name === "snap" ? { ...data, base } : null;
+    return data.name === "ahemui" ? { ...data, base } : null;
   } catch {
     return null;
   }

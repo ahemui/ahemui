@@ -1,8 +1,8 @@
 import vue from "@vitejs/plugin-vue";
-import snap from "@snap/vite";
+import ahemui from "ahemui";
 import { defineConfig } from "vite";
 
-// A deliberately broken API, so the example has a real failed request for Snap to capture.
+// A deliberately broken API, so the example has a real failed request for AhemUI to capture.
 const brokenApi = {
   name: "broken-api",
   configureServer(server) {
@@ -15,5 +15,5 @@ const brokenApi = {
 };
 
 export default defineConfig({
-  plugins: [vue(), snap(), brokenApi],
+  plugins: [vue(), ahemui(), brokenApi],
 });

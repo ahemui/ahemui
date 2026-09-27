@@ -1,17 +1,17 @@
 {
-  "name": "snap-example-vue",
+  "name": "ahemui-example-vue",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "snap": "node ../../packages/cli/dist/index.js"
+    "ahemui": "node ../../packages/cli/dist/index.js"
   },
   "dependencies": {
     "vue": "^3.5.0",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "@snap/vite": "0.1.0",
+    "ahemui": "0.1.0",
     "@vitejs/plugin-vue": "^6.0.0",
     "vite": "^8.0.0"
   }

@@ -4,14 +4,14 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { SnapStore, workOrder } from "../src/store.js";
+import { AhemStore, workOrder } from "../src/store.js";
 
 let root: string;
-let store: SnapStore;
+let store: AhemStore;
 
 beforeEach(async () => {
-  root = await mkdtemp(join(tmpdir(), "snap-review-"));
-  store = await SnapStore.init(root);
+  root = await mkdtemp(join(tmpdir(), "ahemui-review-"));
+  store = await AhemStore.init(root);
 });
 afterEach(() => rm(root, { recursive: true, force: true }));
 
@@ -33,8 +33,8 @@ test("review loop: resolve → review, approve → done, changes → open with f
   assert.equal(ok.review?.verdict, "approved");
 
   // With review turned off, resolving goes straight to done.
-  const raw = JSON.parse(await readFile(join(root, ".snap/config.json"), "utf8"));
-  await writeFile(join(root, ".snap/config.json"), JSON.stringify({ ...raw, review: false }));
+  const raw = JSON.parse(await readFile(join(root, ".ahemui/config.json"), "utf8"));
+  await writeFile(join(root, ".ahemui/config.json"), JSON.stringify({ ...raw, review: false }));
   const it2 = await store.create({ prompt: "x", anchor: {} });
   assert.equal((await store.resolve(it2.id)).status, "done");
 });
@@ -88,7 +88,7 @@ test("extra areas, after-shot, file access and screenshot housekeeping", async (
   assert.match(archived.body, /Screenshots removed when archiving/);
 
   await store.enableLfs();
-  assert.match(await readFile(join(root, ".snap/.gitattributes"), "utf8"), /\*\.webp filter=lfs/);
+  assert.match(await readFile(join(root, ".ahemui/.gitattributes"), "utf8"), /\*\.webp filter=lfs/);
 });
 
 test("clear empties the backlog (optionally the archive) but keeps the setup", async () => {
@@ -100,6 +100,6 @@ test("clear empties the backlog (optionally the archive) but keeps the setup", a
   assert.equal((await store.list({ includeDone: true })).length, 1); // archived b survives
   assert.deepEqual(await store.clear({ archive: true }), [b.id]);
   assert.equal((await store.list({ includeDone: true })).length, 0);
-  assert.ok(existsSync(join(root, ".snap", "config.json")));
-  assert.ok(existsSync(join(root, ".snap", ".gitignore")));
+  assert.ok(existsSync(join(root, ".ahemui", "config.json")));
+  assert.ok(existsSync(join(root, ".ahemui", ".gitignore")));
 });

@@ -1,8 +1,8 @@
 node_modules/
 dist/
 *.tsbuildinfo
-examples/*/.snap/items/*
-examples/*/.snap/done/*
-!examples/*/.snap/**/.gitkeep
+examples/*/.ahemui/items/*
+examples/*/.ahemui/done/*
+!examples/*/.ahemui/**/.gitkeep
 packages/cli/src/board-assets.generated.ts
 build-id.json

@@ -1,5 +1,5 @@
 {
-  "name": "snap",
+  "name": "ahemui-monorepo",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -7,10 +7,10 @@
     "examples/*"
   ],
   "scripts": {
-    "build": "node scripts/build-id.mjs && npm run build -w @snap/board && tsc -b packages/core packages/cli && npm run build -w @snap/overlay && npm run build -w @snap/vite && npm run build -w @snap/extension && npm run build -w @snap/claude-plugin",
+    "build": "node scripts/build-id.mjs && npm run build -w @ahemui/board && tsc -b packages/core packages/cli && npm run build -w @ahemui/overlay && npm run build -w ahemui && npm run build -w @ahemui/extension && npm run build -w @ahemui/claude-plugin",
     "test": "node --import tsx --test packages/*/test/*.test.ts",
-    "snap": "node packages/cli/dist/index.js",
-    "typecheck": "npm run build -w @snap/board && tsc -b packages/core packages/cli && tsc -p packages/vite && tsc -p packages/claude-plugin && tsc -p packages/overlay && tsc -p packages/extension && tsc -p packages/board"
+    "ahemui": "node packages/cli/dist/index.js",
+    "typecheck": "npm run build -w @ahemui/board && tsc -b packages/core packages/cli && tsc -p packages/vite && tsc -p packages/claude-plugin && tsc -p packages/overlay && tsc -p packages/extension && tsc -p packages/board"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "snap": {
+    "ahemui": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/server/snap-mcp.mjs"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/ahemui-mcp.mjs"]
     }
   }
 }

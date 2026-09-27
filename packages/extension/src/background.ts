@@ -1,5 +1,5 @@
-// Service worker: owns every connection to local `snap serve` instances, remembers which project each site
-// sends feedback to, takes screenshots, and injects Snap into sites you enable (deployed dev, staging, prod).
+// Service worker: owns every connection to local `ahemui serve` instances, remembers which project each site
+// sends feedback to, takes screenshots, and injects AhemUI into sites you enable (deployed dev, staging, prod).
 import type { PopupState, Reply, Server } from "./messages.js";
 
 const PORTS = Array.from({ length: 10 }, (_, i) => 4777 + i);
@@ -18,7 +18,7 @@ async function getSites(): Promise<string[]> {
 
 let scanCache: { at: number; servers: Promise<Server[]> } | undefined;
 
-/** All running snap servers on 4777–4786 (cached for a few seconds). */
+/** All running ahemui servers on 4777–4786 (cached for a few seconds). */
 function scan(): Promise<Server[]> {
   if (scanCache && Date.now() - scanCache.at < 3000) return scanCache.servers;
   const servers = Promise.all(
@@ -27,7 +27,7 @@ function scan(): Promise<Server[]> {
       try {
         const res = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(700) });
         const h = await res.json();
-        return h?.name === "snap" ? { base, project: h.project, branch: h.branch, root: h.root, devOrigins: h.devOrigins ?? [], maxBytes: h.maxBytes, watcher: h.watcher ?? null } : null;
+        return h?.name === "ahemui" ? { base, project: h.project, branch: h.branch, root: h.root, devOrigins: h.devOrigins ?? [], maxBytes: h.maxBytes, watcher: h.watcher ?? null } : null;
       } catch {
         return null;
       }
@@ -123,7 +123,7 @@ async function handle(msg: any, sender: chrome.runtime.MessageSender): Promise<u
     }
     case "notify": {
       // Same tag from several tabs → one notification (Chrome replaces by id).
-      const id = `snap:${String(msg.tag).slice(0, 100)}`;
+      const id = `ahemui:${String(msg.tag).slice(0, 100)}`;
       notificationUrls.set(id, String(msg.url ?? ""));
       await chrome.notifications.create(id, {
         type: "basic",
@@ -161,7 +161,7 @@ async function serverForTab(tabId: number | undefined, origin: string | undefine
   const known = tabId !== undefined ? tabServer.get(tabId) : undefined;
   if (known) return known;
   const server = origin ? await resolveServer(origin) : null;
-  if (!server) throw new Error("no Snap project selected for this site");
+  if (!server) throw new Error("no AhemUI project selected for this site");
   return server.base;
 }
 
@@ -192,11 +192,11 @@ async function broadcastToOrigin(origin: string, msg: unknown) {
   }
 }
 
-// ——— enabling Snap on non-local sites ———
+// ——— enabling AhemUI on non-local sites ———
 
 function scriptIds(origin: string) {
   const key = origin.replace(/[^a-z0-9]/gi, "_");
-  return { overlay: `snap-overlay-${key}`, probe: `snap-agent-${key}` };
+  return { overlay: `ahemui-overlay-${key}`, probe: `ahemui-agent-${key}` };
 }
 
 async function setEnabled(origin: string, enabled: boolean, tabId: number) {

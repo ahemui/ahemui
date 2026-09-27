@@ -1,5 +1,5 @@
 {
-  "name": "@snap/claude-plugin",
+  "name": "@ahemui/claude-plugin",
   "version": "0.1.0",
   "private": true,
   "type": "module",

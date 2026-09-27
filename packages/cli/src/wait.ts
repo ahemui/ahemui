@@ -1,16 +1,16 @@
 import { watch } from "node:fs";
 import { join } from "node:path";
-import { type Item, type SnapStore, workOrder } from "@snap/core";
+import { type Item, type AhemStore, workOrder } from "@ahemui/core";
 
-const pendingNow = async (store: SnapStore) =>
+const pendingNow = async (store: AhemStore) =>
   workOrder(await store.list({ status: ["open"], start: "now", needsReply: false })).filter((it) => !it.claimed_by);
 
 /**
  * Blocks until someone presses "Start now" in the browser, then returns those items (oldest first).
- * While waiting it advertises itself in .snap/.watcher.json so the overlay can tell the person Claude is listening.
+ * While waiting it advertises itself in .ahemui/.watcher.json so the overlay can tell the person Claude is listening.
  * Resolves with [] on timeout.
  */
-export async function waitForStartNow(store: SnapStore, by: string, timeoutMs = 0): Promise<Item[]> {
+export async function waitForStartNow(store: AhemStore, by: string, timeoutMs = 0): Promise<Item[]> {
   const ready = await pendingNow(store);
   if (ready.length) return claimWatch(store, by, ready);
 
@@ -50,7 +50,7 @@ export async function waitForStartNow(store: SnapStore, by: string, timeoutMs = 
 }
 
 /** Flip presence to "working" so the overlay says Claude is busy rather than gone. */
-async function claimWatch(store: SnapStore, by: string, items: Item[]): Promise<Item[]> {
+async function claimWatch(store: AhemStore, by: string, items: Item[]): Promise<Item[]> {
   await store.setWatcher({ state: "working", pid: process.pid, by, item: items[0].id });
   return items;
 }

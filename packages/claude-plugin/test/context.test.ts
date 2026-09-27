@@ -5,19 +5,19 @@ import { join, resolve } from "node:path";
 import { after, before, test } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { SnapStore } from "@snap/core";
+import { AhemStore } from "@ahemui/core";
 
-const SERVER = resolve(import.meta.dirname, "../server/snap-mcp.mjs");
+const SERVER = resolve(import.meta.dirname, "../server/ahemui-mcp.mjs");
 let dir: string;
 let client: Client;
-let store: SnapStore;
+let store: AhemStore;
 
 before(async () => {
-  dir = await mkdtemp(join(tmpdir(), "snap-ctx-"));
-  store = await SnapStore.init(dir);
+  dir = await mkdtemp(join(tmpdir(), "ahemui-ctx-"));
+  store = await AhemStore.init(dir);
   client = new Client({ name: "test", version: "0" });
   await client.connect(
-    new StdioClientTransport({ command: process.execPath, args: [SERVER], env: { ...process.env, CLAUDE_PROJECT_DIR: dir, SNAP_AUTHOR: "tester" } }),
+    new StdioClientTransport({ command: process.execPath, args: [SERVER], env: { ...process.env, CLAUDE_PROJECT_DIR: dir, AHEMUI_AUTHOR: "tester" } }),
   );
 });
 after(async () => {
@@ -28,7 +28,7 @@ after(async () => {
 const call = async (name: string, args: Record<string, unknown> = {}) => client.callTool({ name, arguments: args }) as any;
 const text = (r: any) => r.content.filter((c: any) => c.type === "text").map((c: any) => c.text).join("\n");
 
-test("snap_get shows design, reference areas, tokens, state, errors, steps, a11y and redaction", async () => {
+test("ahemui_get shows design, reference areas, tokens, state, errors, steps, a11y and redaction", async () => {
   const it = await store.create({
     prompt: "Match the header button",
     anchor: { source: "src/Nav.vue:4:3" },
@@ -41,7 +41,7 @@ test("snap_get shows design, reference areas, tokens, state, errors, steps, a11y
     extras: [{ role: "reference", anchor: { source: "src/Hero.vue:9:5" } }],
     redacted: true,
   });
-  const got = text(await call("snap_get", { id: it.id }));
+  const got = text(await call("ahemui_get", { id: it.id }));
   for (const re of [
     /Design reference: https:\/\/figma\.com\/file\/abc/,
     /## Example to match \(area 2\)[\s\S]*Source: src\/Hero\.vue:9:5/,
@@ -56,19 +56,19 @@ test("snap_get shows design, reference areas, tokens, state, errors, steps, a11y
   }
 });
 
-test("questions release the item; snap_next skips it until the reply", async () => {
+test("questions release the item; ahemui_next skips it until the reply", async () => {
   const it = await store.create({ prompt: "Make it pop", anchor: {} });
-  const asked = text(await call("snap_note", { id: it.id, text: "Pop how?", question: true }));
+  const asked = text(await call("ahemui_note", { id: it.id, text: "Pop how?", question: true }));
   assert.match(asked, /\?awaiting-reply/);
-  const next = text(await call("snap_next"));
+  const next = text(await call("ahemui_next"));
   assert.doesNotMatch(next, new RegExp(it.id)); // the other open item (or none) comes first
   await store.reply(it.id, "pietari", "Bigger");
-  const listed = text(await call("snap_list", { status: ["open"], group_by: "none" }));
+  const listed = text(await call("ahemui_list", { status: ["open"], group_by: "none" }));
   assert.match(listed, new RegExp(`${it.id}  open  `));
 });
 
 test("resolve defaults to review", async () => {
   const it = await store.create({ prompt: "x", anchor: {} });
-  assert.match(text(await call("snap_resolve", { id: it.id, note: "done it" })), /◎ .* review[\s\S]*approve it in the browser/);
-  assert.match(text(await call("snap_resolve", { id: it.id, status: "done" })), /✓ .* done/);
+  assert.match(text(await call("ahemui_resolve", { id: it.id, note: "done it" })), /◎ .* review[\s\S]*approve it in the browser/);
+  assert.match(text(await call("ahemui_resolve", { id: it.id, status: "done" })), /✓ .* done/);
 });

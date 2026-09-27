@@ -1,36 +1,36 @@
 import { readFile } from "node:fs/promises";
 import { relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { SnapError, SnapStore } from "@snap/core";
-import { serve } from "@snap/cli/server";
+import { AhemError, AhemStore } from "@ahemui/core";
+import { serve } from "@ahemui/cli/server";
 import type { Plugin, ResolvedConfig } from "vite";
 
-export interface SnapOptions {
+export interface AhemUIOptions {
   /** Inject the capture overlay into pages (turn off if you only use the browser extension). Default true. */
   overlay?: boolean;
-  /** Add `data-snap-src="file:line:col"` to every element in Vue templates. Default true. */
+  /** Add `data-ahemui-src="file:line:col"` to every element in Vue templates. Default true. */
   sourceAttrs?: boolean;
-  /** Start `snap serve` inside the Vite process if it isn't already running. Default true. */
+  /** Start `ahemui serve` inside the Vite process if it isn't already running. Default true. */
   serve?: boolean;
 }
 
-const OVERLAY_PATH = "/@snap/overlay.js";
-const AGENT_PATH = "/@snap/agent.js";
+const OVERLAY_PATH = "/@ahemui/overlay.js";
+const AGENT_PATH = "/@ahemui/agent.js";
 const PORT_RANGE = 10;
 
-export default function snap(options: SnapOptions = {}): Plugin {
+export default function ahemui(options: AhemUIOptions = {}): Plugin {
   const { overlay = true, sourceAttrs = true, serve: startServe = true } = options;
   let config: ResolvedConfig;
-  let store: SnapStore | null = null;
+  let store: AhemStore | null = null;
   let serverUrl: Promise<string | null> = Promise.resolve(null);
 
   return {
-    name: "snap",
+    name: "ahemui",
     apply: "serve",
 
-    // The backlog lives in .snap/ and changes constantly (items, screenshots, the backlog.html snapshot). None of it is
+    // The backlog lives in .ahemui/ and changes constantly (items, screenshots, the backlog.html snapshot). None of it is
     // app code, and an .html file changing there would otherwise make Vite reload the page.
-    config: () => ({ server: { watch: { ignored: ["**/.snap/**"] } } }),
+    config: () => ({ server: { watch: { ignored: ["**/.ahemui/**"] } } }),
 
     configResolved(resolved) {
       config = resolved;
@@ -39,10 +39,10 @@ export default function snap(options: SnapOptions = {}): Plugin {
 
     configureServer(server) {
       try {
-        store = SnapStore.find(config.root);
+        store = AhemStore.find(config.root);
       } catch (err) {
-        if (!(err instanceof SnapError)) throw err;
-        config.logger.warn(`[snap] no .snap/ found above ${config.root} — run \`npx snap init\` in your repo root`);
+        if (!(err instanceof AhemError)) throw err;
+        config.logger.warn(`[ahemui] no .ahemui/ found above ${config.root} — run \`npx ahemui init\` in your repo root`);
         return;
       }
 
@@ -56,12 +56,12 @@ export default function snap(options: SnapOptions = {}): Plugin {
           if (close) server.httpServer?.once("close", close);
           resolveUrl(base);
         } catch (err) {
-          config.logger.error(`[snap] could not start snap serve: ${(err as Error).message}`);
+          config.logger.error(`[ahemui] could not start ahemui serve: ${(err as Error).message}`);
           resolveUrl(null);
         }
       });
 
-      // Both bundles are built next to this file (see build.mjs), so the package needs no other @snap/* deps.
+      // Both bundles are built next to this file (see build.mjs), so the package needs no other @ahemui/* deps.
       for (const [path, file] of [
         [OVERLAY_PATH, "./overlay-inject.js"],
         [AGENT_PATH, "./agent.js"],
@@ -81,7 +81,7 @@ export default function snap(options: SnapOptions = {}): Plugin {
       return [
         // Classic script first in <head>: hooks console/network before the app runs, reads framework internals.
         { tag: "script", attrs: { src: AGENT_PATH }, injectTo: "head-prepend" },
-        { tag: "script", children: `window.__SNAP__ = ${JSON.stringify({ server: url })};`, injectTo: "head" },
+        { tag: "script", children: `window.__AHEMUI__ = ${JSON.stringify({ server: url })};`, injectTo: "head" },
         { tag: "script", attrs: { src: OVERLAY_PATH, defer: true }, injectTo: "head" },
       ];
     },
@@ -95,7 +95,7 @@ export default function snap(options: SnapOptions = {}): Plugin {
 function injectVueTransform(config: ResolvedConfig) {
   const vue = config.plugins.find((p) => p.name === "vite:vue") as (Plugin & { api?: { options: any } }) | undefined;
   if (!vue?.api) {
-    config.logger.warn("[snap] @vitejs/plugin-vue not found — elements won't carry source locations");
+    config.logger.warn("[ahemui] @vitejs/plugin-vue not found — elements won't carry source locations");
     return;
   }
   const opts = vue.api.options;
@@ -106,7 +106,7 @@ function injectVueTransform(config: ResolvedConfig) {
       ...opts.template,
       compilerOptions: {
         ...compilerOptions,
-        nodeTransforms: [...(compilerOptions.nodeTransforms ?? []), snapNodeTransform(config.root)],
+        nodeTransforms: [...(compilerOptions.nodeTransforms ?? []), ahemuiNodeTransform(config.root)],
       },
     },
   };
@@ -118,17 +118,17 @@ const TAG_ELEMENT = 0;
 const ATTRIBUTE = 6;
 const TEXT = 2;
 
-/** Vue template node transform adding `data-snap-src="src/File.vue:line:col"` to plain elements. */
-export function snapNodeTransform(root: string) {
+/** Vue template node transform adding `data-ahemui-src="src/File.vue:line:col"` to plain elements. */
+export function ahemuiNodeTransform(root: string) {
   return (node: any, context: any) => {
     // Only real elements: attrs on components would fall through and overwrite the child's own location.
     if (node.type !== ELEMENT || node.tagType !== TAG_ELEMENT || !context.filename) return;
-    if (node.props.some((p: any) => p.type === ATTRIBUTE && p.name === "data-snap-src")) return;
+    if (node.props.some((p: any) => p.type === ATTRIBUTE && p.name === "data-ahemui-src")) return;
     const file = relative(root, context.filename.split("?")[0]).split("\\").join("/");
     const { line, column } = node.loc.start;
     node.props.push({
       type: ATTRIBUTE,
-      name: "data-snap-src",
+      name: "data-ahemui-src",
       nameLoc: node.loc,
       value: { type: TEXT, content: `${file}:${line}:${column}`, loc: node.loc },
       loc: node.loc,
@@ -144,9 +144,9 @@ function devOrigins(urls: { local: string[]; network: string[] } | null | undefi
   return [...origins];
 }
 
-/** Reuses a running `snap serve` for this repo (registering our origins), or starts one in-process. */
+/** Reuses a running `ahemui serve` for this repo (registering our origins), or starts one in-process. */
 async function ensureServer(
-  store: SnapStore,
+  store: AhemStore,
   origins: string[],
   log: (m: string) => void,
 ): Promise<{ base: string; close?: () => Promise<void> }> {
@@ -156,15 +156,15 @@ async function ensureServer(
     const health = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(500) })
       .then((r) => r.json())
       .catch(() => null);
-    if (health?.name === "snap") {
+    if (health?.name === "ahemui") {
       if (health.root !== store.root) continue; // another repo's server
       await fetch(`${base}/api/origins`, { method: "POST", body: JSON.stringify({ origins }) });
-      log(`[snap] using running snap serve at ${base}`);
+      log(`[ahemui] using running ahemui serve at ${base}`);
       return { base };
     }
     try {
       const s = await serve(store, { port: p, origins, log: () => {} });
-      log(`[snap] backlog server on ${base} (${relative(process.cwd(), store.dir) || store.dir})`);
+      log(`[ahemui] backlog server on ${base} (${relative(process.cwd(), store.dir) || store.dir})`);
       return { base, close: s.close };
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "EADDRINUSE") throw err;

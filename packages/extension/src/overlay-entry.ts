@@ -1,5 +1,5 @@
-// Isolated-world content script. Page scripts can't see or call into this world, so a site you enable Snap on
-// (including production) can't read your backlog or talk to your local snap serve.
+// Isolated-world content script. Page scripts can't see or call into this world, so a site you enable AhemUI on
+// (including production) can't read your backlog or talk to your local ahemui serve.
 import type { Health, Transport, Watcher } from "../../overlay/src/api.js";
 import { cropToDataUrl, loadImage } from "../../overlay/src/crop.js";
 import { startOverlay } from "../../overlay/src/overlay.js";
@@ -7,17 +7,17 @@ import type { Item } from "../../overlay/src/types.js";
 import { agent } from "../../overlay/src/agent.js";
 import type { Reply } from "./messages.js";
 
-declare const __SNAP_BUILD__: string | undefined;
-const BUILD = typeof __SNAP_BUILD__ === "string" ? __SNAP_BUILD__ : "dev";
+declare const __AHEMUI_BUILD__: string | undefined;
+const BUILD = typeof __AHEMUI_BUILD__ === "string" ? __AHEMUI_BUILD__ : "dev";
 
 // Announce this extension and its build before any page script runs. A Vite-injected overlay from the same build
 // stands down in favour of this one (real screenshots, notifications); from a different build it takes over, so a
-// stale unpacked extension can never shadow the project's current Snap.
-document.documentElement.setAttribute("data-snap-ext", BUILD);
+// stale unpacked extension can never shadow the project's current AhemUI.
+document.documentElement.setAttribute("data-ahemui-ext", BUILD);
 
 async function send<T = any>(msg: Record<string, unknown>): Promise<T> {
   const reply: Reply<T> = await chrome.runtime.sendMessage(msg);
-  if (!reply) throw new Error("Snap extension did not answer");
+  if (!reply) throw new Error("AhemUI extension did not answer");
   if ("error" in reply) throw new Error(reply.error);
   return reply.data;
 }
@@ -64,7 +64,7 @@ const start = () => startOverlay({
   mode: "ext",
   transport: new ExtensionTransport(),
   agent,
-  disconnectedHint: "No Snap project for this site. Click the Snap toolbar icon to pick one (and check snap serve is running).",
+  disconnectedHint: "No AhemUI project for this site. Click the AhemUI toolbar icon to pick one (and check ahemui serve is running).",
   capture: async (rect, strokes, masks, maxBytes, hide) => {
     const show = await hide();
     let dataUrl: string;

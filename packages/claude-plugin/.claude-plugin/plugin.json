@@ -1,7 +1,7 @@
 {
-  "name": "snap",
-  "version": "0.3.20260927064027",
-  "description": "Visual UI feedback backlog: highlight parts of your running app, queue change requests into .snap/, and let Claude work through them — markers in the browser go from queued to done.",
+  "name": "ahemui",
+  "version": "0.3.20260927100011",
+  "description": "Visual UI feedback backlog: highlight parts of your running app, queue change requests into .ahemui/, and let Claude work through them — markers in the browser go from queued to done.",
   "author": {
     "name": "Pietari Keurulainen"
   },

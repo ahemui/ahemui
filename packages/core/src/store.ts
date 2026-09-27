@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, renameSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter.js";
@@ -22,38 +22,44 @@ import {
 } from "./schema.js";
 import { ulid } from "./ulid.js";
 
-export const SNAP_DIR = ".snap";
+export const AHEMUI_DIR = ".ahemui";
+/** The folder name before the project was renamed from Snap to AhemUI; migrated on first use. */
+const LEGACY_DIR = ".snap";
 const WATCHER_FILE = ".watcher.json";
 const ITEM_FILE = "item.md";
 type Location = Item["location"];
 
-export class SnapError extends Error {}
+export class AhemError extends Error {}
 
 export interface Shot {
   data: Buffer;
   ext: "webp" | "png" | "jpg";
 }
 
-export class SnapStore {
+export class AhemStore {
   readonly dir: string;
 
   constructor(readonly root: string) {
-    this.dir = join(root, SNAP_DIR);
+    this.dir = join(root, AHEMUI_DIR);
   }
 
-  /** Walks up from `cwd` to the nearest directory containing `.snap/config.json`. */
-  static find(cwd = process.cwd()): SnapStore {
+  /** Walks up from `cwd` to the nearest directory containing `.ahemui/config.json`. */
+  static find(cwd = process.cwd()): AhemStore {
     let dir = resolve(cwd);
     for (;;) {
-      if (existsSync(join(dir, SNAP_DIR, "config.json"))) return new SnapStore(dir);
+      if (existsSync(join(dir, AHEMUI_DIR, "config.json"))) return new AhemStore(dir);
+      if (existsSync(join(dir, LEGACY_DIR, "config.json")) && !existsSync(join(dir, AHEMUI_DIR))) {
+        renameSync(join(dir, LEGACY_DIR), join(dir, AHEMUI_DIR));
+        return new AhemStore(dir);
+      }
       const parent = dirname(dir);
-      if (parent === dir) throw new SnapError(`no ${SNAP_DIR}/ found above ${cwd} — run \`snap init\``);
+      if (parent === dir) throw new AhemError(`no ${AHEMUI_DIR}/ found above ${cwd} — run \`ahemui init\``);
       dir = parent;
     }
   }
 
-  static async init(root: string, config: Partial<Config> = {}): Promise<SnapStore> {
-    const store = new SnapStore(resolve(root));
+  static async init(root: string, config: Partial<Config> = {}): Promise<AhemStore> {
+    const store = new AhemStore(resolve(root));
     await mkdir(join(store.dir, "items"), { recursive: true });
     await store.ensureGitignore();
     await mkdir(join(store.dir, "done"), { recursive: true });
@@ -82,7 +88,7 @@ export class SnapStore {
     if (missing.length) await writeFile(file, [...lines, ...missing].join("\n") + "\n");
   }
 
-  // ——— watcher presence (a Claude session running /snap:watch) ———
+  // ——— watcher presence (a Claude session running /ahemui:watch) ———
 
   async setWatcher(w: Omit<Watcher, "since"> | null): Promise<void> {
     const file = join(this.dir, WATCHER_FILE);
@@ -106,7 +112,7 @@ export class SnapStore {
     return Date.now() - Date.parse(w.since) < 30 * 60_000 ? w : null;
   }
 
-  /** Sets (or with null, removes) the external tracker in .snap/config.json. */
+  /** Sets (or with null, removes) the external tracker in .ahemui/config.json. */
   async setTracker(tracker: Partial<Tracker> & Pick<Tracker, "kind" | "target"> | null): Promise<Config> {
     const file = join(this.dir, "config.json");
     const raw = JSON.parse(await readFile(file, "utf8"));
@@ -139,7 +145,7 @@ export class SnapStore {
 
   /** Path of one of the item's own image files; anything else is refused. */
   filePath(item: Item, name: string): string {
-    if (!this.files(item).includes(name)) throw new SnapError(`${item.id} has no file ${name}`);
+    if (!this.files(item).includes(name)) throw new AhemError(`${item.id} has no file ${name}`);
     return join(this.itemDir(item.id, item.location), name);
   }
 
@@ -173,8 +179,8 @@ export class SnapStore {
     for (const loc of ["items", "done"] as const) {
       for (const id of await this.ids(loc)) if (id.startsWith(needle)) matches.push([id, loc]);
     }
-    if (matches.length === 0) throw new SnapError(`no item matching "${idOrPrefix}"`);
-    if (matches.length > 1) throw new SnapError(`"${idOrPrefix}" is ambiguous: ${matches.map((m) => m[0]).join(", ")}`);
+    if (matches.length === 0) throw new AhemError(`no item matching "${idOrPrefix}"`);
+    if (matches.length > 1) throw new AhemError(`"${idOrPrefix}" is ambiguous: ${matches.map((m) => m[0]).join(", ")}`);
     return this.read(...matches[0]);
   }
 
@@ -235,9 +241,9 @@ export class SnapStore {
 
   async claim(id: string, who: string, force = false): Promise<Item> {
     const item = await this.get(id);
-    if (item.location === "done") throw new SnapError(`${item.id} is archived`);
+    if (item.location === "done") throw new AhemError(`${item.id} is archived`);
     if (item.claimed_by && item.claimed_by !== who && item.status === "in-progress" && !force) {
-      throw new SnapError(`${item.id} is already claimed by ${item.claimed_by}`);
+      throw new AhemError(`${item.id} is already claimed by ${item.claimed_by}`);
     }
     return this.save({ ...item, status: "in-progress", claimed_by: who });
   }
@@ -253,7 +259,7 @@ export class SnapStore {
   /** Moves an item between the backlog ("later") and the queue a watching Claude session works from ("now"). */
   async setStart(id: string, start: "now" | "later"): Promise<Item> {
     const item = await this.get(id);
-    if (item.status !== "open") throw new SnapError(`${item.id} is ${item.status}; only open items can be queued`);
+    if (item.status !== "open") throw new AhemError(`${item.id} is ${item.status}; only open items can be queued`);
     return this.save({ ...item, start });
   }
 
@@ -297,7 +303,7 @@ export class SnapStore {
   }
 
   /**
-   * Moves every done/wontfix item from the backlog into `.snap/done/`. With `dropShotsOlderThanDays`, archived
+   * Moves every done/wontfix item from the backlog into `.ahemui/done/`. With `dropShotsOlderThanDays`, archived
    * items older than that lose their screenshots (the item.md stays) to keep the repo small.
    */
   async prune(opts: { dropShotsOlderThanDays?: number } = {}): Promise<{ moved: Item[]; shotsDropped: number }> {
@@ -312,22 +318,22 @@ export class SnapStore {
         for (const f of this.files(item)) await rm(join(this.itemDir(item.id, "done"), f), { force: true });
         shotsDropped += this.files(item).length;
         const extras = item.extras?.map((e) => ({ ...e, shot: undefined }));
-        await this.save(appendNote({ ...item, shot: undefined, after: undefined, extras }, "snap", "Screenshots removed when archiving.", "Note"));
+        await this.save(appendNote({ ...item, shot: undefined, after: undefined, extras }, "ahemui", "Screenshots removed when archiving.", "Note"));
       }
     }
     return { moved, shotsDropped };
   }
 
-  /** Archives one finished (done/wontfix) item: it moves to .snap/done/ and its marker leaves the page. */
+  /** Archives one finished (done/wontfix) item: it moves to .ahemui/done/ and its marker leaves the page. */
   async archive(id: string): Promise<Item> {
     const item = await this.get(id);
     if (item.location === "done") return item;
-    if (item.status !== "done" && item.status !== "wontfix") throw new SnapError(`${item.id} is ${item.status}; only finished items can be archived`);
+    if (item.status !== "done" && item.status !== "wontfix") throw new AhemError(`${item.id} is ${item.status}; only finished items can be archived`);
     return this.move(item, "done");
   }
 
   /**
-   * Empties the backlog (and with `archive`, .snap/done/ too) while keeping the setup: config, vendored package,
+   * Empties the backlog (and with `archive`, .ahemui/done/ too) while keeping the setup: config, vendored package,
    * .gitignore. Returns the ids removed.
    */
   async clear(opts: { archive?: boolean } = {}): Promise<string[]> {
@@ -452,9 +458,9 @@ function processAlive(pid: number): boolean {
 
 let gitName: string | null | undefined;
 
-/** SNAP_AUTHOR, else `git config user.name`, else the OS user. */
+/** AHEMUI_AUTHOR, else `git config user.name`, else the OS user. */
 export function defaultAuthor(): string {
-  if (process.env.SNAP_AUTHOR) return process.env.SNAP_AUTHOR;
+  if (process.env.AHEMUI_AUTHOR) return process.env.AHEMUI_AUTHOR;
   if (gitName === undefined) {
     try {
       gitName = execFileSync("git", ["config", "user.name"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || null;

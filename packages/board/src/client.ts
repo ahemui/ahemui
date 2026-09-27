@@ -1,6 +1,6 @@
-// The Snap backlog board. One page, two modes:
-//  - live: served by `snap serve` at http://127.0.0.1:<port>/ with actions and WebSocket updates
-//  - static: `.snap/backlog.html`, a read-only snapshot with the data embedded and images referenced relatively
+// The AhemUI backlog board. One page, two modes:
+//  - live: served by `ahemui serve` at http://127.0.0.1:<port>/ with actions and WebSocket updates
+//  - static: `.ahemui/backlog.html`, a read-only snapshot with the data embedded and images referenced relatively
 import type { Item, Page, Status } from "../../overlay/src/types.js";
 import { CSS } from "./styles.js";
 
@@ -18,11 +18,11 @@ interface Boot {
 }
 declare global {
   interface Window {
-    __SNAP_BOARD__: Boot;
+    __AHEMUI_BOARD__: Boot;
   }
 }
 
-const boot = window.__SNAP_BOARD__;
+const boot = window.__AHEMUI_BOARD__;
 const live = boot.mode === "live";
 
 const state = {
@@ -49,8 +49,8 @@ interface Column {
   test: (i: Item) => boolean;
 }
 const COLUMNS: Column[] = [
-  { key: "queue", title: "⚡ Queue", hint: "Claude works these as soon as a session runs /snap:watch", test: (i) => i.status === "open" && i.start === "now" && !i.needs_reply },
-  { key: "backlog", title: "Backlog", hint: "Saved for later: /snap:work, or press Start", test: (i) => i.status === "open" && i.start !== "now" && !i.needs_reply },
+  { key: "queue", title: "⚡ Queue", hint: "Claude works these as soon as a session runs /ahemui:watch", test: (i) => i.status === "open" && i.start === "now" && !i.needs_reply },
+  { key: "backlog", title: "Backlog", hint: "Saved for later: /ahemui:work, or press Start", test: (i) => i.status === "open" && i.start !== "now" && !i.needs_reply },
   { key: "progress", title: "In progress", hint: "Claude is on it", test: (i) => i.status === "in-progress" },
   { key: "you", title: "Needs you", hint: "Review the result or answer Claude's question", test: (i) => i.status === "review" || (i.status === "open" && !!i.needs_reply) },
   { key: "done", title: "Done", hint: "Approved, done or won't fix", test: (i) => i.status === "done" || i.status === "wontfix" },
@@ -108,7 +108,7 @@ function mount() {
   document.head.insertAdjacentHTML("beforeend", `<style>${CSS}</style>`);
   document.body.innerHTML = `
     <header class="top">
-      <div class="brand"><span class="logo">◉</span> <b>Snap</b> <span class="proj"></span></div>
+      <div class="brand"><span class="logo">◉</span> <b>AhemUI</b> <span class="proj"></span></div>
       <div class="filters">
         <input class="search" type="search" placeholder="Search requests, pages, files…  ( / )">
         <select class="f-type"><option value="">All types</option>${TYPES.map((t) => `<option>${t}</option>`).join("")}</select>
@@ -121,7 +121,7 @@ function mount() {
       </div>
       <div class="status"></div>
     </header>
-    ${live ? "" : `<div class="banner">Read-only snapshot${boot.generated ? ` from ${new Date(boot.generated).toLocaleString()}` : ""}. For the live board with actions, run <code>npx snap board</code> in the repo.</div>`}
+    ${live ? "" : `<div class="banner">Read-only snapshot${boot.generated ? ` from ${new Date(boot.generated).toLocaleString()}` : ""}. For the live board with actions, run <code>npx ahemui board</code> in the repo.</div>`}
     <main class="board"></main>
     <aside class="drawer" hidden></aside>
     <div class="toast"></div>`;
@@ -171,9 +171,9 @@ function renderHeader() {
   const active = state.items.filter((i) => i.location === "items");
   const w = state.watcher;
   $(".proj").textContent = [state.project, state.branch].filter(Boolean).join(" · ");
-  document.title = `Snap backlog${state.project ? ` — ${state.project}` : ""}`;
+  document.title = `AhemUI backlog${state.project ? ` — ${state.project}` : ""}`;
   const counts = COLUMNS.map((c) => `<span title="${c.hint}">${c.title} <b>${active.filter(c.test).length}</b></span>`).join("");
-  const claude = !live ? "" : w ? `<span class="live on">Claude ${w.state === "waiting" ? "watching" : "working"}</span>` : `<span class="live" title="Run /snap:watch in Claude Code">No Claude session watching</span>`;
+  const claude = !live ? "" : w ? `<span class="live on">Claude ${w.state === "waiting" ? "watching" : "working"}</span>` : `<span class="live" title="Run /ahemui:watch in Claude Code">No Claude session watching</span>`;
   const conn = live ? `<span class="dot ${state.connected ? "ok" : ""}" title="${state.connected ? "Live" : "Reconnecting…"}"></span>` : "";
   $(".status").innerHTML = `${counts}${claude}${conn}`;
 }
@@ -201,14 +201,14 @@ function renderBoard() {
     board.innerHTML = COLUMNS.map((c) => {
       const list = items.filter(c.test);
       const finishedHere = list.filter((i) => i.location === "items").length;
-      const clear = live && c.key === "done" && finishedHere ? `<button class="btn clear" data-quick="prune" data-id="" title="Archive every done and won't-fix item (moves them to .snap/done/)">Clear ${finishedHere}</button>` : "";
+      const clear = live && c.key === "done" && finishedHere ? `<button class="btn clear" data-quick="prune" data-id="" title="Archive every done and won't-fix item (moves them to .ahemui/done/)">Clear ${finishedHere}</button>` : "";
       return `<section class="col col-${c.key}"><h2 title="${c.hint}">${c.title} <span>${list.length}</span>${clear}</h2><div class="cards">${list.map(card).join("") || `<p class="empty">${c.hint}</p>`}</div></section>`;
     }).join("");
   } else {
     board.className = "board groups";
     const groups = new Map<string, Item[]>();
     for (const it of items) {
-      const key = state.groupBy === "page" ? pageName(it.page, it.route) : (it.area ?? "No area yet (run /snap:triage)");
+      const key = state.groupBy === "page" ? pageName(it.page, it.route) : (it.area ?? "No area yet (run /ahemui:triage)");
       groups.set(key, [...(groups.get(key) ?? []), it]);
     }
     board.innerHTML =
@@ -409,7 +409,7 @@ async function act(id: string, action: string) {
       case "start":
       case "later":
         updated = await api<Item>("POST", `/api/items/${id}/start`, { start: action === "start" ? "now" : "later" });
-        toast(action === "later" ? "Moved to the backlog" : state.watcher?.state === "waiting" ? "⚡ Claude is starting on it" : state.watcher ? "Added to the queue" : "Queued; start /snap:watch in Claude Code to work it");
+        toast(action === "later" ? "Moved to the backlog" : state.watcher?.state === "waiting" ? "⚡ Claude is starting on it" : state.watcher ? "Added to the queue" : "Queued; start /ahemui:watch in Claude Code to work it");
         break;
       case "done":
       case "wontfix":

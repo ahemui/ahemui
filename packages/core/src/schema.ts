@@ -70,7 +70,7 @@ export const ExternalSchema = z.object({
 export type External = z.infer<typeof ExternalSchema>;
 
 /**
- * Optional external tracker. Snap never calls tracker APIs itself: Claude mirrors items using whatever MCP
+ * Optional external tracker. AhemUI never calls tracker APIs itself: Claude mirrors items using whatever MCP
  * server the team already has enabled (Linear, Atlassian/Jira, Notion, GitHub…). The repo stays the source of truth
  * for anchors, screenshots and page metadata.
  */
@@ -78,9 +78,9 @@ export const TrackerSchema = z.object({
   kind: z.enum(TRACKERS),
   /** Where tickets go, in the tracker's own terms: "Linear team ENG, project Website", "Jira project WEB", a Notion database URL. */
   target: short(300),
-  /** manual: only /snap:sync. auto: triage/work/watch also create and update tickets as they touch items. */
+  /** manual: only /ahemui:sync. auto: triage/work/watch also create and update tickets as they touch items. */
   sync: z.enum(["manual", "auto"]).default("manual"),
-  /** Labels added to every ticket, e.g. ["snap", "ui-feedback"]. */
+  /** Labels added to every ticket, e.g. ["ahemui", "ui-feedback"]. */
   labels: z.array(short(40)).max(10).default([]),
   /** Free-form conventions, e.g. "issue type Bug for bugs, Task otherwise; component Web; move to In Review when done". */
   instructions: short(1000).optional(),
@@ -206,7 +206,7 @@ export interface Item extends ItemMeta {
   location: "items" | "done";
 }
 
-/** Presence of a Claude session running /snap:watch, so the browser can say whether "Start now" will be picked up. */
+/** Presence of a Claude session running /ahemui:watch, so the browser can say whether "Start now" will be picked up. */
 export const WatcherSchema = z.object({
   state: z.enum(["waiting", "working"]),
   pid: z.number().int(),

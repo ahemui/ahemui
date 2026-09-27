@@ -1,7 +1,7 @@
 import type { PageAgent } from "./agent.js";
 import type { Transport } from "./api.js";
 
-// Mirrors @snap/core's schema; kept dependency-free so the overlay bundle stays small.
+// Mirrors @ahemui/core's schema; kept dependency-free so the overlay bundle stays small.
 export type Status = "open" | "in-progress" | "review" | "done" | "wontfix";
 export const TYPES = ["bug", "style", "layout", "copy", "feature", "a11y", "other"] as const;
 export type ItemType = (typeof TYPES)[number];

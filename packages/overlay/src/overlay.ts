@@ -15,8 +15,8 @@ const LABEL: Record<Status, string> = { open: "open", "in-progress": "in progres
 /** Starts the overlay once per page, whichever of the extension or the Vite plugin gets there first. */
 export function startOverlay(host: Host): void {
   const root = document.documentElement;
-  if (root.hasAttribute("data-snap-overlay")) return;
-  root.setAttribute("data-snap-overlay", host.mode);
+  if (root.hasAttribute("data-ahemui-overlay")) return;
+  root.setAttribute("data-ahemui-overlay", host.mode);
   const start = () => new Overlay(host).mount();
   document.body ? start() : addEventListener("DOMContentLoaded", start, { once: true });
 }
@@ -27,8 +27,8 @@ export function currentRoute(): string {
 
 const deployed = () => !LOCAL_HOST.test(location.hostname);
 
-declare const __SNAP_BUILD__: string | undefined;
-const BUILD = typeof __SNAP_BUILD__ === "string" ? __SNAP_BUILD__ : "dev";
+declare const __AHEMUI_BUILD__: string | undefined;
+const BUILD = typeof __AHEMUI_BUILD__ === "string" ? __AHEMUI_BUILD__ : "dev";
 
 interface Marker {
   el: HTMLElement;
@@ -54,7 +54,7 @@ interface Draft {
 }
 
 class Overlay {
-  private hostEl = document.createElement("snap-overlay");
+  private hostEl = document.createElement("ahemui-overlay");
   private shadow = this.hostEl.attachShadow({ mode: "open" });
   private $ = <T extends Element = HTMLElement>(sel: string) => this.shadow.querySelector(sel) as T;
 
@@ -108,17 +108,17 @@ class Overlay {
           </div>
           <div class="row">
             <span class="hint"></span>
-            <span class="buttons"><button class="btn cancel">Cancel</button> <button class="btn submit" title="Save for later: waits in the backlog until someone runs /snap:work (Ctrl/⌘+Enter)">Backlog</button> <button class="btn primary start"></button></span>
+            <span class="buttons"><button class="btn cancel">Cancel</button> <button class="btn submit" title="Save for later: waits in the backlog until someone runs /ahemui:work (Ctrl/⌘+Enter)">Backlog</button> <button class="btn primary start"></button></span>
           </div>
         </div>
         <div class="pop"></div>
         <div class="panel"></div>
         <div class="bar" hidden>
-          <button class="capture" title="Capture feedback (Alt+Shift+S). Shift+drag to draw.">✎ Snap</button>
+          <button class="capture" title="Capture feedback (Alt+Shift+S). Shift+drag to draw.">✎ AhemUI</button>
           <button class="counts" title="Show backlog"></button>
           <button class="markers-toggle" title="Markers: all">◉</button>
           <span class="proj"></span>
-          <span class="dot" title="snap serve"></span>
+          <span class="dot" title="ahemui serve"></span>
         </div>
         <div class="toast"></div>
       </div>`;
@@ -569,7 +569,7 @@ class Overlay {
 
   private alert(title: string, body: string, tag: string) {
     this.toast(`${title}: ${body}`, 5000);
-    this.host.notify?.(`Snap — ${title}`, body, tag);
+    this.host.notify?.(`AhemUI — ${title}`, body, tag);
   }
 
   /**
@@ -608,7 +608,7 @@ class Overlay {
   private warnedBuild = false;
 
   /**
-   * The page's overlay and the project's Snap server come from separate installs (the vendored package, or the
+   * The page's overlay and the project's AhemUI server come from separate installs (the vendored package, or the
    * unpacked extension). If they differ, keys and buttons may not match what the server and docs expect.
    */
   private checkBuild() {
@@ -618,8 +618,8 @@ class Overlay {
     this.warnedBuild = true;
     this.toast(
       this.host.mode === "ext"
-        ? "The Snap extension is a different build than this project's Snap. Reload it in vivaldi://extensions (or chrome://extensions), then reload this page."
-        : "Snap was updated. Restart the dev server if you haven't yet, then reload this page.",
+        ? "The AhemUI extension is a different build than this project's AhemUI. Reload it in vivaldi://extensions (or chrome://extensions), then reload this page."
+        : "AhemUI was updated. Restart the dev server if you haven't yet, then reload this page.",
       9000,
     );
   }
@@ -628,7 +628,7 @@ class Overlay {
   private toastQueued() {
     if (this.watcher?.state === "waiting") this.toast("⚡ Claude is starting on it", 3000);
     else if (this.watcher?.state === "working") this.toast("Added to the queue: Claude picks it up after the current item", 4000);
-    else this.toast("Queued, but no Claude session is watching yet. Run /snap:watch in Claude Code to start it.", 6000);
+    else this.toast("Queued, but no Claude session is watching yet. Run /ahemui:watch in Claude Code to start it.", 6000);
   }
 
   /** Moves a backlog item into the queue (or back); the watching Claude session picks queued items up. */
@@ -657,7 +657,7 @@ class Overlay {
       ? "Claude is working on another item; this one goes next in line (Enter)"
       : this.watcher
         ? "Claude starts on it right away (Enter)"
-        : "Queue it for Claude to start as soon as a session runs /snap:watch (Enter)";
+        : "Queue it for Claude to start as soon as a session runs /ahemui:watch (Enter)";
     this.$(".hint").textContent = `Enter ${busy ? "queue" : "start now"} · Ctrl+Enter backlog`;
   }
 
@@ -679,9 +679,9 @@ class Overlay {
     const claude = w ? (w.state === "waiting" ? " · Claude watching" : " · Claude working") : "";
     this.$(".proj").textContent = h?.project ? `${h.project}${h.branch ? ` · ${h.branch}` : ""}${claude}` : "";
     this.$(".proj").classList.toggle("live", !!w);
-    this.$(".dot").title = h ? `snap serve · ${h.root}` : "not connected to snap serve";
+    this.$(".dot").title = h ? `ahemui serve · ${h.root}` : "not connected to ahemui serve";
     this.$(".dot").classList.toggle("stale", this.stale);
-    if (this.stale) this.$(".dot").title = `Overlay build ${BUILD} ≠ server build ${h?.build}: reload the page${this.host.mode === "ext" ? " and the Snap extension" : ""}`;
+    if (this.stale) this.$(".dot").title = `Overlay build ${BUILD} ≠ server build ${h?.build}: reload the page${this.host.mode === "ext" ? " and the AhemUI extension" : ""}`;
     const toggle = this.$(".markers-toggle");
     toggle.textContent = this.markerMode === "all" ? "◉" : this.markerMode === "active" ? "◐" : "○";
     toggle.title = `Markers: ${this.markerMode === "all" ? "all" : this.markerMode === "active" ? "unfinished only" : "hidden"} (click to change)`;
@@ -795,13 +795,13 @@ class Overlay {
       actions = `<div class="actions"><button class="btn primary" data-act="approve">Looks good ✓</button><button class="btn" data-act="changes-open">Not quite…</button></div>
         <div class="changes" hidden><textarea class="reply" placeholder="What still needs to change?"></textarea><div class="actions"><button class="btn primary" data-act="changes">Send back</button></div></div>`;
     } else if (item.status === "done" || item.status === "wontfix") {
-      actions = `<div class="actions"><button class="btn" data-act="archive" title="Move to .snap/done/; the marker leaves the page">Archive</button><button class="btn" data-act="reopen">Reopen</button></div>`;
+      actions = `<div class="actions"><button class="btn" data-act="archive" title="Move to .ahemui/done/; the marker leaves the page">Archive</button><button class="btn" data-act="reopen">Reopen</button></div>`;
     } else {
       const queue =
         item.status !== "open"
           ? ""
           : item.start === "now"
-            ? `<button class="btn" data-act="later" title="Take it out of the queue; it waits for /snap:work">Move to backlog</button>`
+            ? `<button class="btn" data-act="later" title="Take it out of the queue; it waits for /ahemui:work">Move to backlog</button>`
             : `<button class="btn primary" data-act="start">${this.startLabel()}</button>`;
       actions = `<div class="actions">${queue}<button class="btn" data-act="done">Mark done</button><button class="btn" data-act="wontfix">Won't fix</button></div>`;
     }
@@ -919,7 +919,7 @@ class Overlay {
       ? `<a class="board-link" href="${esc(this.health.base)}/" target="_blank" rel="noopener">Open full board ↗</a>`
       : "";
     if (!active.length) {
-      panel.innerHTML = `<div class="empty">Backlog is empty. Press ✎ Snap or Alt+Shift+S to capture.</div>${board}`;
+      panel.innerHTML = `<div class="empty">Backlog is empty. Press ✎ AhemUI or Alt+Shift+S to capture.</div>${board}`;
       return;
     }
     // Group by path (+ host for other sites); label each group with the richest page info any item has.
@@ -935,7 +935,7 @@ class Overlay {
     };
     const rowAction = (i: Item) => {
       if (i.status !== "open" || i.needs_reply) return "";
-      if (i.start === "now") return `<span class="queued" title="Waiting for Claude (runs when /snap:watch is active)">⚡ queued</span>`;
+      if (i.start === "now") return `<span class="queued" title="Waiting for Claude (runs when /ahemui:watch is active)">⚡ queued</span>`;
       return `<button class="btn row-start" data-start="${i.id}" title="Have Claude work on this now">${this.startLabel()}</button>`;
     };
     const row = (i: Item) => `<div class="list-item ${i.route === this.route && sameSite(i.url) ? "" : "elsewhere"}" data-id="${i.id}">
@@ -945,7 +945,7 @@ class Overlay {
         </div>`;
     const finished = active.filter((i) => i.status === "done" || i.status === "wontfix").length;
     const clear = finished
-      ? `<button class="btn clear-finished" title="Archive every done and won't-fix item (moves them to .snap/done/)">Clear ${finished} finished</button>`
+      ? `<button class="btn clear-finished" title="Archive every done and won't-fix item (moves them to .ahemui/done/)">Clear ${finished} finished</button>`
       : "";
     panel.innerHTML =
       [...groups].map(([key, items]) => `<div class="group">${esc(groupLabel(key, items))}</div>${items.map(row).join("")}`).join("") +
@@ -1002,7 +1002,7 @@ class Overlay {
   }
 }
 
-const MARKER_KEY = "snap:markers";
+const MARKER_KEY = "ahemui:markers";
 
 function loadMarkerMode(): "all" | "active" | "none" {
   try {

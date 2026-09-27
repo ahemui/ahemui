@@ -59,15 +59,15 @@ function commonAncestor(els: Element[]): Element {
 }
 
 /**
- * Source location: `data-snap-src` from the Vite plugin (Vue), else what the framework exposes at runtime
+ * Source location: `data-ahemui-src` from the Vite plugin (Vue), else what the framework exposes at runtime
  * (React ≤18 _debugSource, Svelte __svelte_meta), else the Vue component's `__file` (dev builds).
  */
 export function sourceOf(el: Element, fw?: FrameworkInfo): string | undefined {
-  return el.closest("[data-snap-src]")?.getAttribute("data-snap-src") ?? fw?.source ?? fw?.file;
+  return el.closest("[data-ahemui-src]")?.getAttribute("data-ahemui-src") ?? fw?.source ?? fw?.file;
 }
 
 /** Elements whose content must never leave the page as text (the screenshot masks them too). */
-export const PRIVATE = "[data-private], [data-snap-private], .snap-private";
+export const PRIVATE = "[data-private], [data-ahemui-private], .ahemui-private";
 
 export function textOf(el: Element, max = 80): string | undefined {
   if (el.closest(PRIVATE)) return "[private]";
@@ -120,7 +120,7 @@ export function locate(anchor: Anchor, isOwn: (el: Element) => boolean): Element
   };
 
   if (anchor.source && anchor.source.includes(":")) {
-    const hit = pick([...document.querySelectorAll(`[data-snap-src="${CSS.escape(anchor.source)}"]`)]);
+    const hit = pick([...document.querySelectorAll(`[data-ahemui-src="${CSS.escape(anchor.source)}"]`)]);
     if (hit) return refineByText(hit, anchor);
   }
   if (anchor.selector) {
@@ -142,7 +142,7 @@ export function locate(anchor: Anchor, isOwn: (el: Element) => boolean): Element
   return undefined;
 }
 
-/** `data-snap-src` may sit on an ancestor of what was picked; narrow down by text when possible. */
+/** `data-ahemui-src` may sit on an ancestor of what was picked; narrow down by text when possible. */
 function refineByText(el: Element, anchor: Anchor): Element {
   if (!anchor.selector) return el;
   if (safeMatches(el, anchor.selector)) return el;

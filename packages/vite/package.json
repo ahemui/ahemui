@@ -1,14 +1,14 @@
 {
-  "name": "@snap/vite",
+  "name": "ahemui",
   "version": "0.1.0",
-  "description": "Snap: capture visual UI feedback in the browser into a repo-committed backlog for Claude Code.",
+  "description": "AhemUI: capture visual UI feedback in the browser into a repo-committed backlog for Claude Code.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "bin": { "snap": "./dist/cli.js" },
+  "bin": { "ahemui": "./dist/cli.js" },
   "files": ["dist"],
   "scripts": { "build": "node build.mjs" },
   "peerDependencies": { "vite": ">=5" },
-  "devDependencies": { "@snap/cli": "0.1.0", "@snap/core": "0.1.0", "@snap/overlay": "0.1.0" }
+  "devDependencies": { "@ahemui/cli": "0.1.0", "@ahemui/core": "0.1.0", "@ahemui/overlay": "0.1.0" }
 }

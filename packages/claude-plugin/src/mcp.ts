@@ -6,18 +6,18 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { exportBoard } from "../../cli/src/board.js";
-import { defaultAuthor, type Item, type ListFilter, PRIORITIES, SnapError, SnapStore, STATUSES, type Tracker, TRACKERS, TYPES, workOrder } from "@snap/core";
+import { defaultAuthor, type Item, type ListFilter, PRIORITIES, AhemError, AhemStore, STATUSES, type Tracker, TRACKERS, TYPES, workOrder } from "@ahemui/core";
 import { z } from "zod";
 
 const projectDir = () => process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const here = dirname(fileURLToPath(import.meta.url));
-const VENDOR_TARBALL = "snap-vite.tgz";
+const VENDOR_TARBALL = "ahemui.tgz";
 
-const server = new McpServer({ name: "snap", version: "0.1.0" });
+const server = new McpServer({ name: "ahemui", version: "0.1.0" });
 
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
 
-/** Wraps a handler so SnapErrors come back as readable tool errors instead of crashes. */
+/** Wraps a handler so AhemErrors come back as readable tool errors instead of crashes. */
 function tool<S extends z.ZodRawShape>(
   name: string,
   description: string,
@@ -29,14 +29,14 @@ function tool<S extends z.ZodRawShape>(
       const out = await run(args);
       return { content: typeof out === "string" ? [{ type: "text", text: out }] : out };
     } catch (err) {
-      const msg = err instanceof SnapError ? err.message : String((err as Error)?.stack ?? err);
+      const msg = err instanceof AhemError ? err.message : String((err as Error)?.stack ?? err);
       return { isError: true, content: [{ type: "text", text: msg }] };
     }
   }) as any);
 }
 
-const store = () => SnapStore.find(projectDir());
-const idArg = { id: z.string().describe("Item id or unique prefix (from snap_list)") };
+const store = () => AhemStore.find(projectDir());
+const idArg = { id: z.string().describe("Item id or unique prefix (from ahemui_list)") };
 
 const filterArgs = {
   route: z.string().optional().describe('Route or route-pattern prefix, e.g. "/pricing" or "/products/:id"'),
@@ -53,18 +53,18 @@ const toFilter = ({ start_now, ...f }: { start_now?: boolean } & Omit<ListFilter
 });
 
 tool(
-  "snap_list",
-  "List Snap backlog items (visual UI feedback captured in the browser), grouped by page by default. Each line shows id, status, classification, section and the request.",
+  "ahemui_list",
+  "List AhemUI backlog items (visual UI feedback captured in the browser), grouped by page by default. Each line shows id, status, classification, section and the request.",
   {
     status: z.array(z.enum(STATUSES)).optional().describe("Only these statuses"),
-    include_archived: z.boolean().optional().describe("Also list items archived in .snap/done/"),
+    include_archived: z.boolean().optional().describe("Also list items archived in .ahemui/done/"),
     untriaged: z.boolean().optional().describe("Only items missing a type or area"),
     group_by: z.enum(["page", "area", "type", "none"]).default("page"),
     ...filterArgs,
   },
   async ({ status, include_archived, untriaged, group_by, ...f }) => {
     const items = await store().list({ status, includeDone: include_archived, untriaged, ...toFilter(f) });
-    if (!items.length) return "No matching Snap items.";
+    if (!items.length) return "No matching AhemUI items.";
     if (group_by === "none") return items.map(summary).join("\n");
     const key = (it: Item) =>
       group_by === "page" ? pageName(it) : group_by === "area" ? (it.area ?? "(no area yet)") : (it.type ?? "(no type yet)");
@@ -74,26 +74,26 @@ tool(
   },
 );
 
-tool("snap_get", "Get one Snap item in full: request, anchors, highlighted elements, notes, and its screenshot.", idArg, async ({ id }) => {
+tool("ahemui_get", "Get one AhemUI item in full: request, anchors, highlighted elements, notes, and its screenshot.", idArg, async ({ id }) => {
   const s = store();
   return describe(s, await s.get(id));
 });
 
 tool(
-  "snap_next",
-  "Claim the next open Snap item (status → in-progress, so the browser marker turns blue) and return it in full with its screenshot. Order: \"Start now\" items first, then high priority, then page by page, then oldest. Optional filters narrow it to one page, area, type or label.",
+  "ahemui_next",
+  "Claim the next open AhemUI item (status → in-progress, so the browser marker turns blue) and return it in full with its screenshot. Order: \"Start now\" items first, then high priority, then page by page, then oldest. Optional filters narrow it to one page, area, type or label.",
   filterArgs,
   async (f) => {
     const s = store();
     const [next] = workOrder(await s.list({ status: ["open"], needsReply: false, ...toFilter(f) }));
-    if (!next) return "No open Snap items match.";
+    if (!next) return "No open AhemUI items match.";
     return describe(s, await s.claim(next.id, claimant()));
   },
 );
 
 tool(
-  "snap_triage",
-  "Classify a Snap item: type, priority, area (a human-readable 'Page › Section' name, reused across items so they group) and labels. Pass null to clear a field.",
+  "ahemui_triage",
+  "Classify a AhemUI item: type, priority, area (a human-readable 'Page › Section' name, reused across items so they group) and labels. Pass null to clear a field.",
   {
     ...idArg,
     type: z.enum(TYPES).nullable().optional(),
@@ -104,13 +104,13 @@ tool(
   async ({ id, ...patch }) => summary(await store().triage(id, patch)),
 );
 
-tool("snap_claim", "Mark a Snap item in-progress for this session.", { ...idArg, force: z.boolean().optional() }, async ({ id, force }) =>
+tool("ahemui_claim", "Mark a AhemUI item in-progress for this session.", { ...idArg, force: z.boolean().optional() }, async ({ id, force }) =>
   summary(await store().claim(id, claimant(), force)),
 );
 
 tool(
-  "snap_resolve",
-  "Finish a Snap item. By default (config.review) it goes to \"review\": the requester sees a before/after in the browser and approves it (→ done) or sends it back with feedback (→ open). Use \"done\" to skip review, \"wontfix\" to decline. Always add a note on what changed or why not.",
+  "ahemui_resolve",
+  "Finish a AhemUI item. By default (config.review) it goes to \"review\": the requester sees a before/after in the browser and approves it (→ done) or sends it back with feedback (→ open). Use \"done\" to skip review, \"wontfix\" to decline. Always add a note on what changed or why not.",
   {
     ...idArg,
     status: z.enum(["review", "done", "wontfix"]).optional().describe("Default: review if enabled in config, else done"),
@@ -125,8 +125,8 @@ tool(
 );
 
 tool(
-  "snap_note",
-  "Append a note to a Snap item. With question: true it asks the requester: the item is released (open, unclaimed) and its browser marker shows \"?\" with a reply box; it's skipped by snap_next until they answer.",
+  "ahemui_note",
+  "Append a note to a AhemUI item. With question: true it asks the requester: the item is released (open, unclaimed) and its browser marker shows \"?\" with a reply box; it's skipped by ahemui_next until they answer.",
   { ...idArg, text: z.string(), question: z.boolean().optional() },
   async ({ id, text, question }) => {
     const s = store();
@@ -134,44 +134,44 @@ tool(
   },
 );
 
-tool("snap_reopen", "Set a Snap item back to open and release its claim (also restores archived items).", idArg, async ({ id }) =>
+tool("ahemui_reopen", "Set a AhemUI item back to open and release its claim (also restores archived items).", idArg, async ({ id }) =>
   summary(await store().reopen(id)),
 );
 
 tool(
-  "snap_prune",
-  "Archive all done/wontfix items by moving them from .snap/items/ to .snap/done/. Optionally drop screenshots from archived items older than N days to keep the repo small (item.md is kept).",
+  "ahemui_prune",
+  "Archive all done/wontfix items by moving them from .ahemui/items/ to .ahemui/done/. Optionally drop screenshots from archived items older than N days to keep the repo small (item.md is kept).",
   { drop_shots_older_than_days: z.number().int().min(0).optional() },
   async ({ drop_shots_older_than_days }) => {
     const { moved, shotsDropped } = await store().prune({ dropShotsOlderThanDays: drop_shots_older_than_days });
-    const lines = [moved.length ? `Archived ${moved.length} item(s) to .snap/done/:\n${moved.map(summary).join("\n")}` : "Nothing to archive."];
+    const lines = [moved.length ? `Archived ${moved.length} item(s) to .ahemui/done/:\n${moved.map(summary).join("\n")}` : "Nothing to archive."];
     if (shotsDropped) lines.push(`Removed ${shotsDropped} old screenshot file(s) from archived items.`);
     return lines.join("\n");
   },
 );
 
 tool(
-  "snap_init",
-  "Set up Snap in the current project: create .snap/ and vendor the @snap/vite package tarball into .snap/vendor/ so teammates get it via npm install.",
+  "ahemui_init",
+  "Set up AhemUI in the current project: create .ahemui/ and vendor the ahemui package tarball into .ahemui/vendor/ so teammates get it via npm install.",
   {
     dev_origins: z.array(z.string()).optional().describe('Dev server origins, e.g. ["http://localhost:5173"]'),
-    port: z.number().int().optional().describe("Port for snap serve (default 4777)"),
-    lfs: z.boolean().optional().describe("Track .snap screenshots with Git LFS (each machine needs `git lfs install`)"),
+    port: z.number().int().optional().describe("Port for ahemui serve (default 4777)"),
+    lfs: z.boolean().optional().describe("Track .ahemui screenshots with Git LFS (each machine needs `git lfs install`)"),
   },
   async ({ dev_origins, port, lfs }) => {
     const root = projectDir();
-    const s = await SnapStore.init(root, { ...(dev_origins && { devOrigins: dev_origins }), ...(port && { port }) });
+    const s = await AhemStore.init(root, { ...(dev_origins && { devOrigins: dev_origins }), ...(port && { port }) });
     if (lfs) await s.enableLfs();
-    const lines = [`Snap initialised in ${s.dir}`, `config: ${JSON.stringify(await s.config())}`];
+    const lines = [`AhemUI initialised in ${s.dir}`, `config: ${JSON.stringify(await s.config())}`];
     const tarball = join(here, "..", "vendor", VENDOR_TARBALL);
     if (existsSync(tarball)) {
       await mkdir(join(s.dir, "vendor"), { recursive: true });
       const dest = join(s.dir, "vendor", VENDOR_TARBALL);
       await copyFile(tarball, dest);
-      lines.push(`Vendored @snap/vite → ${relative(root, dest).split("\\").join("/")}`);
-      lines.push(`Install it with: npm i -D ./.snap/vendor/${VENDOR_TARBALL}  (pnpm add -D / yarn add -D work too)`);
+      lines.push(`Vendored ahemui → ${relative(root, dest).split("\\").join("/")}`);
+      lines.push(`Install it with: npm i -D ./.ahemui/vendor/${VENDOR_TARBALL}  (pnpm add -D / yarn add -D work too)`);
     } else {
-      lines.push(`(vendor tarball missing at ${tarball}; build the snap repo to include it)`);
+      lines.push(`(vendor tarball missing at ${tarball}; build the ahemui repo to include it)`);
     }
     return lines.join("\n");
   },
@@ -195,8 +195,8 @@ const TRACKER_HINTS: Record<Tracker["kind"], string> = {
 };
 
 tool(
-  "snap_board",
-  "Where to see the backlog as a page: the live board URL (if snap serve is running for this repo, e.g. inside the Vite dev server) and a freshly written read-only snapshot at .snap/backlog.html.",
+  "ahemui_board",
+  "Where to see the backlog as a page: the live board URL (if ahemui serve is running for this repo, e.g. inside the Vite dev server) and a freshly written read-only snapshot at .ahemui/backlog.html.",
   {},
   async () => {
     const s = store();
@@ -207,33 +207,33 @@ tool(
       const health = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(500) })
         .then((r) => r.json())
         .catch(() => null);
-      if (health?.name === "snap" && health.root === s.root) live = `${base}/`;
+      if (health?.name === "ahemui" && health.root === s.root) live = `${base}/`;
     }
     const snapshot = await exportBoard(s);
     return [
-      live ? `Live board (actions, live updates): ${live}` : "No snap serve running for this repo, so there's no live board. Start the dev server, or run `npx snap board`.",
+      live ? `Live board (actions, live updates): ${live}` : "No ahemui serve running for this repo, so there's no live board. Start the dev server, or run `npx ahemui board`.",
       `Snapshot (read-only, opens from disk): ${snapshot}`,
     ].join("\n");
   },
 );
 
 tool(
-  "snap_tracker",
-  "Show the external tracker (Linear, Jira, Notion, GitHub…) this repo's Snap items are mirrored to, with guidance for creating and updating tickets through that tracker's MCP server.",
+  "ahemui_tracker",
+  "Show the external tracker (Linear, Jira, Notion, GitHub…) this repo's AhemUI items are mirrored to, with guidance for creating and updating tickets through that tracker's MCP server.",
   {},
   async () => {
     const t = (await store().config()).tracker;
-    if (!t) return 'No tracker configured: the repo backlog (.snap/) is the only backlog. Set one with snap_set_tracker.';
+    if (!t) return 'No tracker configured: the repo backlog (.ahemui/) is the only backlog. Set one with ahemui_set_tracker.';
     return [
       `Tracker: ${t.kind}`,
       `Target: ${t.target}`,
-      `Sync: ${t.sync}${t.sync === "auto" ? " (triage/work/watch create and update tickets as they go)" : " (only /snap:sync)"}`,
+      `Sync: ${t.sync}${t.sync === "auto" ? " (triage/work/watch create and update tickets as they go)" : " (only /ahemui:sync)"}`,
       t.labels.length ? `Labels on every ticket: ${t.labels.join(", ")}` : "",
       t.instructions ? `Team conventions: ${t.instructions}` : "",
       "",
       TRACKER_HINTS[t.kind],
       "Tool names differ between MCP servers. Find the connected one for this tracker; if none is connected, tell the user to enable it rather than improvising.",
-      "Use snap_ticket to render an item as a ticket, and snap_link to record the ticket on the item.",
+      "Use ahemui_ticket to render an item as a ticket, and ahemui_link to record the ticket on the item.",
     ]
       .filter((l) => l !== "")
       .join("\n");
@@ -241,8 +241,8 @@ tool(
 );
 
 tool(
-  "snap_set_tracker",
-  "Configure (or clear) the external tracker in .snap/config.json. Commit the change so the whole team mirrors to the same place.",
+  "ahemui_set_tracker",
+  "Configure (or clear) the external tracker in .ahemui/config.json. Commit the change so the whole team mirrors to the same place.",
   {
     kind: z.enum(TRACKERS).nullable().describe("null removes the tracker"),
     target: z.string().max(300).optional().describe('Where tickets go, e.g. "Linear team ENG, project Website" or "Jira project WEB"'),
@@ -255,15 +255,15 @@ tool(
       await store().setTracker(null);
       return "Tracker removed; the repo backlog is the only backlog.";
     }
-    if (!target) throw new SnapError("target is required");
+    if (!target) throw new AhemError("target is required");
     const config = await store().setTracker({ kind, target, ...rest });
     return `Tracker set: ${JSON.stringify(config.tracker)}`;
   },
 );
 
 tool(
-  "snap_ticket",
-  "Render a Snap item as a tracker ticket: title, markdown description (request, page, element, source, environment, screenshot path, back-link), suggested labels and priority, plus the screenshot image for trackers whose MCP can attach it.",
+  "ahemui_ticket",
+  "Render a AhemUI item as a tracker ticket: title, markdown description (request, page, element, source, environment, screenshot path, back-link), suggested labels and priority, plus the screenshot image for trackers whose MCP can attach it.",
   idArg,
   async ({ id }) => {
     const s = store();
@@ -279,7 +279,7 @@ tool(
       .filter(Boolean)
       .join(" ");
     const description = [
-      `**Request** (captured with Snap by ${it.author}, ${it.created.slice(0, 10)})`,
+      `**Request** (captured with AhemUI by ${it.author}, ${it.created.slice(0, 10)})`,
       "",
       it.body
         .split("\n")
@@ -298,7 +298,7 @@ tool(
         `\n**Errors on the page**\n${[...(it.evidence?.console ?? []).map((c) => `- console.${c.level}: ${c.message.split("\n")[0]}`), ...(it.evidence?.network ?? []).map((n) => `- ${n.method} ${n.url} → ${n.status || "network error"}`)].join("\n")}`,
       "",
       shot && `**Screenshot:** \`${relative(s.root, shot).split("\\").join("/")}\`${branch ? ` on branch \`${branch}\`` : ""} (attached if the tracker supports it)`,
-      `Snap-Item: \`${it.id}\``,
+      `AhemUI-Item: \`${it.id}\``,
     ]
       .filter((l): l is string => typeof l === "string")
       .join("\n")
@@ -325,8 +325,8 @@ tool(
 );
 
 tool(
-  "snap_link",
-  "Record the tracker ticket a Snap item is mirrored to (or unlink with key: null). The browser popover then shows the ticket key.",
+  "ahemui_link",
+  "Record the tracker ticket a AhemUI item is mirrored to (or unlink with key: null). The browser popover then shows the ticket key.",
   {
     ...idArg,
     key: z.string().max(80).nullable().describe('Ticket key, e.g. "ENG-123"; null unlinks'),
@@ -338,7 +338,7 @@ tool(
     const s = store();
     if (key === null) return summary(await s.link(id, null));
     const kind = tracker ?? (await s.config()).tracker?.kind;
-    if (!kind) throw new SnapError("no tracker configured; pass tracker or run snap_set_tracker");
+    if (!kind) throw new AhemError("no tracker configured; pass tracker or run ahemui_set_tracker");
     return summary(await s.link(id, { tracker: kind, key, url, status }));
   },
 );
@@ -393,7 +393,7 @@ function ago(ms: number): string {
   return ms < 1000 ? "just" : ms < 60_000 ? `${Math.round(ms / 1000)}s` : `${Math.round(ms / 60_000)}min`;
 }
 
-async function describe(s: SnapStore, it: Item): Promise<Content[]> {
+async function describe(s: AhemStore, it: Item): Promise<Content[]> {
   const shotPath = s.shotPath(it);
   const rel = (p: string) => relative(s.root, p).split("\\").join("/");
   const a = it.anchor;
@@ -405,7 +405,7 @@ async function describe(s: SnapStore, it: Item): Promise<Content[]> {
     it.labels?.length && `labels: ${it.labels.join(", ")}`,
   ].filter(Boolean);
   const lines = [
-    `# Snap item ${it.id} — ${it.status}${it.location === "done" ? " (archived)" : ""}`,
+    `# AhemUI item ${it.id} — ${it.status}${it.location === "done" ? " (archived)" : ""}`,
     cls.length ? `Classification: ${cls.join(" · ")}` : "Classification: not triaged yet",
     it.start === "now" && `Requested: ⚡ Start now (the person is waiting for this one)`,
     it.needs_reply && "Waiting for the requester to answer your question (see the thread below). Don't work it until they reply.",

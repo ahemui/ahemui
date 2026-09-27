@@ -16,7 +16,7 @@ function esc(s: string): string {
 function render(state: PopupState) {
   document.getElementById("site")!.textContent = state.origin ?? "";
   if (!state.origin) {
-    app.innerHTML = `<section class="muted">Snap can't run on this page. Open your app in a normal http(s) tab.</section>`;
+    app.innerHTML = `<section class="muted">AhemUI can't run on this page. Open your app in a normal http(s) tab.</section>`;
     return;
   }
 
@@ -31,7 +31,7 @@ function render(state: PopupState) {
   const choiceMissing = state.choice && state.choice !== "none" && !state.servers.some((s) => s.root === state.choice);
   const projects = state.servers.length
     ? state.servers.map(serverRow).join("")
-    : `<div class="muted">No Snap projects running. In your repo run <code>npx snap serve</code> or start <code>vite dev</code> with the Snap plugin.</div>`;
+    : `<div class="muted">No AhemUI projects running. In your repo run <code>npx ahemui serve</code> or start <code>vite dev</code> with the AhemUI plugin.</div>`;
 
   app.innerHTML = `
     <section>
@@ -39,14 +39,14 @@ function render(state: PopupState) {
       ${projects}
       ${choiceMissing ? `<div class="warn">Chosen project (${esc(state.choice!)}) isn't running right now.</div>` : ""}
       <label class="opt"><input type="radio" name="project" value="none" ${state.choice === "none" || (auto && !state.active) ? "checked" : ""}>
-        <span><span class="name">None</span><div class="sub">Snap stays hidden on this site</div></span></label>
+        <span><span class="name">None</span><div class="sub">AhemUI stays hidden on this site</div></span></label>
     </section>
     <section>
       ${
         state.builtIn
-          ? `<div class="muted">Local dev site: Snap is always available here.</div>`
-          : `<label class="switch"><span><span class="name">Enable Snap on ${esc(new URL(state.origin).hostname)}</span>
-               <div class="sub">For deployed dev, staging or prod. Page scripts can't see Snap or your backlog.</div></span>
+          ? `<div class="muted">Local dev site: AhemUI is always available here.</div>`
+          : `<label class="switch"><span><span class="name">Enable AhemUI on ${esc(new URL(state.origin).hostname)}</span>
+               <div class="sub">For deployed dev, staging or prod. Page scripts can't see AhemUI or your backlog.</div></span>
                <input type="checkbox" id="enabled" ${state.enabled ? "checked" : ""}></label>`
       }
     </section>

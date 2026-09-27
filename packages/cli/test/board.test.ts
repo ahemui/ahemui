@@ -5,18 +5,18 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
-import { SnapStore } from "@snap/core";
+import { AhemStore } from "@ahemui/core";
 import { exportBoard } from "../src/board.js";
 import { serve } from "../src/server.js";
 
 let root: string;
-let store: SnapStore;
+let store: AhemStore;
 let srv: Awaited<ReturnType<typeof serve>>;
 let base: string;
 
 before(async () => {
-  root = await mkdtemp(join(tmpdir(), "snap-board-"));
-  store = await SnapStore.init(root);
+  root = await mkdtemp(join(tmpdir(), "ahemui-board-"));
+  store = await AhemStore.init(root);
   srv = await serve(store, { port: 0, log: () => {} });
   base = `http://127.0.0.1:${srv.port}`;
 });
@@ -39,8 +39,8 @@ function withHost(host: string): Promise<number> {
 
 test("serves the live board and lets it call the API from its own origin", async () => {
   const html = await (await fetch(`${base}/`)).text();
-  assert.match(html, /window\.__SNAP_BOARD__ = \{"mode":"live"\}/);
-  assert.match(html, /<title>Snap backlog/);
+  assert.match(html, /window\.__AHEMUI_BOARD__ = \{"mode":"live"\}/);
+  assert.match(html, /<title>AhemUI backlog/);
   const ok = await fetch(`${base}/api/items`, { headers: { Origin: base } });
   assert.equal(ok.status, 200);
   const other = await fetch(`${base}/api/items`, { headers: { Origin: "http://127.0.0.1:9" } });
@@ -70,7 +70,7 @@ test("snapshot export: self-contained, relative screenshots, git-ignored, kept u
   const it = await store.create({ prompt: "Snapshot </script><script>alert(1)</script>", anchor: {} }, png);
 
   const file = await exportBoard(store);
-  assert.equal(file, join(root, ".snap", "backlog.html"));
+  assert.equal(file, join(root, ".ahemui", "backlog.html"));
   const html = await readFile(file, "utf8");
   assert.match(html, /"mode":"static"/);
   assert.match(html, /"base":""/);
@@ -78,9 +78,9 @@ test("snapshot export: self-contained, relative screenshots, git-ignored, kept u
   assert.ok(!html.includes("</script><script>alert(1)"), "item text must not be able to close the script tag");
 
   const elsewhere = await exportBoard(store, join(root, "docs", "..", "backlog-copy.html"));
-  assert.match(await readFile(elsewhere, "utf8"), /"base":".snap"/);
+  assert.match(await readFile(elsewhere, "utf8"), /"base":".ahemui"/);
 
-  assert.match(await readFile(join(root, ".snap", ".gitignore"), "utf8"), /^backlog\.html$/m);
+  assert.match(await readFile(join(root, ".ahemui", ".gitignore"), "utf8"), /^backlog\.html$/m);
 
   // serve re-exports shortly after a change on disk
   const { rm: remove } = await import("node:fs/promises");

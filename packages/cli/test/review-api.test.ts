@@ -3,20 +3,20 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
-import { SnapStore } from "@snap/core";
+import { AhemStore } from "@ahemui/core";
 import { serve } from "../src/server.js";
 
 const PNG_1PX =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
 
 let root: string;
-let store: SnapStore;
+let store: AhemStore;
 let srv: Awaited<ReturnType<typeof serve>>;
 let base: string;
 
 before(async () => {
-  root = await mkdtemp(join(tmpdir(), "snap-rv-"));
-  store = await SnapStore.init(root);
+  root = await mkdtemp(join(tmpdir(), "ahemui-rv-"));
+  store = await AhemStore.init(root);
   srv = await serve(store, { port: 0, log: () => {} });
   base = `http://127.0.0.1:${srv.port}`;
 });

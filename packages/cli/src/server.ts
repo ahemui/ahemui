@@ -2,16 +2,16 @@ import { watch } from "node:fs";
 import { basename } from "node:path";
 import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { type Config, defaultAuthor, type Item, NewItemSchema, type Shot, SnapError, type SnapStore } from "@snap/core";
+import { type Config, defaultAuthor, type Item, NewItemSchema, type Shot, AhemError, type AhemStore } from "@ahemui/core";
 import { WebSocket, WebSocketServer } from "ws";
 import { boardHtml, exportBoard } from "./board.js";
 import { gitBranch } from "./git.js";
 
 const MIME: Record<string, string> = { webp: "image/webp", png: "image/png", jpg: "image/jpeg" };
 
-declare const __SNAP_BUILD__: string | undefined;
+declare const __AHEMUI_BUILD__: string | undefined;
 /** Which `npm run build` this server came from; the overlay compares it with its own. */
-export const BUILD = typeof __SNAP_BUILD__ === "string" ? __SNAP_BUILD__ : "dev";
+export const BUILD = typeof __AHEMUI_BUILD__ === "string" ? __AHEMUI_BUILD__ : "dev";
 
 export interface ServeOptions {
   port?: number;
@@ -21,7 +21,7 @@ export interface ServeOptions {
   log?: (msg: string) => void;
 }
 
-export async function serve(store: SnapStore, opts: ServeOptions = {}) {
+export async function serve(store: AhemStore, opts: ServeOptions = {}) {
   const config = await store.config();
   // Mutable copy: the Vite plugin registers its real origin at runtime via POST /api/origins.
   config.devOrigins = [...new Set([...config.devOrigins, ...(opts.origins ?? [])])];
@@ -34,7 +34,7 @@ export async function serve(store: SnapStore, opts: ServeOptions = {}) {
   const server = createServer((req, res) => {
     handle(store, config, self, req, res).catch((err) => {
       const status =
-        err instanceof HttpError ? err.status : err instanceof SnapError ? 404 : err?.name === "ZodError" ? 400 : 500;
+        err instanceof HttpError ? err.status : err instanceof AhemError ? 404 : err?.name === "ZodError" ? 400 : 500;
       if (status === 500) log(`error: ${err?.stack ?? err}`);
       send(res, status, { error: String(err?.message ?? err) });
     });
@@ -45,6 +45,9 @@ export async function serve(store: SnapStore, opts: ServeOptions = {}) {
     path: "/ws",
     verifyClient: ({ origin, req }: { origin?: string; req: IncomingMessage }) => hostAllowed(req.headers.host) && originAllowed(origin, config, self),
   });
+  // The WebSocket server re-emits the HTTP server's errors (e.g. EADDRINUSE). The listen() below already reports
+  // those to the caller; without this listener the re-emitted copy would crash the host process (Vite).
+  wss.on("error", () => {});
 
   const snapshot = async () =>
     JSON.stringify({ type: "items", items: await store.list({ includeDone: true }), watcher: await store.watcher() });
@@ -56,7 +59,7 @@ export async function serve(store: SnapStore, opts: ServeOptions = {}) {
     const msg = await snapshot();
     for (const c of wss.clients) if (c.readyState === WebSocket.OPEN) c.send(msg);
   };
-  // .snap/backlog.html is kept in step with the files for anyone who just wants to open the backlog.
+  // .ahemui/backlog.html is kept in step with the files for anyone who just wants to open the backlog.
   let exportTimer: NodeJS.Timeout | undefined;
   const exportSoon = () => {
     clearTimeout(exportTimer);
@@ -80,13 +83,23 @@ export async function serve(store: SnapStore, opts: ServeOptions = {}) {
     }
   }, 5_000);
 
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(port, host, resolve);
-  });
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(port, host, resolve);
+    });
+  } catch (err) {
+    // Port taken: undo everything started above so the caller can try the next port cleanly.
+    clearTimeout(timer);
+    clearTimeout(exportTimer);
+    clearInterval(presence);
+    watcher.close();
+    wss.close();
+    throw err;
+  }
   const bound = (server.address() as { port: number }).port; // differs from `port` when 0 was requested
   self.push(`http://127.0.0.1:${bound}`, `http://localhost:${bound}`);
-  log(`snap serving ${store.root} on http://${host}:${bound} (board: http://127.0.0.1:${bound}/)`);
+  log(`ahemui serving ${store.root} on http://${host}:${bound} (board: http://127.0.0.1:${bound}/)`);
 
   return {
     port: bound,
@@ -123,7 +136,7 @@ export function hostAllowed(host: string | undefined): boolean {
   return !host || /^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/.test(host);
 }
 
-async function handle(store: SnapStore, config: Config, self: string[], req: IncomingMessage, res: ServerResponse) {
+async function handle(store: AhemStore, config: Config, self: string[], req: IncomingMessage, res: ServerResponse) {
   if (!hostAllowed(req.headers.host)) throw new HttpError(403, "unexpected Host header");
   const origin = req.headers.origin;
   if (!originAllowed(origin, config, self)) throw new HttpError(403, `origin ${origin} not allowed`);
@@ -146,7 +159,7 @@ async function handle(store: SnapStore, config: Config, self: string[], req: Inc
 
   if (req.method === "GET" && parts[1] === "health") {
     return send(res, 200, {
-      name: "snap",
+      name: "ahemui",
       build: BUILD,
       project: basename(store.root),
       branch: gitBranch(store.root),

@@ -4,20 +4,20 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { after, before, test } from "node:test";
-import { SnapStore } from "@snap/core";
+import { AhemStore } from "@ahemui/core";
 
 const CLI = resolve(import.meta.dirname, "../dist/index.js"); // built by `npm run build`
 let root: string;
-let store: SnapStore;
+let store: AhemStore;
 
 before(async () => {
-  root = await mkdtemp(join(tmpdir(), "snap-wait-"));
-  store = await SnapStore.init(root);
+  root = await mkdtemp(join(tmpdir(), "ahemui-wait-"));
+  store = await AhemStore.init(root);
 });
 after(() => rm(root, { recursive: true, force: true }));
 
 function runWait(args: string[] = []) {
-  const child = spawn(process.execPath, [CLI, "wait", ...args], { cwd: root, env: { ...process.env, SNAP_AUTHOR: "tester" } });
+  const child = spawn(process.execPath, [CLI, "wait", ...args], { cwd: root, env: { ...process.env, AHEMUI_AUTHOR: "tester" } });
   let out = "";
   child.stdout.on("data", (d) => (out += d));
   const done = new Promise<{ code: number | null; out: string }>((r) => child.on("exit", (code) => r({ code, out })));

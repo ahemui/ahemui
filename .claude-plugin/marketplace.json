@@ -1,16 +1,16 @@
 {
-  "name": "snap",
+  "name": "ahemui",
   "owner": {
     "name": "Pietari Keurulainen"
   },
   "plugins": [
     {
-      "name": "snap",
+      "name": "ahemui",
       "source": "./packages/claude-plugin",
       "description": "Visual UI feedback backlog for Claude Code (Vue + Vite)."
     }
   ],
   "metadata": {
-    "description": "Snap: visual UI feedback backlog for Claude Code"
+    "description": "AhemUI: visual UI feedback backlog for Claude Code"
   }
 }

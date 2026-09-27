@@ -1,5 +1,5 @@
 {
-  "name": "@snap/core",
+  "name": "@ahemui/core",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.js",

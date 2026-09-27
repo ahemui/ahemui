@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { createRequire as __snapCreateRequire } from "node:module"; const require = __snapCreateRequire(import.meta.url);
+import { createRequire as __ahemuiCreateRequire } from "node:module"; const require = __ahemuiCreateRequire(import.meta.url);
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -15162,9 +15162,9 @@ var TrackerSchema = external_exports.object({
   kind: external_exports.enum(TRACKERS),
   /** Where tickets go, in the tracker's own terms: "Linear team ENG, project Website", "Jira project WEB", a Notion database URL. */
   target: short(300),
-  /** manual: only /snap:sync. auto: triage/work/watch also create and update tickets as they touch items. */
+  /** manual: only /ahemui:sync. auto: triage/work/watch also create and update tickets as they touch items. */
   sync: external_exports.enum(["manual", "auto"]).default("manual"),
-  /** Labels added to every ticket, e.g. ["snap", "ui-feedback"]. */
+  /** Labels added to every ticket, e.g. ["ahemui", "ui-feedback"]. */
   labels: external_exports.array(short(40)).max(10).default([]),
   /** Free-form conventions, e.g. "issue type Bug for bugs, Task otherwise; component Web; move to In Review when done". */
   instructions: short(1e3).optional()
@@ -15304,7 +15304,7 @@ var NewItemSchema = external_exports.object({
 
 // ../core/dist/store.js
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, renameSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
@@ -15345,32 +15345,37 @@ function ulid(now = Date.now()) {
 }
 
 // ../core/dist/store.js
-var SNAP_DIR = ".snap";
+var AHEMUI_DIR = ".ahemui";
+var LEGACY_DIR = ".snap";
 var WATCHER_FILE = ".watcher.json";
 var ITEM_FILE = "item.md";
-var SnapError = class extends Error {
+var AhemError = class extends Error {
 };
-var SnapStore = class _SnapStore {
+var AhemStore = class _AhemStore {
   root;
   dir;
   constructor(root) {
     this.root = root;
-    this.dir = join(root, SNAP_DIR);
+    this.dir = join(root, AHEMUI_DIR);
   }
-  /** Walks up from `cwd` to the nearest directory containing `.snap/config.json`. */
+  /** Walks up from `cwd` to the nearest directory containing `.ahemui/config.json`. */
   static find(cwd = process.cwd()) {
     let dir = resolve(cwd);
     for (; ; ) {
-      if (existsSync(join(dir, SNAP_DIR, "config.json")))
-        return new _SnapStore(dir);
+      if (existsSync(join(dir, AHEMUI_DIR, "config.json")))
+        return new _AhemStore(dir);
+      if (existsSync(join(dir, LEGACY_DIR, "config.json")) && !existsSync(join(dir, AHEMUI_DIR))) {
+        renameSync(join(dir, LEGACY_DIR), join(dir, AHEMUI_DIR));
+        return new _AhemStore(dir);
+      }
       const parent = dirname(dir);
       if (parent === dir)
-        throw new SnapError(`no ${SNAP_DIR}/ found above ${cwd} \u2014 run \`snap init\``);
+        throw new AhemError(`no ${AHEMUI_DIR}/ found above ${cwd} \u2014 run \`ahemui init\``);
       dir = parent;
     }
   }
   static async init(root, config = {}) {
-    const store = new _SnapStore(resolve(root));
+    const store = new _AhemStore(resolve(root));
     await mkdir(join(store.dir, "items"), { recursive: true });
     await store.ensureGitignore();
     await mkdir(join(store.dir, "done"), { recursive: true });
@@ -15397,7 +15402,7 @@ var SnapStore = class _SnapStore {
     if (missing.length)
       await writeFile(file, [...lines, ...missing].join("\n") + "\n");
   }
-  // ——— watcher presence (a Claude session running /snap:watch) ———
+  // ——— watcher presence (a Claude session running /ahemui:watch) ———
   async setWatcher(w) {
     const file = join(this.dir, WATCHER_FILE);
     if (!w)
@@ -15420,7 +15425,7 @@ var SnapStore = class _SnapStore {
       return processAlive(w.pid) ? w : null;
     return Date.now() - Date.parse(w.since) < 30 * 6e4 ? w : null;
   }
-  /** Sets (or with null, removes) the external tracker in .snap/config.json. */
+  /** Sets (or with null, removes) the external tracker in .ahemui/config.json. */
   async setTracker(tracker) {
     const file = join(this.dir, "config.json");
     const raw = JSON.parse(await readFile(file, "utf8"));
@@ -15451,7 +15456,7 @@ var SnapStore = class _SnapStore {
   /** Path of one of the item's own image files; anything else is refused. */
   filePath(item, name) {
     if (!this.files(item).includes(name))
-      throw new SnapError(`${item.id} has no file ${name}`);
+      throw new AhemError(`${item.id} has no file ${name}`);
     return join(this.itemDir(item.id, item.location), name);
   }
   async list(opts = {}) {
@@ -15487,9 +15492,9 @@ var SnapStore = class _SnapStore {
           matches2.push([id, loc]);
     }
     if (matches2.length === 0)
-      throw new SnapError(`no item matching "${idOrPrefix}"`);
+      throw new AhemError(`no item matching "${idOrPrefix}"`);
     if (matches2.length > 1)
-      throw new SnapError(`"${idOrPrefix}" is ambiguous: ${matches2.map((m) => m[0]).join(", ")}`);
+      throw new AhemError(`"${idOrPrefix}" is ambiguous: ${matches2.map((m) => m[0]).join(", ")}`);
     return this.read(...matches2[0]);
   }
   /** `extraShots[i]` is the screenshot of `input.extras[i]`, if any. */
@@ -15554,9 +15559,9 @@ var SnapStore = class _SnapStore {
   async claim(id, who, force = false) {
     const item = await this.get(id);
     if (item.location === "done")
-      throw new SnapError(`${item.id} is archived`);
+      throw new AhemError(`${item.id} is archived`);
     if (item.claimed_by && item.claimed_by !== who && item.status === "in-progress" && !force) {
-      throw new SnapError(`${item.id} is already claimed by ${item.claimed_by}`);
+      throw new AhemError(`${item.id} is already claimed by ${item.claimed_by}`);
     }
     return this.save({ ...item, status: "in-progress", claimed_by: who });
   }
@@ -15572,7 +15577,7 @@ var SnapStore = class _SnapStore {
   async setStart(id, start) {
     const item = await this.get(id);
     if (item.status !== "open")
-      throw new SnapError(`${item.id} is ${item.status}; only open items can be queued`);
+      throw new AhemError(`${item.id} is ${item.status}; only open items can be queued`);
     return this.save({ ...item, start });
   }
   async reopen(id) {
@@ -15612,7 +15617,7 @@ var SnapStore = class _SnapStore {
     return this.save({ ...item, after: name });
   }
   /**
-   * Moves every done/wontfix item from the backlog into `.snap/done/`. With `dropShotsOlderThanDays`, archived
+   * Moves every done/wontfix item from the backlog into `.ahemui/done/`. With `dropShotsOlderThanDays`, archived
    * items older than that lose their screenshots (the item.md stays) to keep the repo small.
    */
   async prune(opts = {}) {
@@ -15630,22 +15635,22 @@ var SnapStore = class _SnapStore {
           await rm(join(this.itemDir(item.id, "done"), f), { force: true });
         shotsDropped += this.files(item).length;
         const extras = item.extras?.map((e) => ({ ...e, shot: void 0 }));
-        await this.save(appendNote({ ...item, shot: void 0, after: void 0, extras }, "snap", "Screenshots removed when archiving.", "Note"));
+        await this.save(appendNote({ ...item, shot: void 0, after: void 0, extras }, "ahemui", "Screenshots removed when archiving.", "Note"));
       }
     }
     return { moved, shotsDropped };
   }
-  /** Archives one finished (done/wontfix) item: it moves to .snap/done/ and its marker leaves the page. */
+  /** Archives one finished (done/wontfix) item: it moves to .ahemui/done/ and its marker leaves the page. */
   async archive(id) {
     const item = await this.get(id);
     if (item.location === "done")
       return item;
     if (item.status !== "done" && item.status !== "wontfix")
-      throw new SnapError(`${item.id} is ${item.status}; only finished items can be archived`);
+      throw new AhemError(`${item.id} is ${item.status}; only finished items can be archived`);
     return this.move(item, "done");
   }
   /**
-   * Empties the backlog (and with `archive`, .snap/done/ too) while keeping the setup: config, vendored package,
+   * Empties the backlog (and with `archive`, .ahemui/done/ too) while keeping the setup: config, vendored package,
    * .gitignore. Returns the ids removed.
    */
   async clear(opts = {}) {
@@ -15743,8 +15748,8 @@ function processAlive(pid) {
 }
 var gitName;
 function defaultAuthor() {
-  if (process.env.SNAP_AUTHOR)
-    return process.env.SNAP_AUTHOR;
+  if (process.env.AHEMUI_AUTHOR)
+    return process.env.AHEMUI_AUTHOR;
   if (gitName === void 0) {
     try {
       gitName = execFileSync("git", ["config", "user.name"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
@@ -15764,7 +15769,7 @@ import { writeFile as writeFile2 } from "node:fs/promises";
 import { basename, dirname as dirname2, join as join2, relative as relative2, resolve as resolve2 } from "node:path";
 
 // ../cli/src/board-assets.generated.ts
-var BOARD_JS = '"use strict";(()=>{var E=`\n:root {\n  --bg: #f6f6f9; --panel: #ffffff; --card: #ffffff; --line: #e3e4ec; --fg: #1d2030; --muted: #6b7084;\n  --accent: #6d4aff; --accent-soft: rgba(109,74,255,.12);\n  --open: #d97706; --doing: #2563eb; --review: #7c3aed; --done: #16a34a; --wontfix: #6b7280; --ask: #d97706;\n  --shadow: 0 1px 2px rgba(20,20,40,.06), 0 4px 16px rgba(20,20,40,.06);\n  color-scheme: light;\n}\n@media (prefers-color-scheme: dark) {\n  :root {\n    --bg: #111318; --panel: #171a21; --card: #1d2029; --line: #2b2f3a; --fg: #eceef4; --muted: #9398a8;\n    --accent: #8b6dff; --accent-soft: rgba(139,109,255,.16);\n    --open: #f59e0b; --doing: #60a5fa; --review: #a78bfa; --done: #34d399; --wontfix: #9ca3af; --ask: #fbbf24;\n    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.25);\n    color-scheme: dark;\n  }\n}\n* { box-sizing: border-box; }\nhtml, body { margin: 0; height: 100%; }\nbody { background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }\na { color: var(--accent); }\ncode, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; }\nbutton, select, input, textarea { font: inherit; color: inherit; }\n\n.top { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }\n.brand { display: flex; align-items: center; gap: 6px; white-space: nowrap; }\n.brand .logo { color: var(--accent); font-size: 18px; }\n.brand .proj { color: var(--muted); margin-left: 6px; }\n.filters { display: flex; gap: 8px; flex: 1; min-width: 280px; flex-wrap: wrap; align-items: center; }\n.filters input.search { flex: 1; min-width: 180px; }\n.filters input.search, .filters select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; outline: none; }\n.filters input:focus, .filters select:focus { border-color: var(--accent); }\n.f-arch { color: var(--muted); font-size: 13px; display: flex; gap: 4px; align-items: center; }\n.status { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: 12px; flex-wrap: wrap; }\n.status b { color: var(--fg); }\n.live { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }\n.live.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }\n.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wontfix); }\n.dot.ok { background: var(--done); }\n.banner { padding: 8px 20px; background: var(--accent-soft); color: var(--fg); font-size: 13px; border-bottom: 1px solid var(--line); }\n\n.board { flex: 1; overflow: auto; padding: 16px 20px 40px; }\n.board.columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 14px; align-items: start; }\n.col h2, .grp h2 { font-size: 13px; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\n.col h2 span, .grp h2 span { background: var(--line); color: var(--fg); border-radius: 999px; padding: 0 8px; font-size: 12px; }\n.col-queue h2 { color: var(--open); }\n.col h2 .clear { margin-left: auto; margin-right: 6px; font-size: 11px; padding: 1px 8px; text-transform: none; letter-spacing: 0; }\n.col-you h2 { color: var(--review); }\n.col .cards { display: flex; flex-direction: column; gap: 10px; }\n.board.groups .grp { margin-bottom: 24px; }\n.board.groups .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }\n.empty { color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 0; }\n.empty.big { font-size: 14px; }\n\n.card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--open); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); cursor: pointer; display: flex; flex-direction: column; gap: 6px; outline: none; }\n.card:hover, .card:focus-visible { border-color: var(--accent); border-left-width: 3px; }\n.card.sel { outline: 2px solid var(--accent); outline-offset: 1px; }\n.card.s-in-progress { border-left-color: var(--doing); }\n.card.s-review { border-left-color: var(--review); }\n.card.s-done { border-left-color: var(--done); }\n.card.s-wontfix { border-left-color: var(--wontfix); opacity: .75; }\n.card.s-ask { border-left-color: var(--ask); }\n.thumb { margin: -2px -4px 0; border-radius: 6px; overflow: hidden; background: var(--bg); max-height: 120px; display: flex; align-items: center; justify-content: center; }\n.thumb img { max-width: 100%; max-height: 120px; display: block; }\n.c-title { font-weight: 600; }\n.c-page { color: var(--muted); font-size: 12px; }\n.chips { display: flex; flex-wrap: wrap; gap: 4px; }\n.chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }\n.chip.t { color: var(--fg); }\n.chip.now, .chip.ask { color: var(--open); border-color: var(--open); }\n.chip.review { color: var(--review); border-color: var(--review); }\n.chip.high { color: #dc2626; border-color: #dc2626; }\n.chip.ext { color: var(--accent); border-color: var(--accent); }\n.c-foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; gap: 8px; }\n.quick { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 2px 9px; font-size: 12px; cursor: pointer; white-space: nowrap; }\n\n.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 30px rgba(0,0,0,.15); overflow: auto; padding: 16px 20px 40px; z-index: 10; }\n.drawer[hidden] { display: none; }\n.d-head { display: flex; align-items: center; gap: 10px; }\n.d-head code { color: var(--muted); }\n.d-head .x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--muted); }\n.drawer h1 { font-size: 18px; margin: 10px 0 2px; }\n.d-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }\n.pill { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; color: #fff; background: var(--open); }\n.pill.s-in-progress { background: var(--doing); } .pill.s-review { background: var(--review); } .pill.s-done { background: var(--done); } .pill.s-wontfix { background: var(--wontfix); } .pill.s-ask { background: var(--ask); color: #111; }\n.d-actions { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; }\n.acts { display: flex; gap: 6px; flex-wrap: wrap; }\n.acts.minor .btn { font-size: 12px; padding: 3px 10px; }\n.btn { border: 1px solid var(--line); background: var(--card); border-radius: 7px; padding: 5px 12px; cursor: pointer; text-decoration: none; color: var(--fg); }\n.btn:hover { border-color: var(--accent); }\n.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }\ntextarea { width: 100%; min-height: 64px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; outline: none; }\ntextarea:focus, .triage input:focus, .triage select:focus { border-color: var(--accent); }\nfigure { margin: 0 0 12px; }\nfigure img { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }\nfigcaption { color: var(--muted); font-size: 11px; margin-top: 3px; }\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.pending { height: 80px; display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 8px; padding: 6px; }\nsection { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 14px; }\nsection h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }\n.prose { white-space: pre-wrap; overflow-wrap: anywhere; }\n.entry { border-left: 2px solid var(--line); padding-left: 10px; margin-top: 10px; }\n.entry .who { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }\n.entry.k-question { border-color: var(--ask); }\n.entry.k-feedback { border-color: #dc2626; }\n.entry.k-reply, .entry.k-approved { border-color: var(--done); }\ndl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }\ndt { color: var(--muted); font-size: 12px; }\ndd { margin: 0; overflow-wrap: anywhere; }\n.triage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.triage label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }\n.triage .wide { grid-column: 1 / -1; }\n.triage input, .triage select { background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; color: var(--fg); outline: none; }\n.mono-list { margin: 0; padding-left: 18px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }\npre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; overflow: auto; font-size: 12px; max-height: 260px; margin: 0; }\n.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }\n.toast.show { opacity: 1; }\n\n@media (max-width: 700px) {\n  .top { padding: 10px 16px; }\n  .board { padding: 12px 16px 40px; }\n  .board.columns { grid-auto-flow: row; grid-auto-columns: auto; }\n  .compare, .triage { grid-template-columns: 1fr; }\n}\n`;var x=window.__SNAP_BOARD__,m=x.mode==="live",n={items:x.items??[],watcher:null,connected:!m,project:x.project??"",branch:x.branch??null,q:"",type:"",groupBy:"status",archived:!1,selected:location.hash.slice(1)||null},M=["bug","style","layout","copy","feature","a11y","other"],P=["high","normal","low"],_={open:"open","in-progress":"in progress",review:"ready for review",done:"done",wontfix:"won\'t fix"},q=[{key:"queue",title:"\\u26A1 Queue",hint:"Claude works these as soon as a session runs /snap:watch",test:e=>e.status==="open"&&e.start==="now"&&!e.needs_reply},{key:"backlog",title:"Backlog",hint:"Saved for later: /snap:work, or press Start",test:e=>e.status==="open"&&e.start!=="now"&&!e.needs_reply},{key:"progress",title:"In progress",hint:"Claude is on it",test:e=>e.status==="in-progress"},{key:"you",title:"Needs you",hint:"Review the result or answer Claude\'s question",test:e=>e.status==="review"||e.status==="open"&&!!e.needs_reply},{key:"done",title:"Done",hint:"Approved, done or won\'t fix",test:e=>e.status==="done"||e.status==="wontfix"}];async function g(e,t,a){let r=await fetch(t,{method:e,headers:{"Content-Type":"application/json"},body:a===void 0?void 0:JSON.stringify(a)}),l=await r.json().catch(()=>({}));if(!r.ok)throw new Error(l.error??`HTTP ${r.status}`);return l}function k(e,t){return m?`/api/items/${e.id}/file/${encodeURIComponent(t)}`:`${x.base?`${x.base}/`:""}${e.location}/${e.id}/${encodeURIComponent(t)}`}async function I(){try{let t=await g("GET","/api/health");n.project=t.project,n.branch=t.branch,n.watcher=t.watcher,n.items=await g("GET","/api/items?all"),w()}catch{}let e=new WebSocket(`ws://${location.host}/ws`);e.onopen=()=>{n.connected=!0,S()},e.onmessage=t=>{let a=JSON.parse(t.data);a.type==="items"&&(n.items=a.items,a.watcher!==void 0&&(n.watcher=a.watcher),w())},e.onclose=()=>{n.connected=!1,S(),setTimeout(I,2e3)}}var u=e=>document.querySelector(e);function B(){document.head.insertAdjacentHTML("beforeend",`<style>${E}</style>`),document.body.innerHTML=`\n    <header class="top">\n      <div class="brand"><span class="logo">\\u25C9</span> <b>Snap</b> <span class="proj"></span></div>\n      <div class="filters">\n        <input class="search" type="search" placeholder="Search requests, pages, files\\u2026  ( / )">\n        <select class="f-type"><option value="">All types</option>${M.map(e=>`<option>${e}</option>`).join("")}</select>\n        <select class="f-group">\n          <option value="status">Columns by status</option>\n          <option value="page">Group by page</option>\n          <option value="area">Group by area</option>\n        </select>\n        <label class="f-arch"><input type="checkbox"> archived</label>\n      </div>\n      <div class="status"></div>\n    </header>\n    ${m?"":`<div class="banner">Read-only snapshot${x.generated?` from ${new Date(x.generated).toLocaleString()}`:""}. For the live board with actions, run <code>npx snap board</code> in the repo.</div>`}\n    <main class="board"></main>\n    <aside class="drawer" hidden></aside>\n    <div class="toast"></div>`,u(".search").addEventListener("input",e=>{n.q=e.target.value.toLowerCase(),b()}),u(".f-type").addEventListener("change",e=>{n.type=e.target.value,b()}),u(".f-group").addEventListener("change",e=>{n.groupBy=e.target.value,b()}),u(".f-arch input").addEventListener("change",e=>{n.archived=e.target.checked,b()}),addEventListener("keydown",e=>{let t=e.target.closest("input, textarea, select");e.key==="/"&&!t?(e.preventDefault(),u(".search").focus()):e.key==="Escape"&&$(null)}),addEventListener("hashchange",()=>$(location.hash.slice(1)||null,!1)),u(".board").addEventListener("click",e=>{let t=e.target.closest(".card"),a=e.target.closest("[data-quick]");if(a)return e.stopPropagation(),H(a.dataset.id,a.dataset.quick);t&&$(t.dataset.id)})}function w(){S(),b(),z()}function S(){let e=n.items.filter(s=>s.location==="items"),t=n.watcher;u(".proj").textContent=[n.project,n.branch].filter(Boolean).join(" \\xB7 "),document.title=`Snap backlog${n.project?` \\u2014 ${n.project}`:""}`;let a=q.map(s=>`<span title="${s.hint}">${s.title} <b>${e.filter(s.test).length}</b></span>`).join(""),r=m?t?`<span class="live on">Claude ${t.state==="waiting"?"watching":"working"}</span>`:\'<span class="live" title="Run /snap:watch in Claude Code">No Claude session watching</span>\':"",l=m?`<span class="dot ${n.connected?"ok":""}" title="${n.connected?"Live":"Reconnecting\\u2026"}"></span>`:"";u(".status").innerHTML=`${a}${r}${l}`}function O(){return n.items.filter(e=>n.archived||e.location==="items").filter(e=>!n.type||e.type===n.type).filter(e=>n.q?[e.body,e.id,e.area,e.route,e.anchor.source,e.anchor.text,e.page?.heading,e.page?.title,e.page?.routeName,e.page?.section,e.labels?.join(" "),e.external?.key].filter(Boolean).join(" ").toLowerCase().includes(n.q):!0).sort((e,t)=>t.id>e.id?1:-1)}function b(){let e=O(),t=u(".board");if(n.groupBy==="status")t.className="board columns",t.innerHTML=q.map(a=>{let r=e.filter(a.test),l=r.filter(i=>i.location==="items").length,s=m&&a.key==="done"&&l?`<button class="btn clear" data-quick="prune" data-id="" title="Archive every done and won\'t-fix item (moves them to .snap/done/)">Clear ${l}</button>`:"";return`<section class="col col-${a.key}"><h2 title="${a.hint}">${a.title} <span>${r.length}</span>${s}</h2><div class="cards">${r.map(j).join("")||`<p class="empty">${a.hint}</p>`}</div></section>`}).join("");else{t.className="board groups";let a=new Map;for(let r of e){let l=n.groupBy==="page"?T(r.page,r.route):r.area??"No area yet (run /snap:triage)";a.set(l,[...a.get(l)??[],r])}t.innerHTML=[...a].sort(([r],[l])=>r.localeCompare(l)).map(([r,l])=>`<section class="grp"><h2>${o(r)} <span>${l.length}</span></h2><div class="cards">${l.map(j).join("")}</div></section>`).join("")||\'<p class="empty big">Nothing matches.</p>\'}t.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===n.selected))}function j(e){let t=e.status==="open"&&e.needs_reply,a=[e.start==="now"&&e.status==="open"&&!t?\'<span class="chip now">\\u26A1 queued</span>\':"",t?\'<span class="chip ask">? question for you</span>\':"",e.status==="review"?\'<span class="chip review">\\u25CE review</span>\':"",e.status==="wontfix"?`<span class="chip">won\'t fix</span>`:"",e.location==="done"?\'<span class="chip">archived</span>\':"",e.type?`<span class="chip t">${o(e.type)}</span>`:"",e.priority==="high"?\'<span class="chip high">high</span>\':"",e.area?`<span class="chip">${o(e.area)}</span>`:"",...(e.labels??[]).map(l=>`<span class="chip">#${o(l)}</span>`),e.external?`<span class="chip ext">${o(e.external.key)}</span>`:""].join(""),r=m&&e.status==="open"&&!t&&e.start!=="now"?`<button class="quick" data-quick="start" data-id="${e.id}" title="Have Claude work on this now">${n.watcher?.state==="working"?"Add to queue":"\\u26A1 Start"}</button>`:"";return`<article class="card s-${e.status}${t?" s-ask":""}" data-id="${e.id}" tabindex="0">\n    ${e.shot?`<div class="thumb"><img loading="lazy" src="${k(e,e.shot)}" alt=""></div>`:""}\n    <div class="c-title">${o(A(e))}</div>\n    <div class="c-page">${o(T(e.page,e.route))}${e.page?.section?` \\u203A ${o(e.page.section)}`:""}</div>\n    ${a?`<div class="chips">${a}</div>`:""}\n    <div class="c-foot"><span>${o(e.author)} \\xB7 ${U(e.created)}</span>${r}</div>\n  </article>`}function $(e,t=!0){n.selected=e,t&&history.replaceState(null,"",e?`#${e}`:location.pathname+location.search),z(),document.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===e))}function z(){let e=u(".drawer"),t=n.items.find(d=>d.id===n.selected);if(!t){e.hidden=!0;return}let a=new Map([...e.querySelectorAll("[data-keep]")].map(d=>[d.dataset.keep,d.value]));if(e.dataset.id===t.id&&[...a.values()].some(d=>d.trim()))return;e.dataset.id=t.id,e.hidden=!1;let r=t.status==="open"&&t.needs_reply,{prompt:l,thread:s}=W(t.body),i=t.page??{},c=t.anchor,f=[];t.status==="review"||t.after?f.push(`<div class="compare">${y(t,t.shot,"before")}${t.after?y(t,t.after,"after"):\'<figure><div class="pending">after-shot is taken when the page is open</div><figcaption>after</figcaption></figure>\'}</div>`):t.shot&&f.push(y(t,t.shot,"highlighted area"));for(let[d,v]of(t.extras??[]).entries())v.shot&&f.push(y(t,v.shot,v.role==="reference"?`area ${d+2}: example to match`:`area ${d+2}: also applies here`));e.innerHTML=`\n    <div class="d-head">\n      <span class="pill s-${t.status}${r?" s-ask":""}">${r?"question for you":_[t.status]}</span>\n      <code>${t.id}</code>\n      <button class="x" title="Close (Esc)">\\u2715</button>\n    </div>\n    <h1>${o(A(t))}</h1>\n    <div class="d-sub">${o(t.author)} \\xB7 ${new Date(t.created).toLocaleString()}${t.claimed_by&&t.status==="in-progress"?` \\xB7 ${o(t.claimed_by)} is on it`:""}</div>\n    ${m?R(t,r):""}\n    ${f.join("")}\n    <section><h3>Request</h3><div class="prose">${o(l)}</div>\n      ${s.map(d=>`<div class="entry k-${d.kind.toLowerCase()}"><div class="who">${o(d.kind)} \\xB7 ${o(d.who)}</div><div class="prose">${o(d.text)}</div></div>`).join("")}\n    </section>\n    <section><h3>Where</h3><dl>\n      ${h("Page",T(i,t.route)+(i.section?` \\u203A ${i.section}`:""))}\n      ${t.url?`<dt>URL</dt><dd><a href="${o(t.url)}" target="_blank" rel="noopener">${o(t.url)}</a>${i.env==="deployed"?" (deployed)":""}</dd>`:""}\n      ${h("Source",c.source,!0)}\n      ${h("Components",c.components?.join(" \\u203A "))}\n      ${h("Page file",i.pageFile,!0)}\n      ${h("Story",i.storyTitle?`${i.storyTitle}${i.storyFile?` \\u2014 ${i.storyFile}`:""}`:void 0)}\n      ${h("Element",c.text?`"${c.text}"`:void 0)}\n      ${h("CSS path",c.selector,!0)}\n      ${h("Seen in",[i.browser,t.viewport,i.colorScheme&&`${i.colorScheme} mode`].filter(Boolean).join(", "))}\n      ${t.design?`<dt>Design</dt><dd><a href="${o(t.design)}" target="_blank" rel="noopener">${o(t.design)}</a></dd>`:""}\n      ${t.external?`<dt>Ticket</dt><dd>${t.external.url?`<a href="${o(t.external.url)}" target="_blank" rel="noopener">${o(t.external.key)}</a>`:o(t.external.key)}${t.external.status?` \\xB7 ${o(t.external.status)}`:""}</dd>`:""}\n    </dl></section>\n    ${N(t)}\n    ${D(t)}`;for(let[d,v]of a){let L=e.querySelector(`[data-keep="${d}"]`);L&&(L.value=v)}e.querySelector(".x").addEventListener("click",()=>$(null)),e.querySelectorAll("[data-act]").forEach(d=>d.addEventListener("click",()=>H(t.id,d.dataset.act))),e.querySelectorAll("textarea, input").forEach(d=>d.addEventListener("keydown",v=>v.stopPropagation()))}function y(e,t,a){return t?`<figure><a href="${k(e,t)}" target="_blank"><img src="${k(e,t)}" alt=""></a><figcaption>${o(a)}</figcaption></figure>`:`<figure><div class="pending">no screenshot</div><figcaption>${o(a)}</figcaption></figure>`}function R(e,t){let a=(l,s,i=!1)=>`<button class="btn${i?" primary":""}" data-act="${l}">${s}</button>`,r="";return t?r=`<textarea data-keep="reply" placeholder="Answer Claude\'s question\\u2026"></textarea><div class="acts">${a("reply","Reply",!0)}</div>`:e.status==="review"?r=`<div class="acts">${a("approve","Looks good \\u2713",!0)}</div>\n      <textarea data-keep="changes" placeholder="Not quite? Say what still needs to change\\u2026"></textarea><div class="acts">${a("changes","Send back")}</div>`:e.status==="open"?r=`<div class="acts">${e.start==="now"?a("later","Move to backlog"):a("start",n.watcher?.state==="working"?"Add to queue":"\\u26A1 Start now",!0)}${a("done","Mark done")}${a("wontfix","Won\'t fix")}</div>`:e.status==="in-progress"?r=`<div class="acts">${a("done","Mark done")}${a("reopen","Put back to open")}</div>`:e.location==="items"?r=`<div class="acts">${a("archive","Archive")}${a("reopen","Reopen")}</div>`:r=`<div class="acts">${a("reopen","Reopen")}</div>`,`<div class="d-actions">${r}<div class="acts minor">${a("copy","Copy id")}${e.url?`<a class="btn" href="${o(e.url)}" target="_blank" rel="noopener">Open page \\u2197</a>`:""}</div></div>`}function N(e){if(!m){let a=[e.type,e.priority,e.area,...(e.labels??[]).map(r=>`#${r}`)].filter(Boolean).join(" \\xB7 ");return a?`<section><h3>Classification</h3><p>${o(a)}</p></section>`:""}let t=(a,r,l="\\u2014")=>`<option value="">${l}</option>${a.map(s=>`<option ${s===r?"selected":""}>${s}</option>`).join("")}`;return`<section><h3>Classification</h3><div class="triage">\n    <label>Type <select data-t="type">${t(M,e.type)}</select></label>\n    <label>Priority <select data-t="priority">${t(P,e.priority,"normal")}</select></label>\n    <label class="wide">Area <input data-t="area" value="${o(e.area??"")}" placeholder="Page \\u203A Section"></label>\n    <label class="wide">Labels <input data-t="labels" value="${o((e.labels??[]).join(", "))}" placeholder="mobile, dark-mode"></label>\n    <div class="acts"><button class="btn" data-act="triage">Save classification</button></div>\n  </div></section>`}function D(e){let t=[],a=e.styles;a?.computed&&t.push(`<section><h3>Styles</h3><dl>${Object.entries(a.computed).map(([c,f])=>h(c,`${f}${a.tokens?.[c]?`  \\u2192  ${a.tokens[c]}`:""}`,!0)).join("")}${a.classes?h("classes",a.classes.join(" "),!0):""}</dl></section>`);let r=e.evidence;(r?.console?.length||r?.network?.length)&&t.push(`<section><h3>Errors before capture</h3><ul class="mono-list">${[...(r.console??[]).map(c=>`<li><b>console.${o(c.level)}</b> ${o(c.message)}</li>`),...(r.network??[]).map(c=>`<li><b>${o(c.method)} ${c.status||"failed"}</b> ${o(c.url)}</li>`)].join("")}</ul></section>`);let l=e.steps;l?.length&&t.push(`<section><h3>Steps before capture</h3><ol class="mono-list">${l.map(c=>`<li>${o(c.kind)} ${o(c.target??"")}${c.detail?` (${o(c.detail)})`:""}</li>`).join("")}</ol></section>`);let s=e.a11y;s?.length&&t.push(`<section><h3>Accessibility</h3><ul class="mono-list">${s.map(c=>`<li><b>${o(c.impact??"")}</b> ${o(c.id)}: ${o(c.help)}</li>`).join("")}</ul></section>`);let i=e.state;return i&&(i.props!==void 0||i.state!==void 0)&&t.push(`<section><h3>Component state${i.component?` \\xB7 ${o(i.component)}`:""}</h3><pre>${o(JSON.stringify({props:i.props,state:i.state},null,2))}</pre></section>`),t.join("")}async function H(e,t){if(t==="prune"){try{let{archived:s}=await g("POST","/api/prune",{});n.items=n.items.map(i=>s.includes(i.id)?{...i,location:"done"}:i),w(),p(`Archived ${s.length} finished item(s)`)}catch(s){p(s.message)}return}if(!n.items.find(s=>s.id===e))return;let r=u(".drawer"),l=s=>r.querySelector(`[data-keep="${s}"]`)?.value.trim()??"";try{let s;switch(t){case"copy":return await navigator.clipboard.writeText(e),p("Copied");case"start":case"later":s=await g("POST",`/api/items/${e}/start`,{start:t==="start"?"now":"later"}),p(t==="later"?"Moved to the backlog":n.watcher?.state==="waiting"?"\\u26A1 Claude is starting on it":n.watcher?"Added to the queue":"Queued; start /snap:watch in Claude Code to work it");break;case"done":case"wontfix":s=await g("POST",`/api/items/${e}/resolve`,{status:t});break;case"reopen":s=await g("POST",`/api/items/${e}/reopen`,{});break;case"archive":s=await g("POST",`/api/items/${e}/archive`,{}),p("Archived");break;case"reply":if(!l("reply"))return p("Type an answer first");s=await g("POST",`/api/items/${e}/reply`,{text:l("reply")}),p("Sent to Claude \\u2713");break;case"approve":s=await g("POST",`/api/items/${e}/review`,{verdict:"approved"}),p("Approved \\u2713");break;case"changes":if(!l("changes"))return p("Say what still needs to change");s=await g("POST",`/api/items/${e}/review`,{verdict:"changes",comment:l("changes")}),p("Sent back to Claude");break;case"triage":{let i=f=>r.querySelector(`[data-t="${f}"]`).value.trim(),c=i("labels").split(",").map(f=>f.trim()).filter(Boolean);s=await g("POST",`/api/items/${e}/triage`,{type:i("type")||null,priority:i("priority")||null,area:i("area")||null,labels:c.length?c:null}),p("Saved");break}}s&&(r.querySelectorAll("[data-keep]").forEach(i=>i.value=""),n.items=n.items.map(i=>i.id===s.id?s:i),w())}catch(s){p(s.message)}}function h(e,t,a=!1){return t?`<dt>${o(e)}</dt><dd${a?\' class="mono"\':""}>${o(t)}</dd>`:""}function A(e){return e.body.split(`\n`)[0].slice(0,140)}function T(e,t){let a=e?.storyTitle||e?.heading||e?.title||e?.pageComponent,r=e?.routePattern??t??"?";return a?`${a} (${r})`:r}function W(e){let t=e.split(/\\n\\n### (Note|Question|Reply|Feedback|Approved) \u2014 ([^\\n]+)\\n\\n/),a=[];for(let r=1;r+2<t.length+1;r+=3)a.push({kind:t[r],who:t[r+1].replace(/, \\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d$/,""),text:(t[r+2]??"").trim()});return{prompt:t[0],thread:a}}function U(e){let t=(Date.now()-Date.parse(e))/1e3;return t<60?"just now":t<3600?`${Math.round(t/60)} min ago`:t<86400?`${Math.round(t/3600)} h ago`:`${Math.round(t/86400)} d ago`}var C=0;function p(e){let t=u(".toast");t.textContent=e,t.classList.add("show"),clearTimeout(C),C=window.setTimeout(()=>t.classList.remove("show"),2500)}function o(e){return e.replace(/[&<>"\']/g,t=>`&#${t.charCodeAt(0)};`)}B();w();m&&I();})();\n';
+var BOARD_JS = '"use strict";(()=>{var E=`\n:root {\n  --bg: #f6f6f9; --panel: #ffffff; --card: #ffffff; --line: #e3e4ec; --fg: #1d2030; --muted: #6b7084;\n  --accent: #6d4aff; --accent-soft: rgba(109,74,255,.12);\n  --open: #d97706; --doing: #2563eb; --review: #7c3aed; --done: #16a34a; --wontfix: #6b7280; --ask: #d97706;\n  --shadow: 0 1px 2px rgba(20,20,40,.06), 0 4px 16px rgba(20,20,40,.06);\n  color-scheme: light;\n}\n@media (prefers-color-scheme: dark) {\n  :root {\n    --bg: #111318; --panel: #171a21; --card: #1d2029; --line: #2b2f3a; --fg: #eceef4; --muted: #9398a8;\n    --accent: #8b6dff; --accent-soft: rgba(139,109,255,.16);\n    --open: #f59e0b; --doing: #60a5fa; --review: #a78bfa; --done: #34d399; --wontfix: #9ca3af; --ask: #fbbf24;\n    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.25);\n    color-scheme: dark;\n  }\n}\n* { box-sizing: border-box; }\nhtml, body { margin: 0; height: 100%; }\nbody { background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }\na { color: var(--accent); }\ncode, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; }\nbutton, select, input, textarea { font: inherit; color: inherit; }\n\n.top { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }\n.brand { display: flex; align-items: center; gap: 6px; white-space: nowrap; }\n.brand .logo { color: var(--accent); font-size: 18px; }\n.brand .proj { color: var(--muted); margin-left: 6px; }\n.filters { display: flex; gap: 8px; flex: 1; min-width: 280px; flex-wrap: wrap; align-items: center; }\n.filters input.search { flex: 1; min-width: 180px; }\n.filters input.search, .filters select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; outline: none; }\n.filters input:focus, .filters select:focus { border-color: var(--accent); }\n.f-arch { color: var(--muted); font-size: 13px; display: flex; gap: 4px; align-items: center; }\n.status { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: 12px; flex-wrap: wrap; }\n.status b { color: var(--fg); }\n.live { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }\n.live.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }\n.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wontfix); }\n.dot.ok { background: var(--done); }\n.banner { padding: 8px 20px; background: var(--accent-soft); color: var(--fg); font-size: 13px; border-bottom: 1px solid var(--line); }\n\n.board { flex: 1; overflow: auto; padding: 16px 20px 40px; }\n.board.columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 14px; align-items: start; }\n.col h2, .grp h2 { font-size: 13px; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\n.col h2 span, .grp h2 span { background: var(--line); color: var(--fg); border-radius: 999px; padding: 0 8px; font-size: 12px; }\n.col-queue h2 { color: var(--open); }\n.col h2 .clear { margin-left: auto; margin-right: 6px; font-size: 11px; padding: 1px 8px; text-transform: none; letter-spacing: 0; }\n.col-you h2 { color: var(--review); }\n.col .cards { display: flex; flex-direction: column; gap: 10px; }\n.board.groups .grp { margin-bottom: 24px; }\n.board.groups .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }\n.empty { color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 0; }\n.empty.big { font-size: 14px; }\n\n.card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--open); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); cursor: pointer; display: flex; flex-direction: column; gap: 6px; outline: none; }\n.card:hover, .card:focus-visible { border-color: var(--accent); border-left-width: 3px; }\n.card.sel { outline: 2px solid var(--accent); outline-offset: 1px; }\n.card.s-in-progress { border-left-color: var(--doing); }\n.card.s-review { border-left-color: var(--review); }\n.card.s-done { border-left-color: var(--done); }\n.card.s-wontfix { border-left-color: var(--wontfix); opacity: .75; }\n.card.s-ask { border-left-color: var(--ask); }\n.thumb { margin: -2px -4px 0; border-radius: 6px; overflow: hidden; background: var(--bg); max-height: 120px; display: flex; align-items: center; justify-content: center; }\n.thumb img { max-width: 100%; max-height: 120px; display: block; }\n.c-title { font-weight: 600; }\n.c-page { color: var(--muted); font-size: 12px; }\n.chips { display: flex; flex-wrap: wrap; gap: 4px; }\n.chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }\n.chip.t { color: var(--fg); }\n.chip.now, .chip.ask { color: var(--open); border-color: var(--open); }\n.chip.review { color: var(--review); border-color: var(--review); }\n.chip.high { color: #dc2626; border-color: #dc2626; }\n.chip.ext { color: var(--accent); border-color: var(--accent); }\n.c-foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; gap: 8px; }\n.quick { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 2px 9px; font-size: 12px; cursor: pointer; white-space: nowrap; }\n\n.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 30px rgba(0,0,0,.15); overflow: auto; padding: 16px 20px 40px; z-index: 10; }\n.drawer[hidden] { display: none; }\n.d-head { display: flex; align-items: center; gap: 10px; }\n.d-head code { color: var(--muted); }\n.d-head .x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--muted); }\n.drawer h1 { font-size: 18px; margin: 10px 0 2px; }\n.d-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }\n.pill { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; color: #fff; background: var(--open); }\n.pill.s-in-progress { background: var(--doing); } .pill.s-review { background: var(--review); } .pill.s-done { background: var(--done); } .pill.s-wontfix { background: var(--wontfix); } .pill.s-ask { background: var(--ask); color: #111; }\n.d-actions { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; }\n.acts { display: flex; gap: 6px; flex-wrap: wrap; }\n.acts.minor .btn { font-size: 12px; padding: 3px 10px; }\n.btn { border: 1px solid var(--line); background: var(--card); border-radius: 7px; padding: 5px 12px; cursor: pointer; text-decoration: none; color: var(--fg); }\n.btn:hover { border-color: var(--accent); }\n.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }\ntextarea { width: 100%; min-height: 64px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; outline: none; }\ntextarea:focus, .triage input:focus, .triage select:focus { border-color: var(--accent); }\nfigure { margin: 0 0 12px; }\nfigure img { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }\nfigcaption { color: var(--muted); font-size: 11px; margin-top: 3px; }\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.pending { height: 80px; display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 8px; padding: 6px; }\nsection { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 14px; }\nsection h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }\n.prose { white-space: pre-wrap; overflow-wrap: anywhere; }\n.entry { border-left: 2px solid var(--line); padding-left: 10px; margin-top: 10px; }\n.entry .who { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }\n.entry.k-question { border-color: var(--ask); }\n.entry.k-feedback { border-color: #dc2626; }\n.entry.k-reply, .entry.k-approved { border-color: var(--done); }\ndl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }\ndt { color: var(--muted); font-size: 12px; }\ndd { margin: 0; overflow-wrap: anywhere; }\n.triage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.triage label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }\n.triage .wide { grid-column: 1 / -1; }\n.triage input, .triage select { background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; color: var(--fg); outline: none; }\n.mono-list { margin: 0; padding-left: 18px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }\npre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; overflow: auto; font-size: 12px; max-height: 260px; margin: 0; }\n.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }\n.toast.show { opacity: 1; }\n\n@media (max-width: 700px) {\n  .top { padding: 10px 16px; }\n  .board { padding: 12px 16px 40px; }\n  .board.columns { grid-auto-flow: row; grid-auto-columns: auto; }\n  .compare, .triage { grid-template-columns: 1fr; }\n}\n`;var x=window.__AHEMUI_BOARD__,m=x.mode==="live",n={items:x.items??[],watcher:null,connected:!m,project:x.project??"",branch:x.branch??null,q:"",type:"",groupBy:"status",archived:!1,selected:location.hash.slice(1)||null},M=["bug","style","layout","copy","feature","a11y","other"],P=["high","normal","low"],_={open:"open","in-progress":"in progress",review:"ready for review",done:"done",wontfix:"won\'t fix"},I=[{key:"queue",title:"\\u26A1 Queue",hint:"Claude works these as soon as a session runs /ahemui:watch",test:e=>e.status==="open"&&e.start==="now"&&!e.needs_reply},{key:"backlog",title:"Backlog",hint:"Saved for later: /ahemui:work, or press Start",test:e=>e.status==="open"&&e.start!=="now"&&!e.needs_reply},{key:"progress",title:"In progress",hint:"Claude is on it",test:e=>e.status==="in-progress"},{key:"you",title:"Needs you",hint:"Review the result or answer Claude\'s question",test:e=>e.status==="review"||e.status==="open"&&!!e.needs_reply},{key:"done",title:"Done",hint:"Approved, done or won\'t fix",test:e=>e.status==="done"||e.status==="wontfix"}];async function g(e,t,a){let r=await fetch(t,{method:e,headers:{"Content-Type":"application/json"},body:a===void 0?void 0:JSON.stringify(a)}),l=await r.json().catch(()=>({}));if(!r.ok)throw new Error(l.error??`HTTP ${r.status}`);return l}function k(e,t){return m?`/api/items/${e.id}/file/${encodeURIComponent(t)}`:`${x.base?`${x.base}/`:""}${e.location}/${e.id}/${encodeURIComponent(t)}`}async function q(){try{let t=await g("GET","/api/health");n.project=t.project,n.branch=t.branch,n.watcher=t.watcher,n.items=await g("GET","/api/items?all"),w()}catch{}let e=new WebSocket(`ws://${location.host}/ws`);e.onopen=()=>{n.connected=!0,S()},e.onmessage=t=>{let a=JSON.parse(t.data);a.type==="items"&&(n.items=a.items,a.watcher!==void 0&&(n.watcher=a.watcher),w())},e.onclose=()=>{n.connected=!1,S(),setTimeout(q,2e3)}}var u=e=>document.querySelector(e);function B(){document.head.insertAdjacentHTML("beforeend",`<style>${E}</style>`),document.body.innerHTML=`\n    <header class="top">\n      <div class="brand"><span class="logo">\\u25C9</span> <b>AhemUI</b> <span class="proj"></span></div>\n      <div class="filters">\n        <input class="search" type="search" placeholder="Search requests, pages, files\\u2026  ( / )">\n        <select class="f-type"><option value="">All types</option>${M.map(e=>`<option>${e}</option>`).join("")}</select>\n        <select class="f-group">\n          <option value="status">Columns by status</option>\n          <option value="page">Group by page</option>\n          <option value="area">Group by area</option>\n        </select>\n        <label class="f-arch"><input type="checkbox"> archived</label>\n      </div>\n      <div class="status"></div>\n    </header>\n    ${m?"":`<div class="banner">Read-only snapshot${x.generated?` from ${new Date(x.generated).toLocaleString()}`:""}. For the live board with actions, run <code>npx ahemui board</code> in the repo.</div>`}\n    <main class="board"></main>\n    <aside class="drawer" hidden></aside>\n    <div class="toast"></div>`,u(".search").addEventListener("input",e=>{n.q=e.target.value.toLowerCase(),b()}),u(".f-type").addEventListener("change",e=>{n.type=e.target.value,b()}),u(".f-group").addEventListener("change",e=>{n.groupBy=e.target.value,b()}),u(".f-arch input").addEventListener("change",e=>{n.archived=e.target.checked,b()}),addEventListener("keydown",e=>{let t=e.target.closest("input, textarea, select");e.key==="/"&&!t?(e.preventDefault(),u(".search").focus()):e.key==="Escape"&&$(null)}),addEventListener("hashchange",()=>$(location.hash.slice(1)||null,!1)),u(".board").addEventListener("click",e=>{let t=e.target.closest(".card"),a=e.target.closest("[data-quick]");if(a)return e.stopPropagation(),z(a.dataset.id,a.dataset.quick);t&&$(t.dataset.id)})}function w(){S(),b(),H()}function S(){let e=n.items.filter(s=>s.location==="items"),t=n.watcher;u(".proj").textContent=[n.project,n.branch].filter(Boolean).join(" \\xB7 "),document.title=`AhemUI backlog${n.project?` \\u2014 ${n.project}`:""}`;let a=I.map(s=>`<span title="${s.hint}">${s.title} <b>${e.filter(s.test).length}</b></span>`).join(""),r=m?t?`<span class="live on">Claude ${t.state==="waiting"?"watching":"working"}</span>`:\'<span class="live" title="Run /ahemui:watch in Claude Code">No Claude session watching</span>\':"",l=m?`<span class="dot ${n.connected?"ok":""}" title="${n.connected?"Live":"Reconnecting\\u2026"}"></span>`:"";u(".status").innerHTML=`${a}${r}${l}`}function O(){return n.items.filter(e=>n.archived||e.location==="items").filter(e=>!n.type||e.type===n.type).filter(e=>n.q?[e.body,e.id,e.area,e.route,e.anchor.source,e.anchor.text,e.page?.heading,e.page?.title,e.page?.routeName,e.page?.section,e.labels?.join(" "),e.external?.key].filter(Boolean).join(" ").toLowerCase().includes(n.q):!0).sort((e,t)=>t.id>e.id?1:-1)}function b(){let e=O(),t=u(".board");if(n.groupBy==="status")t.className="board columns",t.innerHTML=I.map(a=>{let r=e.filter(a.test),l=r.filter(i=>i.location==="items").length,s=m&&a.key==="done"&&l?`<button class="btn clear" data-quick="prune" data-id="" title="Archive every done and won\'t-fix item (moves them to .ahemui/done/)">Clear ${l}</button>`:"";return`<section class="col col-${a.key}"><h2 title="${a.hint}">${a.title} <span>${r.length}</span>${s}</h2><div class="cards">${r.map(j).join("")||`<p class="empty">${a.hint}</p>`}</div></section>`}).join("");else{t.className="board groups";let a=new Map;for(let r of e){let l=n.groupBy==="page"?T(r.page,r.route):r.area??"No area yet (run /ahemui:triage)";a.set(l,[...a.get(l)??[],r])}t.innerHTML=[...a].sort(([r],[l])=>r.localeCompare(l)).map(([r,l])=>`<section class="grp"><h2>${o(r)} <span>${l.length}</span></h2><div class="cards">${l.map(j).join("")}</div></section>`).join("")||\'<p class="empty big">Nothing matches.</p>\'}t.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===n.selected))}function j(e){let t=e.status==="open"&&e.needs_reply,a=[e.start==="now"&&e.status==="open"&&!t?\'<span class="chip now">\\u26A1 queued</span>\':"",t?\'<span class="chip ask">? question for you</span>\':"",e.status==="review"?\'<span class="chip review">\\u25CE review</span>\':"",e.status==="wontfix"?`<span class="chip">won\'t fix</span>`:"",e.location==="done"?\'<span class="chip">archived</span>\':"",e.type?`<span class="chip t">${o(e.type)}</span>`:"",e.priority==="high"?\'<span class="chip high">high</span>\':"",e.area?`<span class="chip">${o(e.area)}</span>`:"",...(e.labels??[]).map(l=>`<span class="chip">#${o(l)}</span>`),e.external?`<span class="chip ext">${o(e.external.key)}</span>`:""].join(""),r=m&&e.status==="open"&&!t&&e.start!=="now"?`<button class="quick" data-quick="start" data-id="${e.id}" title="Have Claude work on this now">${n.watcher?.state==="working"?"Add to queue":"\\u26A1 Start"}</button>`:"";return`<article class="card s-${e.status}${t?" s-ask":""}" data-id="${e.id}" tabindex="0">\n    ${e.shot?`<div class="thumb"><img loading="lazy" src="${k(e,e.shot)}" alt=""></div>`:""}\n    <div class="c-title">${o(A(e))}</div>\n    <div class="c-page">${o(T(e.page,e.route))}${e.page?.section?` \\u203A ${o(e.page.section)}`:""}</div>\n    ${a?`<div class="chips">${a}</div>`:""}\n    <div class="c-foot"><span>${o(e.author)} \\xB7 ${W(e.created)}</span>${r}</div>\n  </article>`}function $(e,t=!0){n.selected=e,t&&history.replaceState(null,"",e?`#${e}`:location.pathname+location.search),H(),document.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===e))}function H(){let e=u(".drawer"),t=n.items.find(d=>d.id===n.selected);if(!t){e.hidden=!0;return}let a=new Map([...e.querySelectorAll("[data-keep]")].map(d=>[d.dataset.keep,d.value]));if(e.dataset.id===t.id&&[...a.values()].some(d=>d.trim()))return;e.dataset.id=t.id,e.hidden=!1;let r=t.status==="open"&&t.needs_reply,{prompt:l,thread:s}=U(t.body),i=t.page??{},c=t.anchor,f=[];t.status==="review"||t.after?f.push(`<div class="compare">${y(t,t.shot,"before")}${t.after?y(t,t.after,"after"):\'<figure><div class="pending">after-shot is taken when the page is open</div><figcaption>after</figcaption></figure>\'}</div>`):t.shot&&f.push(y(t,t.shot,"highlighted area"));for(let[d,v]of(t.extras??[]).entries())v.shot&&f.push(y(t,v.shot,v.role==="reference"?`area ${d+2}: example to match`:`area ${d+2}: also applies here`));e.innerHTML=`\n    <div class="d-head">\n      <span class="pill s-${t.status}${r?" s-ask":""}">${r?"question for you":_[t.status]}</span>\n      <code>${t.id}</code>\n      <button class="x" title="Close (Esc)">\\u2715</button>\n    </div>\n    <h1>${o(A(t))}</h1>\n    <div class="d-sub">${o(t.author)} \\xB7 ${new Date(t.created).toLocaleString()}${t.claimed_by&&t.status==="in-progress"?` \\xB7 ${o(t.claimed_by)} is on it`:""}</div>\n    ${m?R(t,r):""}\n    ${f.join("")}\n    <section><h3>Request</h3><div class="prose">${o(l)}</div>\n      ${s.map(d=>`<div class="entry k-${d.kind.toLowerCase()}"><div class="who">${o(d.kind)} \\xB7 ${o(d.who)}</div><div class="prose">${o(d.text)}</div></div>`).join("")}\n    </section>\n    <section><h3>Where</h3><dl>\n      ${h("Page",T(i,t.route)+(i.section?` \\u203A ${i.section}`:""))}\n      ${t.url?`<dt>URL</dt><dd><a href="${o(t.url)}" target="_blank" rel="noopener">${o(t.url)}</a>${i.env==="deployed"?" (deployed)":""}</dd>`:""}\n      ${h("Source",c.source,!0)}\n      ${h("Components",c.components?.join(" \\u203A "))}\n      ${h("Page file",i.pageFile,!0)}\n      ${h("Story",i.storyTitle?`${i.storyTitle}${i.storyFile?` \\u2014 ${i.storyFile}`:""}`:void 0)}\n      ${h("Element",c.text?`"${c.text}"`:void 0)}\n      ${h("CSS path",c.selector,!0)}\n      ${h("Seen in",[i.browser,t.viewport,i.colorScheme&&`${i.colorScheme} mode`].filter(Boolean).join(", "))}\n      ${t.design?`<dt>Design</dt><dd><a href="${o(t.design)}" target="_blank" rel="noopener">${o(t.design)}</a></dd>`:""}\n      ${t.external?`<dt>Ticket</dt><dd>${t.external.url?`<a href="${o(t.external.url)}" target="_blank" rel="noopener">${o(t.external.key)}</a>`:o(t.external.key)}${t.external.status?` \\xB7 ${o(t.external.status)}`:""}</dd>`:""}\n    </dl></section>\n    ${N(t)}\n    ${D(t)}`;for(let[d,v]of a){let L=e.querySelector(`[data-keep="${d}"]`);L&&(L.value=v)}e.querySelector(".x").addEventListener("click",()=>$(null)),e.querySelectorAll("[data-act]").forEach(d=>d.addEventListener("click",()=>z(t.id,d.dataset.act))),e.querySelectorAll("textarea, input").forEach(d=>d.addEventListener("keydown",v=>v.stopPropagation()))}function y(e,t,a){return t?`<figure><a href="${k(e,t)}" target="_blank"><img src="${k(e,t)}" alt=""></a><figcaption>${o(a)}</figcaption></figure>`:`<figure><div class="pending">no screenshot</div><figcaption>${o(a)}</figcaption></figure>`}function R(e,t){let a=(l,s,i=!1)=>`<button class="btn${i?" primary":""}" data-act="${l}">${s}</button>`,r="";return t?r=`<textarea data-keep="reply" placeholder="Answer Claude\'s question\\u2026"></textarea><div class="acts">${a("reply","Reply",!0)}</div>`:e.status==="review"?r=`<div class="acts">${a("approve","Looks good \\u2713",!0)}</div>\n      <textarea data-keep="changes" placeholder="Not quite? Say what still needs to change\\u2026"></textarea><div class="acts">${a("changes","Send back")}</div>`:e.status==="open"?r=`<div class="acts">${e.start==="now"?a("later","Move to backlog"):a("start",n.watcher?.state==="working"?"Add to queue":"\\u26A1 Start now",!0)}${a("done","Mark done")}${a("wontfix","Won\'t fix")}</div>`:e.status==="in-progress"?r=`<div class="acts">${a("done","Mark done")}${a("reopen","Put back to open")}</div>`:e.location==="items"?r=`<div class="acts">${a("archive","Archive")}${a("reopen","Reopen")}</div>`:r=`<div class="acts">${a("reopen","Reopen")}</div>`,`<div class="d-actions">${r}<div class="acts minor">${a("copy","Copy id")}${e.url?`<a class="btn" href="${o(e.url)}" target="_blank" rel="noopener">Open page \\u2197</a>`:""}</div></div>`}function N(e){if(!m){let a=[e.type,e.priority,e.area,...(e.labels??[]).map(r=>`#${r}`)].filter(Boolean).join(" \\xB7 ");return a?`<section><h3>Classification</h3><p>${o(a)}</p></section>`:""}let t=(a,r,l="\\u2014")=>`<option value="">${l}</option>${a.map(s=>`<option ${s===r?"selected":""}>${s}</option>`).join("")}`;return`<section><h3>Classification</h3><div class="triage">\n    <label>Type <select data-t="type">${t(M,e.type)}</select></label>\n    <label>Priority <select data-t="priority">${t(P,e.priority,"normal")}</select></label>\n    <label class="wide">Area <input data-t="area" value="${o(e.area??"")}" placeholder="Page \\u203A Section"></label>\n    <label class="wide">Labels <input data-t="labels" value="${o((e.labels??[]).join(", "))}" placeholder="mobile, dark-mode"></label>\n    <div class="acts"><button class="btn" data-act="triage">Save classification</button></div>\n  </div></section>`}function D(e){let t=[],a=e.styles;a?.computed&&t.push(`<section><h3>Styles</h3><dl>${Object.entries(a.computed).map(([c,f])=>h(c,`${f}${a.tokens?.[c]?`  \\u2192  ${a.tokens[c]}`:""}`,!0)).join("")}${a.classes?h("classes",a.classes.join(" "),!0):""}</dl></section>`);let r=e.evidence;(r?.console?.length||r?.network?.length)&&t.push(`<section><h3>Errors before capture</h3><ul class="mono-list">${[...(r.console??[]).map(c=>`<li><b>console.${o(c.level)}</b> ${o(c.message)}</li>`),...(r.network??[]).map(c=>`<li><b>${o(c.method)} ${c.status||"failed"}</b> ${o(c.url)}</li>`)].join("")}</ul></section>`);let l=e.steps;l?.length&&t.push(`<section><h3>Steps before capture</h3><ol class="mono-list">${l.map(c=>`<li>${o(c.kind)} ${o(c.target??"")}${c.detail?` (${o(c.detail)})`:""}</li>`).join("")}</ol></section>`);let s=e.a11y;s?.length&&t.push(`<section><h3>Accessibility</h3><ul class="mono-list">${s.map(c=>`<li><b>${o(c.impact??"")}</b> ${o(c.id)}: ${o(c.help)}</li>`).join("")}</ul></section>`);let i=e.state;return i&&(i.props!==void 0||i.state!==void 0)&&t.push(`<section><h3>Component state${i.component?` \\xB7 ${o(i.component)}`:""}</h3><pre>${o(JSON.stringify({props:i.props,state:i.state},null,2))}</pre></section>`),t.join("")}async function z(e,t){if(t==="prune"){try{let{archived:s}=await g("POST","/api/prune",{});n.items=n.items.map(i=>s.includes(i.id)?{...i,location:"done"}:i),w(),p(`Archived ${s.length} finished item(s)`)}catch(s){p(s.message)}return}if(!n.items.find(s=>s.id===e))return;let r=u(".drawer"),l=s=>r.querySelector(`[data-keep="${s}"]`)?.value.trim()??"";try{let s;switch(t){case"copy":return await navigator.clipboard.writeText(e),p("Copied");case"start":case"later":s=await g("POST",`/api/items/${e}/start`,{start:t==="start"?"now":"later"}),p(t==="later"?"Moved to the backlog":n.watcher?.state==="waiting"?"\\u26A1 Claude is starting on it":n.watcher?"Added to the queue":"Queued; start /ahemui:watch in Claude Code to work it");break;case"done":case"wontfix":s=await g("POST",`/api/items/${e}/resolve`,{status:t});break;case"reopen":s=await g("POST",`/api/items/${e}/reopen`,{});break;case"archive":s=await g("POST",`/api/items/${e}/archive`,{}),p("Archived");break;case"reply":if(!l("reply"))return p("Type an answer first");s=await g("POST",`/api/items/${e}/reply`,{text:l("reply")}),p("Sent to Claude \\u2713");break;case"approve":s=await g("POST",`/api/items/${e}/review`,{verdict:"approved"}),p("Approved \\u2713");break;case"changes":if(!l("changes"))return p("Say what still needs to change");s=await g("POST",`/api/items/${e}/review`,{verdict:"changes",comment:l("changes")}),p("Sent back to Claude");break;case"triage":{let i=f=>r.querySelector(`[data-t="${f}"]`).value.trim(),c=i("labels").split(",").map(f=>f.trim()).filter(Boolean);s=await g("POST",`/api/items/${e}/triage`,{type:i("type")||null,priority:i("priority")||null,area:i("area")||null,labels:c.length?c:null}),p("Saved");break}}s&&(r.querySelectorAll("[data-keep]").forEach(i=>i.value=""),n.items=n.items.map(i=>i.id===s.id?s:i),w())}catch(s){p(s.message)}}function h(e,t,a=!1){return t?`<dt>${o(e)}</dt><dd${a?\' class="mono"\':""}>${o(t)}</dd>`:""}function A(e){return e.body.split(`\n`)[0].slice(0,140)}function T(e,t){let a=e?.storyTitle||e?.heading||e?.title||e?.pageComponent,r=e?.routePattern??t??"?";return a?`${a} (${r})`:r}function U(e){let t=e.split(/\\n\\n### (Note|Question|Reply|Feedback|Approved) \u2014 ([^\\n]+)\\n\\n/),a=[];for(let r=1;r+2<t.length+1;r+=3)a.push({kind:t[r],who:t[r+1].replace(/, \\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d$/,""),text:(t[r+2]??"").trim()});return{prompt:t[0],thread:a}}function W(e){let t=(Date.now()-Date.parse(e))/1e3;return t<60?"just now":t<3600?`${Math.round(t/60)} min ago`:t<86400?`${Math.round(t/3600)} h ago`:`${Math.round(t/86400)} d ago`}var C=0;function p(e){let t=u(".toast");t.textContent=e,t.classList.add("show"),clearTimeout(C),C=window.setTimeout(()=>t.classList.remove("show"),2500)}function o(e){return e.replace(/[&<>"\']/g,t=>`&#${t.charCodeAt(0)};`)}B();w();m&&q();})();\n';
 
 // ../cli/src/git.ts
 import { execFileSync as execFileSync2 } from "node:child_process";
@@ -15790,11 +15795,11 @@ function boardHtml(boot) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Snap backlog${boot.project ? ` \u2014 ${escapeHtml(boot.project)}` : ""}</title>
+<title>AhemUI backlog${boot.project ? ` \u2014 ${escapeHtml(boot.project)}` : ""}</title>
 <link rel="icon" href="${ICON}">
 </head>
 <body>
-<script>window.__SNAP_BOARD__ = ${data};</script>
+<script>window.__AHEMUI_BOARD__ = ${data};</script>
 <script>${js}</script>
 </body>
 </html>
@@ -15840,7 +15845,7 @@ var import_websocket_server = __toESM(require_websocket_server(), 1);
 
 // ../cli/src/server.ts
 var MIME = { webp: "image/webp", png: "image/png", jpg: "image/jpeg" };
-var BUILD = true ? "20260927064027" : "dev";
+var BUILD = true ? "20260927100011" : "dev";
 async function serve(store, opts = {}) {
   const config = await store.config();
   config.devOrigins = [.../* @__PURE__ */ new Set([...config.devOrigins, ...opts.origins ?? []])];
@@ -15850,7 +15855,7 @@ async function serve(store, opts = {}) {
   const self = [];
   const server = createServer((req, res) => {
     handle(store, config, self, req, res).catch((err) => {
-      const status = err instanceof HttpError ? err.status : err instanceof SnapError ? 404 : err?.name === "ZodError" ? 400 : 500;
+      const status = err instanceof HttpError ? err.status : err instanceof AhemError ? 404 : err?.name === "ZodError" ? 400 : 500;
       if (status === 500) log(`error: ${err?.stack ?? err}`);
       send(res, status, { error: String(err?.message ?? err) });
     });
@@ -15859,6 +15864,8 @@ async function serve(store, opts = {}) {
     server,
     path: "/ws",
     verifyClient: ({ origin, req }) => hostAllowed(req.headers.host) && originAllowed(origin, config, self)
+  });
+  wss.on("error", () => {
   });
   const snapshot = async () => JSON.stringify({ type: "items", items: await store.list({ includeDone: true }), watcher: await store.watcher() });
   wss.on("connection", async (ws) => ws.send(await snapshot()));
@@ -15888,13 +15895,22 @@ async function serve(store, opts = {}) {
       broadcast();
     }
   }, 5e3);
-  await new Promise((resolve3, reject) => {
-    server.once("error", reject);
-    server.listen(port, host, resolve3);
-  });
+  try {
+    await new Promise((resolve3, reject) => {
+      server.once("error", reject);
+      server.listen(port, host, resolve3);
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    clearTimeout(exportTimer);
+    clearInterval(presence);
+    watcher.close();
+    wss.close();
+    throw err;
+  }
   const bound = server.address().port;
   self.push(`http://127.0.0.1:${bound}`, `http://localhost:${bound}`);
-  log(`snap serving ${store.root} on http://${host}:${bound} (board: http://127.0.0.1:${bound}/)`);
+  log(`ahemui serving ${store.root} on http://${host}:${bound} (board: http://127.0.0.1:${bound}/)`);
   return {
     port: bound,
     close: async () => {
@@ -15944,7 +15960,7 @@ async function handle(store, config, self, req, res) {
   if (parts[0] !== "api") throw new HttpError(404, "not found");
   if (req.method === "GET" && parts[1] === "health") {
     return send(res, 200, {
-      name: "snap",
+      name: "ahemui",
       build: BUILD,
       project: basename2(store.root),
       branch: gitBranch(store.root),
@@ -16057,8 +16073,8 @@ import { createHash } from "node:crypto";
 import { copyFileSync, existsSync as existsSync2, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname as dirname3, join as join3, relative as relative3 } from "node:path";
 import { fileURLToPath } from "node:url";
-var TARBALL = "snap-vite.tgz";
-var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", ".snap", "dist", "build", ".next", ".nuxt", ".output", "coverage"]);
+var TARBALL = "ahemui.tgz";
+var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", ".ahemui", "dist", "build", ".next", ".nuxt", ".output", "coverage"]);
 function newestPluginTarball() {
   const here = dirname3(fileURLToPath(import.meta.url));
   const versions = join3(here, "..", "..");
@@ -16071,13 +16087,13 @@ function newestPluginTarball() {
   found.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
   return found[0] ?? null;
 }
-function snapDependents(root, depth = 3) {
+function ahemuiDependents(root, depth = 3) {
   const out = [];
   const visit = (dir, level) => {
     const pkg = join3(dir, "package.json");
     if (existsSync2(pkg)) {
       const json = JSON.parse(readFileSync(pkg, "utf8"));
-      if (json.dependencies?.["@snap/vite"] || json.devDependencies?.["@snap/vite"]) out.push(dir);
+      if (json.dependencies?.["ahemui"] || json.devDependencies?.["ahemui"]) out.push(dir);
     }
     if (level >= depth) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -16088,7 +16104,7 @@ function snapDependents(root, depth = 3) {
   return out;
 }
 function installedBuild(appDir) {
-  const file = join3(appDir, "node_modules", "@snap", "vite", "dist", "index.js");
+  const file = join3(appDir, "node_modules", "@ahemui", "vite", "dist", "index.js");
   if (!existsSync2(file)) return null;
   return /"(\d{14})"/.exec(readFileSync(file, "utf8"))?.[1] ?? "dev";
 }
@@ -16107,7 +16123,7 @@ function updateProject(store, opts = {}) {
   const log = opts.log ?? ((m) => console.log(m));
   const tarball = opts.from ?? newestPluginTarball();
   if (!tarball || !existsSync2(tarball)) {
-    throw new Error("no Snap package found to update from. Run this via /snap:update in Claude Code, or pass --from <snap-vite.tgz>");
+    throw new Error("no AhemUI package found to update from. Run this via /ahemui:update in Claude Code, or pass --from <ahemui.tgz>");
   }
   const dest = join3(store.dir, "vendor", TARBALL);
   const changed = !existsSync2(dest) || hash(dest) !== hash(tarball);
@@ -16116,7 +16132,7 @@ function updateProject(store, opts = {}) {
     copyFileSync(tarball, dest);
     log(`copied ${tarball} \u2192 ${relative3(store.root, dest)}`);
   }
-  const apps = snapDependents(store.root).map((dir) => {
+  const apps = ahemuiDependents(store.root).map((dir) => {
     const before = installedBuild(dir);
     if (!changed && !opts.force && before) return { dir, before, after: before, ok: true };
     const rel = relative3(dir, dest).split("\\").join("/");
@@ -16179,32 +16195,32 @@ async function claimWatch(store, by, items) {
 }
 
 // ../cli/src/index.ts
-var HELP = `snap \u2014 visual feedback backlog stored in .snap/
+var HELP = `ahemui \u2014 visual feedback backlog stored in .ahemui/
 
 usage:
-  snap init [--origin <url>]... [--port <n>]
-  snap serve [--port <n>]
-  snap board [--no-open]          open the live backlog board (starts snap serve if it isn't running)
-  snap export [--out <file>]      write a read-only backlog snapshot (default .snap/backlog.html)
-  snap list [--status <s>]... [--route <p>] [--type <t>] [--label <l>] [--area <a>] [--untriaged] [--all] [--json]
-  snap show <id> [--json]
-  snap add --prompt <text> [--source <file:line>] [--selector <css>] [--route <path>] [--shot <file>]
-  snap claim <id> [--as <name>] [--force]
-  snap resolve <id> [--done | --wontfix] [--sha <commit>] [--note <text>]   (default: review, if enabled)
-  snap triage <id> [--type <t>] [--priority <p>] [--area <a>] [--label <l>]...
-  snap reopen <id>
-  snap note <id> <text>
-  snap prune [--drop-shots <days>]
-                                  move done/wontfix items to .snap/done/, optionally dropping old screenshots
-  snap reply <id> <text>          answer Claude's question on an item
-  snap approve <id> [--note <t>]  approve an item in review
-  snap changes <id> --note <t>    send an item in review back with feedback
-  snap wait [--timeout <sec>] [--as <name>]
+  ahemui init [--origin <url>]... [--port <n>]
+  ahemui serve [--port <n>]
+  ahemui board [--no-open]          open the live backlog board (starts ahemui serve if it isn't running)
+  ahemui export [--out <file>]      write a read-only backlog snapshot (default .ahemui/backlog.html)
+  ahemui list [--status <s>]... [--route <p>] [--type <t>] [--label <l>] [--area <a>] [--untriaged] [--all] [--json]
+  ahemui show <id> [--json]
+  ahemui add --prompt <text> [--source <file:line>] [--selector <css>] [--route <path>] [--shot <file>]
+  ahemui claim <id> [--as <name>] [--force]
+  ahemui resolve <id> [--done | --wontfix] [--sha <commit>] [--note <text>]   (default: review, if enabled)
+  ahemui triage <id> [--type <t>] [--priority <p>] [--area <a>] [--label <l>]...
+  ahemui reopen <id>
+  ahemui note <id> <text>
+  ahemui prune [--drop-shots <days>]
+                                  move done/wontfix items to .ahemui/done/, optionally dropping old screenshots
+  ahemui reply <id> <text>          answer Claude's question on an item
+  ahemui approve <id> [--note <t>]  approve an item in review
+  ahemui changes <id> --note <t>    send an item in review back with feedback
+  ahemui wait [--timeout <sec>] [--as <name>]
                                   block until "Start now" items arrive, print them, exit 0 (3 on timeout)
-  snap unwatch                    clear the "Claude is watching" presence
-  snap update [--from <tgz>] [--force]
-                                  install the newest Snap package into this project (used by /snap:update)
-  snap clear [--archive] [--yes]  delete all backlog items (and with --archive, .snap/done/ too); setup stays
+  ahemui unwatch                    clear the "Claude is watching" presence
+  ahemui update [--from <tgz>] [--force]
+                                  install the newest AhemUI package into this project (used by /ahemui:update)
+  ahemui clear [--archive] [--yes]  delete all backlog items (and with --archive, .ahemui/done/ too); setup stays
 
 ids can be abbreviated to any unique prefix.
 types: ${TYPES.join(", ")} \xB7 priorities: ${PRIORITIES.join(", ")}`;
@@ -16243,16 +16259,16 @@ async function main(argv) {
   const { values: o, positionals } = parseArgs({ args: argv, options: OPTIONS, allowPositionals: true });
   const [cmd, ...args] = positionals;
   if (!cmd || o.help) return console.log(HELP);
-  process.env.SNAP_AUTHOR ||= defaultAuthor();
+  process.env.AHEMUI_AUTHOR ||= defaultAuthor();
   if (cmd === "init") {
-    const store2 = await SnapStore.init(process.cwd(), {
+    const store2 = await AhemStore.init(process.cwd(), {
       ...o.origin && { devOrigins: o.origin },
       ...o.port && { port: Number(o.port) }
     });
     return console.log(`initialized ${store2.dir}`);
   }
-  const store = SnapStore.find();
-  const id = () => args[0] ?? fail(`usage: snap ${cmd} <id>`);
+  const store = AhemStore.find();
+  const id = () => args[0] ?? fail(`usage: ahemui ${cmd} <id>`);
   switch (cmd) {
     case "serve": {
       const s = await serve(store, { port: o.port ? Number(o.port) : void 0 });
@@ -16313,7 +16329,7 @@ ${it.body}`);
       return console.log(`added ${it.id}`);
     }
     case "claim":
-      return console.log(summary(await store.claim(id(), o.as ?? process.env.SNAP_AUTHOR, o.force)));
+      return console.log(summary(await store.claim(id(), o.as ?? process.env.AHEMUI_AUTHOR, o.force)));
     case "resolve":
       return console.log(
         summary(await store.resolve(id(), { status: o.wontfix ? "wontfix" : o.done ? "done" : void 0, sha: o.sha, note: o.note }))
@@ -16333,11 +16349,11 @@ ${it.body}`);
       return console.log(summary(await store.reopen(id())));
     case "note": {
       const text = args.slice(1).join(" ");
-      if (!text) fail("usage: snap note <id> <text>");
-      return console.log(summary(await store.addNote(id(), process.env.SNAP_AUTHOR, text)));
+      if (!text) fail("usage: ahemui note <id> <text>");
+      return console.log(summary(await store.addNote(id(), process.env.AHEMUI_AUTHOR, text)));
     }
     case "wait": {
-      const items = await waitForStartNow(store, o.as ?? process.env.SNAP_AUTHOR, o.timeout ? Number(o.timeout) * 1e3 : 0);
+      const items = await waitForStartNow(store, o.as ?? process.env.AHEMUI_AUTHOR, o.timeout ? Number(o.timeout) * 1e3 : 0);
       if (!items.length) {
         console.log("TIMEOUT no start-now items");
         process.exit(3);
@@ -16347,7 +16363,7 @@ ${it.body}`);
     }
     case "update": {
       const result = updateProject(store, { from: o.from, force: o.force });
-      if (!result.apps.length) console.log("no package.json here depends on @snap/vite (was /snap:setup run?)");
+      if (!result.apps.length) console.log("no package.json here depends on ahemui (was /ahemui:setup run?)");
       for (const app of result.apps) {
         const where = relative4(store.root, app.dir) || ".";
         if (!app.ok) console.log(`\u2717 ${where}: install failed; see the output above`);
@@ -16360,7 +16376,7 @@ ${it.body}`);
         const newest = result.apps.find((a) => a.after)?.after;
         if (health?.build && newest && health.build !== newest) {
           console.log(`
-! The dev server is still running Snap build ${health.build}. Restart it, then reload the page.`);
+! The dev server is still running AhemUI build ${health.build}. Restart it, then reload the page.`);
         }
       }
       return;
@@ -16385,20 +16401,20 @@ ${it.body}`);
       return console.log("no longer watching");
     case "prune": {
       const { moved, shotsDropped } = await store.prune({ dropShotsOlderThanDays: o["drop-shots"] ? Number(o["drop-shots"]) : void 0 });
-      console.log(moved.length ? `moved ${moved.length} item(s) to .snap/done/` : "nothing to archive");
+      console.log(moved.length ? `moved ${moved.length} item(s) to .ahemui/done/` : "nothing to archive");
       if (shotsDropped) console.log(`removed ${shotsDropped} old screenshot(s) from archived items`);
       return;
     }
     case "reply": {
       const text = args.slice(1).join(" ");
-      if (!text) fail("usage: snap reply <id> <text>");
-      return console.log(summary(await store.reply(id(), process.env.SNAP_AUTHOR, text)));
+      if (!text) fail("usage: ahemui reply <id> <text>");
+      return console.log(summary(await store.reply(id(), process.env.AHEMUI_AUTHOR, text)));
     }
     case "approve":
-      return console.log(summary(await store.review(id(), process.env.SNAP_AUTHOR, "approved", o.note)));
+      return console.log(summary(await store.review(id(), process.env.AHEMUI_AUTHOR, "approved", o.note)));
     case "changes":
-      if (!o.note) fail("usage: snap changes <id> --note <what should change>");
-      return console.log(summary(await store.review(id(), process.env.SNAP_AUTHOR, "changes", o.note)));
+      if (!o.note) fail("usage: ahemui changes <id> --note <what should change>");
+      return console.log(summary(await store.review(id(), process.env.AHEMUI_AUTHOR, "changes", o.note)));
     default:
       fail(`unknown command "${cmd}"
 
@@ -16418,7 +16434,7 @@ async function findServer(store) {
   for (let p = port; p < port + 10; p++) {
     const base = `http://127.0.0.1:${p}`;
     const health = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(500) }).then((r) => r.json()).catch(() => null);
-    if (health?.name === "snap" && health.root === store.root) return base;
+    if (health?.name === "ahemui" && health.root === store.root) return base;
   }
   return null;
 }
@@ -16450,9 +16466,9 @@ async function loadShot(path) {
   return { data: await readFile3(path), ext };
 }
 function fail(msg) {
-  throw new SnapError(msg);
+  throw new AhemError(msg);
 }
 main(process.argv.slice(2)).catch((err) => {
-  console.error(err instanceof SnapError ? `snap: ${err.message}` : err);
+  console.error(err instanceof AhemError ? `ahemui: ${err.message}` : err);
   process.exit(1);
 });

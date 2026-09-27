@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import type { Item, SnapStore } from "@snap/core";
+import type { Item, AhemStore } from "@ahemui/core";
 import { BOARD_JS } from "./board-assets.generated.js";
 import { gitBranch } from "./git.js";
 
@@ -11,7 +11,7 @@ interface Boot {
   branch?: string | null;
   generated?: string;
   items?: Item[];
-  /** Static mode: path from the HTML file to the .snap directory, for screenshot links. */
+  /** Static mode: path from the HTML file to the .ahemui directory, for screenshot links. */
   base?: string;
 }
 
@@ -28,11 +28,11 @@ export function boardHtml(boot: Boot): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Snap backlog${boot.project ? ` — ${escapeHtml(boot.project)}` : ""}</title>
+<title>AhemUI backlog${boot.project ? ` — ${escapeHtml(boot.project)}` : ""}</title>
 <link rel="icon" href="${ICON}">
 </head>
 <body>
-<script>window.__SNAP_BOARD__ = ${data};</script>
+<script>window.__AHEMUI_BOARD__ = ${data};</script>
 <script>${js}</script>
 </body>
 </html>
@@ -41,9 +41,9 @@ export function boardHtml(boot: Boot): string {
 
 /**
  * Writes a read-only snapshot of the backlog (including archived items). Screenshots are linked relative to the
- * file, so it works when opened straight from the repo. Default location: .snap/backlog.html (git-ignored).
+ * file, so it works when opened straight from the repo. Default location: .ahemui/backlog.html (git-ignored).
  */
-export async function exportBoard(store: SnapStore, out = join(store.dir, "backlog.html")): Promise<string> {
+export async function exportBoard(store: AhemStore, out = join(store.dir, "backlog.html")): Promise<string> {
   const file = resolve(out);
   const base = relative(dirname(file), store.dir).split("\\").join("/");
   const html = boardHtml({

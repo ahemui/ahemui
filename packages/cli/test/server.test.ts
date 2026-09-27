@@ -3,18 +3,18 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { after, before, test } from "node:test";
-import { SnapStore } from "@snap/core";
+import { AhemStore } from "@ahemui/core";
 import { WebSocket } from "ws";
 import { serve } from "../src/server.js";
 
 let root: string;
-let store: SnapStore;
+let store: AhemStore;
 let srv: Awaited<ReturnType<typeof serve>>;
 let base: string;
 
 before(async () => {
-  root = await mkdtemp(join(tmpdir(), "snap-srv-"));
-  store = await SnapStore.init(root, { devOrigins: ["http://localhost:5173"] });
+  root = await mkdtemp(join(tmpdir(), "ahemui-srv-"));
+  store = await AhemStore.init(root, { devOrigins: ["http://localhost:5173"] });
   srv = await serve(store, { port: 0, log: () => {} });
   base = `http://127.0.0.1:${srv.port}`;
 });
@@ -94,3 +94,8 @@ async function waitFor(cond: () => boolean, ms = 3000) {
     await new Promise((r) => setTimeout(r, 25));
   }
 }
+
+test("a taken port rejects cleanly instead of crashing the process", async () => {
+  // srv already holds its port; a second server on the same port must throw EADDRINUSE, not emit an unhandled error.
+  await assert.rejects(serve(store, { port: srv.port, log: () => {} }), /EADDRINUSE/);
+});

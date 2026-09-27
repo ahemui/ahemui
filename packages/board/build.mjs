@@ -1,5 +1,5 @@
-// Bundles the board page script and embeds it into the CLI as a string, so `snap serve` can serve the board and
-// `snap export` can write a self-contained .snap/backlog.html without shipping extra files.
+// Bundles the board page script and embeds it into the CLI as a string, so `ahemui serve` can serve the board and
+// `ahemui export` can write a self-contained .ahemui/backlog.html without shipping extra files.
 import { build } from "esbuild";
 import { writeFile } from "node:fs/promises";
 
