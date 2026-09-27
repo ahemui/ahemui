@@ -270,7 +270,7 @@ h1 { font-size: clamp(44px, 8vw, 92px); font-weight: 800; letter-spacing: -0.045
 .faq details { margin-inline: auto; }
 .snippet.config { margin-inline: auto; }
 .hero h1 { max-width: 19ch; text-wrap: balance; }
-.hero .lede { max-width: 60ch; text-wrap: balance; }
+.hero .lede { max-width: 50ch; text-wrap: balance; }
 
 /* tally / now or batch / team */
 .loop { padding-top: 40px; }
