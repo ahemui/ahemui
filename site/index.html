@@ -21,6 +21,7 @@
       <nav aria-label="Primary">
         <a href="#how">How it works</a>
         <a href="#features">Features</a>
+        <a href="#trackers">Trackers</a>
         <a href="#install">Install</a>
         <a class="gh" href="https://github.com/ahemui/ahemui" rel="noopener">GitHub ↗</a>
       </nav>
@@ -52,26 +53,26 @@
         <div class="browser">
           <div class="chrome">
             <span class="dots"><i></i><i></i><i></i></span>
-            <span class="url">localhost:5173/pricing</span>
+            <span class="url">localhost:5173/projects</span>
           </div>
           <div class="page" id="demo-page">
-            <div class="fake-nav"><b>acme</b><span>Home</span><span>Pricing</span><span>Docs</span></div>
-            <h3 class="fake-h">Pricing</h3>
+            <div class="fake-nav"><b>acme</b><span>Projects</span><span>Deployments</span><span>Settings</span></div>
+            <h3 class="fake-h">Projects</h3>
             <div class="cards">
-              <div class="card"><b>Hobby</b><p class="price">$0<small>/mo</small></p><span class="fbtn">Start free trial</span></div>
-              <div class="card featured"><b>Pro</b><p class="price">$24<small>/mo</small></p><span class="fbtn primary" id="demo-target">Start free trial</span></div>
-              <div class="card"><b>Team</b><p class="price">$79<small>/mo</small></p><span class="fbtn">Start free trial</span></div>
+              <div class="card"><b>Website</b><p class="meta"><i class="ok-dot"></i>Live · deployed 2h ago</p><span class="fbtn">Open</span></div>
+              <div class="card featured"><b>Mobile app</b><p class="meta"><i class="ok-dot"></i>Build passing · 3 commits ahead</p><span class="fbtn primary" id="demo-target">Deploy</span></div>
+              <div class="card"><b>API</b><p class="meta"><i class="warn-dot"></i>2 failing checks</p><span class="fbtn">Open</span></div>
             </div>
             <svg class="lasso" id="demo-lasso" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M50 8 C 82 6, 98 30, 96 52 C 94 78, 70 94, 46 92 C 20 90, 4 72, 5 48 C 6 24, 26 10, 52 9"/></svg>
             <div class="marker" id="demo-marker" aria-hidden="true">⚡</div>
             <div class="bubble" id="demo-bubble" aria-hidden="true">
-              <div class="where">src/components/PricingCard.vue:12:5 · PricingPage › PricingCard</div>
+              <div class="where">src/components/ProjectCard.vue:14:5 · ProjectsPage › ProjectCard</div>
               <div class="field"><span id="demo-typed"></span><i class="caret"></i></div>
               <div class="bubble-foot"><span>Enter start now · Ctrl+Enter backlog</span><span class="go">⚡ Start now</span></div>
             </div>
             <div class="pop" id="demo-pop" aria-hidden="true">
               <div class="pop-row"><span class="pill">ready for review</span></div>
-              <div class="ba"><figure><div class="mini before">Start free trial</div><figcaption>before</figcaption></figure><figure><div class="mini after">Start 14-day trial</div><figcaption>after</figcaption></figure></div>
+              <div class="ba"><figure><div class="mini before">Deploy</div><figcaption>before</figcaption></figure><figure><div class="mini after">Deploy to production</div><figcaption>after</figcaption></figure></div>
               <div class="pop-row"><span class="ok">Looks good ✓</span><span class="nq">Not quite…</span></div>
             </div>
             <div class="toast" id="demo-toast" aria-hidden="true"></div>
@@ -106,24 +107,24 @@
 <pre><code><span class="k">status</span>: open
 <span class="k">start</span>: now
 <span class="k">type</span>: layout
-<span class="k">route</span>: /pricing
+<span class="k">route</span>: /projects
 <span class="k">page</span>:
-  <span class="k">routeName</span>: pricing
-  <span class="k">pageComponent</span>: PricingPage
-  <span class="k">section</span>: Pro
+  <span class="k">routeName</span>: projects
+  <span class="k">pageComponent</span>: ProjectsPage
+  <span class="k">section</span>: Mobile app
 <span class="k">anchor</span>:
-  <span class="k">source</span>: <span class="s">src/components/PricingCard.vue:12:5</span>
-  <span class="k">components</span>: [App, PricingPage, PricingCard]
-  <span class="k">text</span>: <span class="s">Start free trial</span>
+  <span class="k">source</span>: <span class="s">src/components/ProjectCard.vue:14:5</span>
+  <span class="k">components</span>: [App, ProjectsPage, ProjectCard]
+  <span class="k">text</span>: <span class="s">Deploy</span>
 <span class="k">styles</span>:
   <span class="k">tokens</span>:
     <span class="k">background-color</span>: <span class="s">var(--brand-600)</span>
     <span class="k">padding</span>: <span class="s">9px var(--space-4)</span>
 <span class="k">evidence</span>:
-  <span class="k">network</span>: [GET /api/plans → 500]
+  <span class="k">network</span>: [GET /api/deployments → 500]
 <span class="k">shot</span>: shot.webp
 ---
-Make this full width and say "Start 14-day trial".</code></pre>
+Make this full width and say "Deploy to production".</code></pre>
         </div>
       </div>
     </section>
@@ -172,6 +173,58 @@ Make this full width and say "Start 14-day trial".</code></pre>
           <article><span class="ico">▤</span><h3>Triage</h3><p><code>/ahemui:triage</code> classifies by type, area and priority from the captured page context, and flags duplicates.</p></article>
           <article><span class="ico">✓</span><h3>Accessibility checks</h3><p>Pick <b>a11y</b> and the highlighted element is checked with axe-core; the violations travel with the request.</p></article>
         </div>
+      </div>
+    </section>
+
+    <!-- ——— trackers ——— -->
+    <section id="trackers" class="trackers">
+      <div class="wrap">
+        <h2>Already on Linear, Jira or Notion? Keep it.</h2>
+        <p class="sub">AhemUI doesn't replace your tracker. It's the inbox that fills it: every capture becomes a proper ticket through the MCP server you already use with Claude Code. There's no AhemUI integration to install and no API keys to hand over.</p>
+
+        <div class="flow" aria-label="From the browser to your tracker">
+          <div class="node"><span class="node-k">Browser</span><b>Circle &amp; say it</b><small>overlay or extension</small></div>
+          <span class="arrow" aria-hidden="true">→</span>
+          <div class="node"><span class="node-k">Repo</span><b>.ahemui/</b><small>anchors, screenshots, context</small></div>
+          <span class="arrow" aria-hidden="true">→</span>
+          <div class="node"><span class="node-k">Claude Code</span><b>/ahemui:sync</b><small>through your MCP server</small></div>
+          <span class="arrow" aria-hidden="true">→</span>
+          <div class="node trackers-list"><span class="node-k">Your tracker</span><b>Linear · Jira · Notion · GitHub Issues</b><small>or anything with an MCP server</small></div>
+        </div>
+
+        <div class="split tracker-split">
+          <ul class="ticks">
+            <li><b>Tickets that stand on their own</b>: page, section, element, source file, environment, errors and steps, plus the screenshot where your tracker's MCP can attach files</li>
+            <li><b>Linked both ways</b>: the item remembers its ticket key and the marker links to it; the ticket carries an <code>AhemUI-Item</code> back-reference</li>
+            <li><b>Status stays in sync</b>: closed in the tracker resolves the item; approved on the page moves the ticket to done or in review</li>
+            <li><b>Your team's conventions</b>: issue types, labels, target project and workflow states live in <code>.ahemui/config.json</code>, committed for everyone</li>
+            <li><b>Manual or automatic</b>: run <code>/ahemui:sync</code> when you like, or set <code>auto</code> and triage, work and watch keep tickets current as they go</li>
+          </ul>
+          <div class="ticket" aria-label="Example ticket created from an AhemUI capture">
+            <div class="ticket-head"><span class="key">ENG-142</span><span class="state">In review</span></div>
+            <h3>Make the deploy button full width</h3>
+            <div class="labels"><span>ahemui</span><span>layout</span><span>Projects › Mobile app</span></div>
+            <div class="ticket-body">
+              <p class="q">Make this full width and say "Deploy to production".</p>
+              <dl>
+                <dt>Page</dt><dd>Projects /projects › Mobile app</dd>
+                <dt>Element</dt><dd><code>src/components/ProjectCard.vue:14:5</code></dd>
+                <dt>Seen in</dt><dd>Chrome, 1440×900, dark mode</dd>
+                <dt>Screenshot</dt><dd>attached</dd>
+              </dl>
+              <p class="ref">AhemUI-Item: <code>01J9Z…</code></p>
+            </div>
+          </div>
+        </div>
+
+<pre class="snippet config"><code><span class="c">// .ahemui/config.json</span>
+<span class="k">"tracker"</span>: {
+  <span class="k">"kind"</span>: <span class="s">"linear"</span>,
+  <span class="k">"target"</span>: <span class="s">"Team ENG, project Web app"</span>,
+  <span class="k">"sync"</span>: <span class="s">"auto"</span>,
+  <span class="k">"labels"</span>: [<span class="s">"ahemui"</span>],
+  <span class="k">"instructions"</span>: <span class="s">"Bug for bugs, Task otherwise; move to In Review when done"</span>
+}</code></pre>
       </div>
     </section>
 

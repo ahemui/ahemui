@@ -28,7 +28,7 @@ const typed = $("demo-typed");
 const pop = $("demo-pop");
 const toast = $("demo-toast");
 const term = $("demo-term");
-const REQUEST = 'Make this full width and say "Start 14-day trial"';
+const REQUEST = 'Make this full width and say "Deploy to production"';
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -76,7 +76,7 @@ function showToast(text) {
 
 function reset() {
   target.classList.remove("fixed");
-  target.textContent = "Start free trial";
+  target.textContent = "Deploy";
   marker.className = "marker";
   lasso.classList.remove("draw");
   bubble.classList.remove("show");
@@ -90,13 +90,13 @@ function reset() {
 function finalState() {
   term.innerHTML = "";
   line('<span class="t-cmd">&gt; /ahemui:watch</span>');
-  line(`<span class="t-acc">START</span> 01J9Z /pricing: ${REQUEST}`);
-  line("Reading src/components/PricingCard.vue:12");
-  line("Editing PricingCard.vue  <span class=\"t-ok\">+3</span> <span class=\"t-warn\">−1</span>");
+  line(`<span class="t-acc">START</span> 01J9Z /projects: ${REQUEST}`);
+  line("Reading src/components/ProjectCard.vue:14");
+  line("Editing ProjectCard.vue  <span class=\"t-ok\">+3</span> <span class=\"t-warn\">−1</span>");
   line('<span class="t-ok">✓</span> ahemui_resolve → review');
   line('<span class="t-ok">✓</span> Approved by you');
   target.classList.add("fixed");
-  target.textContent = "Start 14-day trial";
+  target.textContent = "Deploy to production";
   place();
   setMarker("done", "✓");
 }
@@ -123,19 +123,19 @@ async function run() {
     setMarker("", "⚡");
     showToast("⚡ Claude is starting on it");
     await sleep(700);
-    line(`<span class="t-acc">START</span> 01J9Z /pricing: ${REQUEST}`);
+    line(`<span class="t-acc">START</span> 01J9Z /projects: ${REQUEST}`);
     await sleep(500);
     setMarker("doing", "◐");
-    line("Reading src/components/PricingCard.vue:12");
+    line("Reading src/components/ProjectCard.vue:14");
     await sleep(1100);
-    line("Editing PricingCard.vue  <span class=\"t-ok\">+3</span> <span class=\"t-warn\">−1</span>");
+    line("Editing ProjectCard.vue  <span class=\"t-ok\">+3</span> <span class=\"t-warn\">−1</span>");
     await sleep(700);
     target.classList.add("fixed");
-    target.textContent = "Start 14-day trial";
+    target.textContent = "Deploy to production";
     place();
     await sleep(600);
     line('<span class="t-ok">✓</span> ahemui_resolve → review');
-    line("Committed: ahemui: full-width featured CTA");
+    line("Committed: ahemui: full-width deploy button");
     setMarker("review", "◎");
     await sleep(600);
     place();
