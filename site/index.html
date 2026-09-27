@@ -71,9 +71,12 @@
               <div class="bubble-foot"><span>Enter start now · Ctrl+Enter backlog</span><span class="go">⚡ Start now</span></div>
             </div>
             <div class="pop" id="demo-pop" aria-hidden="true">
-              <div class="pop-row"><span class="pill">ready for review</span></div>
-              <div class="ba"><figure><div class="mini before">Deploy</div><figcaption>before</figcaption></figure><figure><div class="mini after">Deploy to production</div><figcaption>after</figcaption></figure></div>
-              <div class="pop-row"><span class="ok">Looks good ✓</span><span class="nq">Not quite…</span></div>
+              <div class="pop-head"><span class="pill">ready for review</span><span class="pop-id">01J9Z · ProjectCard.vue</span></div>
+              <div class="ba">
+                <figure><div class="shot"><i class="sk"></i><span class="shot-btn">Deploy</span></div><figcaption>Before</figcaption></figure>
+                <figure><div class="shot"><i class="sk"></i><span class="shot-btn wide">Deploy to production</span></div><figcaption>After</figcaption></figure>
+              </div>
+              <div class="pop-actions"><span class="ok">Looks good ✓</span><span class="nq">Not quite…</span></div>
             </div>
             <div class="toast" id="demo-toast" aria-hidden="true"></div>
           </div>
@@ -179,7 +182,7 @@ Make this full width and say "Deploy to production".</code></pre>
     <!-- ——— trackers ——— -->
     <section id="trackers" class="trackers">
       <div class="wrap">
-        <h2>Already on Linear, Jira or Notion? Keep it.</h2>
+        <h2>Already have a backlog? Keep it.</h2>
         <p class="sub">AhemUI doesn't replace your tracker. It's the inbox that fills it: every capture becomes a proper ticket through the MCP server you already use with Claude Code. There's no AhemUI integration to install and no API keys to hand over.</p>
 
         <div class="flow" aria-label="From the browser to your tracker">

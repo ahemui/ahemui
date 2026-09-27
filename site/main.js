@@ -51,7 +51,7 @@ function place() {
     left: `${Math.max(8, Math.min(t.x + t.w / 2 - bw / 2, pw - bw - 8))}px`,
     top: `${Math.min(t.y + t.h + pad + 10, ph - bh - 8)}px`,
   });
-  const popw = pop.offsetWidth || 230;
+  const popw = pop.offsetWidth || 252;
   const right = t.x + t.w + 16;
   Object.assign(pop.style, {
     left: `${right + popw < pw ? right : Math.max(8, t.x - popw - 16)}px`,
