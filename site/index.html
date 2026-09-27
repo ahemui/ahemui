@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AhemUI: point at your UI, Claude Code fixes it</title>
-  <meta name="description" content="Circle anything in your running app, say what's off, hit Enter. Claude Code gets the file, line, screenshot and context, and hands the fix back for your review. Open source.">
+  <meta name="description" content="Circle anything in your running app and say what's off. Claude Code fixes it now or works through the batch later, and the queue lives in your repo so the whole team shares it. Open source.">
   <meta property="og:title" content="AhemUI: point at your UI, Claude Code fixes it">
   <meta property="og:description" content="A visual feedback queue for Claude Code. Circle it, say it, review the fix.">
   <meta property="og:type" content="website">
@@ -32,11 +32,11 @@
     <!-- ——— hero ——— -->
     <section class="hero">
       <div class="wrap">
-        <p class="eyebrow">Open source · Claude Code plugin · Browser overlay</p>
+        <p class="eyebrow">Open source · A UI feedback queue for Claude Code</p>
         <h1><span class="ahem">Ahem.</span> That button’s wrong.</h1>
         <p class="lede">
-          Circle anything in your running app, say what's off, hit <kbd>Enter</kbd>.
-          Claude Code gets the file and line, the screenshot and the context, and hands the fix back for your review.
+          Circle anything in your running app and say what's off. Hit <kbd>Enter</kbd> and Claude Code fixes it now,
+          or stack them up and let it clear the batch. Every note is tallied in your repo, so the whole team works one queue.
         </p>
         <div class="cta">
           <a class="btn primary" href="#install">Install the plugin</a>
@@ -84,6 +84,47 @@
         <div class="term" aria-hidden="true">
           <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">claude · acme-web</span></div>
           <pre id="demo-term"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ——— tally / now or batch / team ——— -->
+    <section id="loop" class="loop">
+      <div class="wrap">
+        <h2>Every nitpick counted. Fixed now, or all at once.</h2>
+        <p class="sub">AhemUI keeps a running tally of everything anyone flags, right on the page and in your repo. Send one to Claude this second, or pile them up and let Claude work the whole list.</p>
+        <div class="trio">
+          <article>
+            <h3>Nothing gets lost</h3>
+            <p>Every note stays pinned to the element it's about, with its status, until someone approves the fix. No more feedback buried in chat scroll.</p>
+            <div class="vis tally" aria-hidden="true">
+              <div class="tally-head"><span>/checkout</span><span>5 items</span></div>
+              <div class="row"><i class="dot open"></i>Price wraps on mobile<em>backlog</em></div>
+              <div class="row"><i class="dot open"></i>Coupon field too narrow<em>backlog</em></div>
+              <div class="row"><i class="dot doing"></i>Pay button full width<em>in progress</em></div>
+              <div class="row"><i class="dot review"></i>Error copy is vague<em>review</em></div>
+              <div class="row"><i class="dot done"></i>Totals misaligned<em>done</em></div>
+            </div>
+          </article>
+          <article>
+            <h3>Now, or as a batch</h3>
+            <p><kbd>Enter</kbd> hands it straight to a watching Claude session. <kbd>Ctrl</kbd>+<kbd>Enter</kbd> parks it in the backlog, and one command clears the lot.</p>
+            <div class="vis modes" aria-hidden="true">
+              <div class="mode"><span class="key">Enter</span><span class="arrow">→</span><span><b>⚡ Start now</b><small>Claude picks it up in seconds</small></span></div>
+              <div class="mode"><span class="key">Ctrl+Enter</span><span class="arrow">→</span><span><b>Backlog</b><small>collect a dozen while you click around</small></span></div>
+              <div class="mode cmd"><code>&gt; /ahemui:work</code><small>works through the batch, page by page</small></div>
+            </div>
+          </article>
+          <article>
+            <h3>Shared by the whole team</h3>
+            <p>The queue is plain files in <code>.ahemui/</code>, committed with your code. Designers and PMs flag, anyone's Claude picks it up, and git keeps the history.</p>
+            <div class="vis team" aria-hidden="true">
+              <div class="commit"><i class="av a">A</i><span><b>Anna</b> flagged 4 on <code>/checkout</code></span></div>
+              <div class="commit"><i class="av m">M</i><span><b>Mikko</b> pushed <code>feedback/checkout</code></span></div>
+              <div class="commit"><i class="av y">Y</i><span><b>You</b> pulled it: <code>/ahemui:work</code></span></div>
+              <div class="commit"><i class="av c">✓</i><span>4 fixed, 4 approved, all in git</span></div>
+            </div>
+          </article>
         </div>
       </div>
     </section>
