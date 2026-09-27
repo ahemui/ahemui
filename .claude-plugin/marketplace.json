@@ -1,0 +1,16 @@
+{
+  "name": "snap",
+  "owner": {
+    "name": "Pietari Keurulainen"
+  },
+  "plugins": [
+    {
+      "name": "snap",
+      "source": "./packages/claude-plugin",
+      "description": "Visual UI feedback backlog for Claude Code (Vue + Vite)."
+    }
+  ],
+  "metadata": {
+    "description": "Snap: visual UI feedback backlog for Claude Code"
+  }
+}

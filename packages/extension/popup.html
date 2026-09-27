@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Snap</title>
+    <style>
+      :root {
+        --bg: #16181d; --bg2: #22252c; --fg: #f3f4f6; --muted: #9ca3af; --line: #343842; --accent: #7c5cff; --ok: #16a34a;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; width: 340px; background: var(--bg); color: var(--fg); font: 13px/1.4 system-ui, "Segoe UI", sans-serif; }
+      header { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+      header img { width: 20px; height: 20px; }
+      header b { font-size: 14px; }
+      header .site { margin-left: auto; color: var(--muted); font-size: 11px; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      section { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+      section:last-child { border-bottom: 0; }
+      h2 { margin: 0 0 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+      label.opt { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; margin: 0 -8px; border-radius: 6px; cursor: pointer; }
+      label.opt:hover { background: var(--bg2); }
+      label.opt input { margin-top: 3px; accent-color: var(--accent); }
+      .name { font-weight: 600; }
+      .sub { color: var(--muted); font-size: 11px; word-break: break-all; }
+      .muted { color: var(--muted); }
+      code { font: 11px ui-monospace, Consolas, monospace; background: var(--bg2); padding: 1px 4px; border-radius: 4px; }
+      .switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      .switch input { width: 34px; height: 18px; accent-color: var(--accent); }
+      button.primary { width: 100%; padding: 8px; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+      button.primary:disabled { opacity: .45; cursor: default; }
+      .status { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--muted); font-size: 11px; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; flex: none; }
+      .dot.ok { background: var(--ok); }
+      .warn { color: #f59e0b; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header><img src="icons/32.png" alt="" /><b>Snap</b><span class="site" id="site"></span></header>
+    <main id="app"><section class="muted">Loading…</section></main>
+    <script src="popup.js"></script>
+  </body>
+</html>

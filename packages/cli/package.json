@@ -1,0 +1,16 @@
+{
+  "name": "@snap/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@snap/core": "0.1.0",
+    "ws": "^8.22.0"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    }
+  }
+}

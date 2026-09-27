@@ -1,0 +1,15 @@
+{
+  "name": "@snap/overlay",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./overlay-inject.js": "./dist/overlay-inject.js"
+  },
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "^4.13.0",
+    "modern-screenshot": "^4.7.0"
+  }
+}

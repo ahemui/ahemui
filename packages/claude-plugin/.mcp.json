@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "snap": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/snap-mcp.mjs"]
+    }
+  }
+}

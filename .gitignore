@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tsbuildinfo
+examples/*/.snap/items/*
+examples/*/.snap/done/*
+!examples/*/.snap/**/.gitkeep
+packages/cli/src/board-assets.generated.ts
+build-id.json

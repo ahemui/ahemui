@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vue-example",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "snap-example-vue", "--", "--port", "5180", "--strictPort"],
+      "port": 5180
+    }
+  ]
+}

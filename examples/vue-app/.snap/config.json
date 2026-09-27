@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "port": 4777,
+  "devOrigins": [
+    "http://localhost:5173"
+  ],
+  "screenshot": {
+    "format": "webp",
+    "maxBytes": 300000
+  }
+}

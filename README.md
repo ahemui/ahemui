@@ -1,0 +1,274 @@
+# Snap
+
+Highlight parts of your running web app, type what should change, and let Claude Code work through the backlog.
+Markers on the page follow each request from **queued** (amber) → **in progress** (blue) → **ready for your review**
+(purple ◎) → **approved** (green ✓). A **?** means Claude asked you something, and you can answer right in the page.
+
+The backlog is plain files in your repo (`.snap/`), so it travels with git: capture a batch of feedback, commit it
+to a branch, and someone else (or another Claude session) can pick it up.
+
+Built for **Vue + Vite** (exact template file:line). React ≤18 and Svelte dev builds give file:line too, and React 19
+gives component names only. Any stack gets screenshots, CSS paths, page metadata, errors and styles. Storybook stories
+map to their story file.
+
+```
+ browser page ──(overlay: select / draw / type)──► snap serve ──► .snap/items/<id>/{item.md, shot.webp}
+      ▲                                                  │                         ▲
+      └──────────── live marker updates (WebSocket) ◄────┘ watches files           │
+                                                                     Claude Code (snap MCP tools)
+                                                                     git checkout / pull
+```
+
+## Packages
+
+| Path | What |
+|---|---|
+| `packages/core` | Item schema and file store (`.snap/items`, `.snap/done`) |
+| `packages/cli` | `snap` CLI and `snap serve` (HTTP + WebSocket, file watcher) |
+| `packages/overlay` | In-page UI: selection, freehand, prompt bubble, markers, backlog panel |
+| `packages/vite` | `@snap/vite`: Vue source attributes + in-process `snap serve` + overlay injection. Bundled, with the CLI, into one dependency-free package |
+| `packages/extension` | MV3 extension for Chromium/Vivaldi: project picker, works on deployed sites, real tab screenshots, Alt+Shift+S |
+| `packages/board` | The backlog board page (live at the server's address, or the `.snap/backlog.html` snapshot) |
+| `packages/claude-plugin` | Claude Code plugin: MCP server (`snap_*` tools) + skills `/snap:setup`, `/snap:watch`, `/snap:board`, `/snap:triage`, `/snap:work`, `/snap:sync`, `/snap:status`, `/snap:handoff`, `/snap:archive` |
+| `examples/vue-app` | Small Vue app wired up for trying it out |
+
+## Getting started
+
+```bash
+npm install
+npm run build
+```
+
+**1. Install the Claude Code plugin** (from any Claude Code session):
+
+```
+/plugin marketplace add C:\dev\snap
+/plugin install snap@snap
+```
+
+**2. Set up a project.** Open your Vue + Vite repo in Claude Code and run `/snap:setup`. It:
+
+- creates `.snap/`
+- vendors `@snap/vite` into `.snap/vendor/snap-vite.tgz` and installs it (so teammates get it via `npm install`)
+- adds `snap()` after `vue()` in your Vite config
+
+Or by hand:
+
+```js
+// vite.config.js
+import vue from "@vitejs/plugin-vue";
+import snap from "@snap/vite";
+export default { plugins: [vue(), snap()] };
+```
+
+**3. Capture.** Restart `vite dev`. A **✎ Snap** pill appears bottom-right.
+
+- **Alt+Shift+S** (or click ✎ Snap) → capture mode
+- **drag** a rectangle, **click** an element, or **Shift+drag** to draw around something
+- type the change, optionally tap a type chip (bug, style, layout, copy, feature, a11y), then either:
+  - **⚡ Start now** (Enter): a watching Claude session starts on it right away. While Claude is busy with another item
+    the button reads **Add to queue**, and the item goes next in line.
+  - **Backlog** (Ctrl/⌘+Enter): save it for later. It waits until someone runs `/snap:work`.
+  You stay in capture mode for the next one; **Esc** exits.
+- bubble tools: **+ Area** (the change also applies there), **+ Like this** (an example to match), **▮ Hide** (drag
+  on the thumbnail to black something out), **🔗** a design link (Figma…), **🎤** dictation
+- click a marker for details and the thread; click the counts for the whole backlog, grouped by page
+
+**What a capture includes**, so Claude doesn't have to guess:
+- **Source:** file:line and the component chain.
+- **Page:** route name and pattern, page component, section heading, landmark, environment.
+- **Styles:** computed styles, plus the **design tokens** (CSS variables) and classes behind them.
+- **State:** the component's props and state, with sensitive keys masked.
+- **Errors and steps:** recent console errors and failed requests, and the last clicks and keys before the capture.
+  Field values are never recorded.
+- **Accessibility:** axe-core results for `a11y` items.
+
+**Privacy:** password fields and anything marked `data-private` (or `.snap-private`) are blacked out in screenshots, and
+their text is never sent. On deployed sites, all form fields, emails and long numbers are masked, and URL query strings are dropped.
+
+**Review:** when Claude finishes, the item goes to **review**:
+- The overlay photographs the same spot once the change has hot-reloaded, then shows you **before/after**.
+- **Looks good ✓** approves it.
+- **Not quite…** sends it back with your comment, and Claude sees the comment next time.
+- Claude's questions show up as a **?** marker with a reply box, and as a desktop notification.
+- To skip review, set `"review": false` in `.snap/config.json`.
+
+**Start now needs a listening session.** Run `/snap:watch` in Claude Code:
+- **Waiting:** it waits in a background command (`snap wait`), so you can keep chatting. The toolbar pill shows **Claude watching**.
+- **Working:** when you press ⚡ Start now, Claude is woken up, works the item, commits it and goes back to waiting.
+  The pill shows **Claude working** in the meantime.
+- **Stop:** `/snap:watch stop`.
+
+If nobody is watching, the item is still saved, marked ⚡, and goes first in the next `/snap:work`.
+
+**See the whole backlog.** No tracker needed:
+- **Live board** at the Snap server's address, `http://127.0.0.1:4777/` by default. Also reachable through the
+  **Open full board ↗** link in the overlay's panel, `npx snap board`, or `/snap:board`.
+  - Columns for ⚡ Queue, Backlog, In progress, Needs you (review and questions) and Done.
+  - Search, a type filter, and grouping by page or area.
+  - A detail panel with screenshots, before/after, the thread and all captured context.
+  - Actions: start, move to backlog, approve, send back, reply, reopen, and edit the classification.
+  - Live updates; `#<id>` links open an item directly.
+- **`.snap/backlog.html`**: a read-only snapshot that opens straight from disk. The server keeps it current, and it's
+  git-ignored. `npx snap export --out somewhere.html` writes one to share.
+
+**4. Triage (optional).** `/snap:triage` classifies each item by type, area (`Page › Section`), priority and labels.
+It uses the page metadata captured with it (route name, page component, section heading, landmark, environment),
+and it flags duplicates.
+
+**5. Work it.** In Claude Code: `/snap:work`, or a slice of it: `/snap:work area:Pricing`, `type:copy`, `label:mobile`,
+`route:/pricing`. It goes high priority first, then page by page. For each item, Claude claims it (marker turns blue), reads the
+screenshot and captured context, makes the change, hands it to you for review (◎), and commits the code together with the
+item's status (`Snap-Item: <id>` trailer).
+
+**Using Jira, Linear, Notion or GitHub Issues?** Snap works alongside them. `.snap/` stays the capture inbox and
+source of truth (anchors, screenshots, page metadata), and Claude mirrors items into your tracker through the MCP
+server you already have connected. Snap doesn't reimplement any tracker API.
+
+- `/snap:sync` sets the tracker up on first use: tracker, target team/project/database, `manual` or `auto`, and conventions.
+  They're stored in `.snap/config.json` → `tracker`, so the whole team shares them.
+- Each run creates tickets for unlinked items (description with page, element, source, environment and screenshot
+  path, plus the screenshot attached where the MCP supports it) and reconciles status both ways.
+- With `sync: auto`, `/snap:triage`, `/snap:work` and `/snap:watch` also create tickets, move them to in progress,
+  and comment and close them as they go.
+- The item records its ticket (`external: {tracker, key, url, status}`), and the browser popover links to it.
+
+**6. Hand off / finish.**
+
+- `/snap:handoff <name>` commits the open backlog to `snap/<name>`. The receiver runs `git switch snap/<name>`, then `npm install`, then `/snap:work`.
+- `/snap:handoff <name> --pr` also pushes and opens a draft PR. Only when you ask; local is the default.
+- `/snap:archive` moves done items to `.snap/done/`. Run it before merging. To keep the repo small it can drop
+  screenshots from old archived items (`snap prune --drop-shots 30`), or you can track them with Git LFS (`snap_init` with `lfs: true`).
+
+### Updating Snap
+
+In a project, run `/snap:update` in Claude Code. It updates the plugin to the newest build, installs it into the project
+(`.snap/vendor/` plus the app's package, with npm, pnpm, yarn or bun) and tells you what to restart. The CLI half on
+its own is `node <plugin>/bin/snap.mjs update`.
+
+Working on Snap itself: every `npm run build` stamps a new build id into all bundles and into the plugin version, so
+updates are always picked up. If the overlay, extension and server builds differ, the Snap toolbar dot turns amber and
+says what to reload.
+
+### Removing Snap
+
+- **Empty the backlog, keep Snap:** `npx snap clear`. It lists what it would delete; add `--yes` to delete, and
+  `--archive` to include `.snap/done/`.
+- **Remove it from the project:** `/snap:remove` in Claude Code. It shows what will go, asks first, then removes
+  `snap()` from the Vite config, uninstalls `@snap/vite` and deletes `.snap/`. The Claude Code plugin and the extension
+  are per user, so they stay unless you uninstall them too.
+
+### Browser extension (optional, and needed for deployed sites)
+
+`chrome://extensions` (or `vivaldi://extensions`) → Developer mode → **Load unpacked** → `packages/extension/dist`.
+
+Click the Snap toolbar icon to open the popup:
+
+- **Send feedback from this site to…** lists every running Snap project (repo name, git branch, port). Pick one, and
+  it's remembered per site. Local dev sites pick automatically when a project's `devOrigins` lists them.
+- **Enable Snap on <host>** turns Snap on for a deployed dev, staging or prod site. Localhost, `*.localhost` and
+  `*.test` are always on.
+
+A project only shows up while its server is running: `vite dev` with the plugin, or `npx snap serve` in the repo.
+The extension looks on ports 4777–4786.
+
+Items captured on a deployed site record where they came from and only show markers on that site. They usually
+have no file:line, because production builds carry no Snap attributes, so `/snap:work` finds the code from the
+element text, CSS path and screenshot instead.
+
+How it stays safe on sites you don't control: the extension's overlay runs in Chrome's isolated content-script
+world, and all traffic to `snap serve` goes through the extension's service worker. Scripts on the page can't read
+your backlog, reach your local server, or fake captures. A tiny main-world helper only reports Vue component names.
+
+On local dev with both the extension and the Vite plugin, the extension's overlay takes over, which gives real tab
+screenshots instead of re-rendering the DOM.
+
+## Item format
+
+```
+.snap/
+  config.json            # port, devOrigins, screenshot limits
+  items/<ULID>/item.md   # active backlog (incl. done items until archived)
+  items/<ULID>/shot.webp
+  done/<ULID>/…          # archive
+  vendor/snap-vite.tgz
+```
+
+```markdown
+---
+id: 01M3G7TSH3XZY8F443FDH2KNS0
+status: open                 # open | in-progress | done | wontfix
+type: copy                   # classification: type, priority, area, labels
+area: Pricing › Plan cards
+author: Pietari Keurulainen
+route: /pricing
+viewport: 1280x720
+page:                        # captured automatically
+  heading: Pricing
+  routeName: pricing         # Vue Router (prod builds too)
+  routePattern: /pricing
+  routeMeta: { title: Pricing, section: marketing }
+  pageComponent: PricingPage
+  pageFile: src/components/PricingPage.vue
+  section: Team              # nearest heading above the element
+  landmark: main
+  env: local                 # or deployed
+  browser: Chromium 152
+  colorScheme: dark
+anchor:
+  source: src/components/PricingCard.vue:12:5
+  components: [App, PricingPage, PricingCard]
+  selector: "#app > main > section > div > article:nth-of-type(2) > button"
+  text: Start free trial
+elements: [...]              # everything inside the highlight
+shot: shot.webp
+claimed_by: null
+resolved_by: null
+external:                    # when mirrored to a tracker
+  tracker: linear
+  key: ENG-123
+  url: https://linear.app/acme/issue/ENG-123
+---
+
+Make this CTA full width on the featured card
+```
+
+One folder per item, so parallel work on a branch rarely conflicts. Markers find their element again by source
+location, then CSS path, then text, so they survive HMR and small refactors.
+
+## CLI
+
+```
+snap init [--origin <url>]... [--port <n>]
+snap serve [--port <n>]
+snap list [--status <s>]... [--all] [--json]
+snap show <id> | add --prompt … | claim <id> | resolve <id> [--wontfix] [--note …]
+snap triage <id> [--type t] [--priority p] [--area a] [--label l]...
+snap list [--route p] [--type t] [--label l] [--area a] [--untriaged]
+snap board [--no-open] | export [--out file]
+snap wait [--timeout s]   # used by /snap:watch; exits when ⚡ Start now items arrive
+snap reply <id> <text> | approve <id> | changes <id> --note <text>
+snap clear [--archive] [--yes]   # empty the backlog, keep the setup
+snap prune [--drop-shots <days>]
+snap reopen <id> | note <id> <text> | prune | unwatch
+```
+
+In a project with `@snap/vite` installed: `npx snap …`.
+
+## Security
+
+`snap serve` binds to 127.0.0.1 only. Requests carrying an `Origin` header are accepted only from
+`chrome-extension://` pages and the configured `devOrigins`, which blocks random websites and DNS rebinding.
+Only local non-browser tools (the Vite plugin) can add origins at runtime.
+
+## Development
+
+```bash
+npm run build       # everything, incl. extension and plugin bundles
+npm run typecheck
+npm test            # core, server and MCP (stdio) tests
+npm run dev -w snap-example-vue
+```
+
+`packages/claude-plugin/server/` and `vendor/` are build outputs. Commit them if others will install the plugin
+from a git URL rather than a local path.
