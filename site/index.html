@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AhemUI: point at your UI, Claude Code fixes it</title>
+  <meta name="description" content="Circle anything in your running app, say what's off, hit Enter. Claude Code gets the file, line, screenshot and context, and hands the fix back for your review. Open source.">
+  <meta property="og:title" content="AhemUI: point at your UI, Claude Code fixes it">
+  <meta property="og:description" content="A visual feedback queue for Claude Code. Circle it, say it, review the fix.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#0c0d11">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="#" aria-label="AhemUI home"><img src="favicon.svg" alt="" width="22" height="22"><span>ahem<b>ui</b></span></a>
+      <nav aria-label="Primary">
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a class="gh" href="https://github.com/ahemui/ahemui" rel="noopener">GitHub ↗</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ——— hero ——— -->
+    <section class="hero">
+      <div class="wrap">
+        <p class="eyebrow">Open source · Claude Code plugin · Browser overlay</p>
+        <h1><span class="ahem">Ahem.</span> That button’s wrong.</h1>
+        <p class="lede">
+          Circle anything in your running app, say what's off, hit <kbd>Enter</kbd>.
+          Claude Code gets the file and line, the screenshot and the context, and hands the fix back for your review.
+        </p>
+        <div class="cta">
+          <a class="btn primary" href="#install">Install the plugin</a>
+          <a class="btn" href="https://github.com/ahemui/ahemui" rel="noopener">View on GitHub</a>
+        </div>
+        <div class="copyline" data-copy="/plugin marketplace add ahemui/ahemui">
+          <code><span class="prompt">&gt;</span> /plugin marketplace add ahemui/ahemui</code>
+          <button type="button" aria-label="Copy command">Copy</button>
+        </div>
+      </div>
+
+      <!-- animated demo -->
+      <div class="wrap demo" aria-label="Animated demo: circling a button, Claude fixing it, approving the result">
+        <div class="browser">
+          <div class="chrome">
+            <span class="dots"><i></i><i></i><i></i></span>
+            <span class="url">localhost:5173/pricing</span>
+          </div>
+          <div class="page" id="demo-page">
+            <div class="fake-nav"><b>acme</b><span>Home</span><span>Pricing</span><span>Docs</span></div>
+            <h3 class="fake-h">Pricing</h3>
+            <div class="cards">
+              <div class="card"><b>Hobby</b><p class="price">$0<small>/mo</small></p><span class="fbtn">Start free trial</span></div>
+              <div class="card featured"><b>Pro</b><p class="price">$24<small>/mo</small></p><span class="fbtn primary" id="demo-target">Start free trial</span></div>
+              <div class="card"><b>Team</b><p class="price">$79<small>/mo</small></p><span class="fbtn">Start free trial</span></div>
+            </div>
+            <svg class="lasso" id="demo-lasso" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path d="M50 8 C 82 6, 98 30, 96 52 C 94 78, 70 94, 46 92 C 20 90, 4 72, 5 48 C 6 24, 26 10, 52 9"/></svg>
+            <div class="marker" id="demo-marker" aria-hidden="true">⚡</div>
+            <div class="bubble" id="demo-bubble" aria-hidden="true">
+              <div class="where">src/components/PricingCard.vue:12:5 · PricingPage › PricingCard</div>
+              <div class="field"><span id="demo-typed"></span><i class="caret"></i></div>
+              <div class="bubble-foot"><span>Enter start now · Ctrl+Enter backlog</span><span class="go">⚡ Start now</span></div>
+            </div>
+            <div class="pop" id="demo-pop" aria-hidden="true">
+              <div class="pop-row"><span class="pill">ready for review</span></div>
+              <div class="ba"><figure><div class="mini before">Start free trial</div><figcaption>before</figcaption></figure><figure><div class="mini after">Start 14-day trial</div><figcaption>after</figcaption></figure></div>
+              <div class="pop-row"><span class="ok">Looks good ✓</span><span class="nq">Not quite…</span></div>
+            </div>
+            <div class="toast" id="demo-toast" aria-hidden="true"></div>
+          </div>
+        </div>
+        <div class="term" aria-hidden="true">
+          <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">claude · acme-web</span></div>
+          <pre id="demo-term"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ——— what claude gets ——— -->
+    <section class="receipts">
+      <div class="wrap split">
+        <div>
+          <h2>Feedback with receipts.</h2>
+          <p>
+            A screenshot tells Claude what you saw. AhemUI also tells it <em>where it lives</em>.
+            Every capture lands in your repo as a plain Markdown file with everything needed to find and fix it.
+          </p>
+          <ul class="ticks">
+            <li><b>Exact source</b>: the file, line and component chain (Vue out of the box; React ≤18 and Svelte in dev builds)</li>
+            <li><b>Page context</b>: the route, page component, section heading and environment</li>
+            <li><b>Evidence</b>: console errors, failed requests, component props and state, and the clicks that led there</li>
+            <li><b>Design tokens</b>: the CSS variables and classes behind the element, so fixes stay on-system</li>
+            <li><b>Private by default</b>: passwords and anything marked private are blacked out before anything leaves the page</li>
+          </ul>
+        </div>
+        <div class="file">
+          <div class="file-head">.ahemui/items/01J9Z…/item.md</div>
+<pre><code><span class="k">status</span>: open
+<span class="k">start</span>: now
+<span class="k">type</span>: layout
+<span class="k">route</span>: /pricing
+<span class="k">page</span>:
+  <span class="k">routeName</span>: pricing
+  <span class="k">pageComponent</span>: PricingPage
+  <span class="k">section</span>: Pro
+<span class="k">anchor</span>:
+  <span class="k">source</span>: <span class="s">src/components/PricingCard.vue:12:5</span>
+  <span class="k">components</span>: [App, PricingPage, PricingCard]
+  <span class="k">text</span>: <span class="s">Start free trial</span>
+<span class="k">styles</span>:
+  <span class="k">tokens</span>:
+    <span class="k">background-color</span>: <span class="s">var(--brand-600)</span>
+    <span class="k">padding</span>: <span class="s">9px var(--space-4)</span>
+<span class="k">evidence</span>:
+  <span class="k">network</span>: [GET /api/plans → 500]
+<span class="k">shot</span>: shot.webp
+---
+Make this full width and say "Start 14-day trial".</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ——— how it works ——— -->
+    <section id="how" class="how">
+      <div class="wrap">
+        <h2>Point. Say. Ship. Approve.</h2>
+        <ol class="steps">
+          <li>
+            <span class="n">1</span>
+            <h3>Point at it</h3>
+            <p>Press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>. Drag a box, click an element, or <kbd>Shift</kbd>-drag to lasso anything. Add more areas, or a "make it like this" example.</p>
+          </li>
+          <li>
+            <span class="n">2</span>
+            <h3>Say what's off</h3>
+            <p>Type or dictate. <kbd>Enter</kbd> starts it now; <kbd>Ctrl</kbd>+<kbd>Enter</kbd> saves it to the backlog for later.</p>
+          </li>
+          <li>
+            <span class="n">3</span>
+            <h3>Claude ships it</h3>
+            <p><code>/ahemui:watch</code> picks up the request right away, edits the code and commits it, while you keep working. The marker turns blue while it works.</p>
+          </li>
+          <li>
+            <span class="n">4</span>
+            <h3>You approve</h3>
+            <p>See the before and after right on the page. <b>Looks good ✓</b> closes it; <b>Not quite…</b> sends it back with your note.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ——— features ——— -->
+    <section id="features" class="features">
+      <div class="wrap">
+        <h2>Not another annotator.</h2>
+        <p class="sub">Clicking an element to produce a prompt is table stakes. AhemUI is the loop around it: a queue, a reviewer and a paper trail.</p>
+        <div class="grid">
+          <article><span class="ico">⚡</span><h3>Queue &amp; backlog</h3><p>Start-now items go straight to a watching Claude session; backlog items wait for <code>/ahemui:work</code>. Work items page by page, or by area, type or label.</p></article>
+          <article><span class="ico">◎</span><h3>Review loop</h3><p>Automatic after-shots, a before/after on the marker, one-click approve or send back. Claude can ask you questions, and you answer on the page.</p></article>
+          <article><span class="ico">⎇</span><h3>Lives in your repo</h3><p>Items are Markdown in <code>.ahemui/</code>, committed with the fix. Hand a backlog to a teammate on a branch; the history stays in git.</p></article>
+          <article><span class="ico">▦</span><h3>Live board</h3><p>Queue, backlog, in progress, needs you, done. Search, filters, screenshots and actions, plus a snapshot <code>backlog.html</code> you can open from disk.</p></article>
+          <article><span class="ico">⌁</span><h3>Staging &amp; prod too</h3><p>The browser extension works on deployed sites. Form fields, emails and long numbers are masked before capture.</p></article>
+          <article><span class="ico">⇄</span><h3>Your tracker, if you want</h3><p>Mirror items to Linear, Jira, Notion or GitHub Issues through the MCP servers you already use. The repo stays the source of truth.</p></article>
+          <article><span class="ico">▤</span><h3>Triage</h3><p><code>/ahemui:triage</code> classifies by type, area and priority from the captured page context, and flags duplicates.</p></article>
+          <article><span class="ico">✓</span><h3>Accessibility checks</h3><p>Pick <b>a11y</b> and the highlighted element is checked with axe-core; the violations travel with the request.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ——— commands ——— -->
+    <section class="commands">
+      <div class="wrap">
+        <h2>Eleven commands. You'll use two.</h2>
+        <div class="cmds">
+          <span class="hot"><code>/ahemui:watch</code> work Start-now items as they arrive</span>
+          <span class="hot"><code>/ahemui:work</code> work through the backlog</span>
+          <span><code>/ahemui:setup</code></span>
+          <span><code>/ahemui:triage</code></span>
+          <span><code>/ahemui:board</code></span>
+          <span><code>/ahemui:status</code></span>
+          <span><code>/ahemui:sync</code></span>
+          <span><code>/ahemui:handoff</code></span>
+          <span><code>/ahemui:archive</code></span>
+          <span><code>/ahemui:update</code></span>
+          <span><code>/ahemui:remove</code></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ——— install ——— -->
+    <section id="install" class="install">
+      <div class="wrap">
+        <h2>Running in two minutes.</h2>
+        <ol class="install-steps">
+          <li>
+            <h3>Add the plugin to Claude Code</h3>
+            <div class="copyline" data-copy="/plugin marketplace add ahemui/ahemui"><code><span class="prompt">&gt;</span> /plugin marketplace add ahemui/ahemui</code><button type="button" aria-label="Copy command">Copy</button></div>
+            <div class="copyline" data-copy="/plugin install ahemui@ahemui"><code><span class="prompt">&gt;</span> /plugin install ahemui@ahemui</code><button type="button" aria-label="Copy command">Copy</button></div>
+          </li>
+          <li>
+            <h3>Set up your project</h3>
+            <p>In a new Claude Code session at your repo root:</p>
+            <div class="copyline" data-copy="/ahemui:setup"><code><span class="prompt">&gt;</span> /ahemui:setup</code><button type="button" aria-label="Copy command">Copy</button></div>
+            <p class="small">It creates <code>.ahemui/</code>, installs the package and adds one line to your Vite config:</p>
+<pre class="snippet"><code><span class="k">import</span> ahemui <span class="k">from</span> <span class="s">"ahemui"</span>
+<span class="k">export default</span> { plugins: [vue(), ahemui()] }</code></pre>
+          </li>
+          <li>
+            <h3>Restart your dev server and press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></h3>
+            <p>Then run <code>/ahemui:watch</code> and press Enter on your first request.</p>
+          </li>
+        </ol>
+        <p class="aside">Want to capture on staging or prod? Add the browser extension (Chrome, Edge, Brave, Vivaldi) and flip "Enable on this site".</p>
+      </div>
+    </section>
+
+    <!-- ——— faq ——— -->
+    <section class="faq">
+      <div class="wrap">
+        <h2>Questions, answered.</h2>
+        <details><summary>Does my code or data go anywhere?</summary><p>No. The AhemUI server runs on <code>127.0.0.1</code> inside your dev server, the backlog lives in your repo, and Claude Code works on your machine as usual. There's no AhemUI cloud involved.</p></details>
+        <details><summary>Which frameworks does it support?</summary><p>Vue + Vite is first-class (exact template file and line). React ≤18 and Svelte give file and line from their dev builds; React 19 gives component names only. Screenshots, selectors, page context, errors and styles work with any framework.</p></details>
+        <details><summary>Which browsers?</summary><p>The overlay injected by the Vite plugin works in any modern browser, including Claude's built-in one. The extension targets Chromium browsers.</p></details>
+        <details><summary>Is it free?</summary><p>Yes. The plugin, overlay, extension and CLI are open source under MIT. A hosted hub for teams is on the roadmap.</p></details>
+        <details><summary>What if I already track work in Linear or Jira?</summary><p>Keep it. <code>/ahemui:sync</code> mirrors items to your tracker through the MCP server you already have connected, and keeps status in sync both ways.</p></details>
+      </div>
+    </section>
+
+    <section class="final">
+      <div class="wrap">
+        <h2><span class="ahem">Ahem.</span> Your move.</h2>
+        <div class="cta center">
+          <a class="btn primary" href="#install">Install AhemUI</a>
+          <a class="btn" href="https://github.com/ahemui/ahemui" rel="noopener">Star on GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-inner">
+      <span>AhemUI · MIT licensed</span>
+      <span class="muted">Claude and Claude Code are trademarks of Anthropic, PBC. AhemUI is an independent project.</span>
+    </div>
+  </footer>
+
+  <script src="main.js" defer></script>
+</body>
+</html>

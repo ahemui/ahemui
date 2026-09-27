@@ -4,8 +4,29 @@
     {
       "name": "vue-example",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "-w", "ahemui-example-vue", "--", "--port", "5180", "--strictPort"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "-w",
+        "ahemui-example-vue",
+        "--",
+        "--port",
+        "5180",
+        "--strictPort"
+      ],
       "port": 5180
+    },
+    {
+      "name": "site",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "site",
+        "--port",
+        "5190",
+        "--strictPort"
+      ],
+      "port": 5190
     }
   ]
 }
