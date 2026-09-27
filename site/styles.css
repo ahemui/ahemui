@@ -262,7 +262,7 @@ h1 { font-size: clamp(44px, 8vw, 92px); font-weight: 800; letter-spacing: -0.045
 .hero .cta { justify-content: center; }
 .hero .copyline { margin-inline: auto; }
 .how h2, .features h2, .trackers h2, .commands h2, .install h2, .faq h2 { text-align: center; }
-.features .sub, .trackers .sub { text-align: center; margin-inline: auto; }
+.features .sub, .trackers .sub { text-align: center; margin-inline: auto; max-width: 76ch; text-wrap: balance; }
 .cmds { justify-content: center; }
 .cmds span.hot { text-align: center; }
 .install-steps { margin-inline: auto; }
