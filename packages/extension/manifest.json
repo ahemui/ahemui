@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AhemUI — visual feedback backlog",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Highlight parts of any web app (local, staging or prod) and queue changes for Claude Code.",
   "minimum_chrome_version": "111",
   "permissions": [

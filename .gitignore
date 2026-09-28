@@ -6,3 +6,4 @@ examples/*/.ahemui/done/*
 !examples/*/.ahemui/**/.gitkeep
 packages/cli/src/board-assets.generated.ts
 build-id.json
+packages/vite/LICENSE

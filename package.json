@@ -10,7 +10,8 @@
     "build": "node scripts/build-id.mjs && npm run build -w @ahemui/board && tsc -b packages/core packages/cli && npm run build -w @ahemui/overlay && npm run build -w ahemui && npm run build -w @ahemui/extension && npm run build -w @ahemui/claude-plugin",
     "test": "node --import tsx --test packages/*/test/*.test.ts",
     "ahemui": "node packages/cli/dist/index.js",
-    "typecheck": "npm run build -w @ahemui/board && tsc -b packages/core packages/cli && tsc -p packages/vite && tsc -p packages/claude-plugin && tsc -p packages/overlay && tsc -p packages/extension && tsc -p packages/board"
+    "typecheck": "npm run build -w @ahemui/board && tsc -b packages/core packages/cli && tsc -p packages/vite && tsc -p packages/claude-plugin && tsc -p packages/overlay && tsc -p packages/extension && tsc -p packages/board",
+    "set-version": "node scripts/set-version.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
@@ -21,5 +22,6 @@
     "typescript": "^5.7.2",
     "vite": "^8.3.1",
     "vue": "^3.5.43"
-  }
+  },
+  "license": "MIT"
 }

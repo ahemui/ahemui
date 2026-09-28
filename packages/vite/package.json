@@ -1,14 +1,52 @@
 {
   "name": "ahemui",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "description": "AhemUI: capture visual UI feedback in the browser into a repo-committed backlog for Claude Code.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "bin": { "ahemui": "./dist/cli.js" },
-  "files": ["dist"],
-  "scripts": { "build": "node build.mjs" },
-  "peerDependencies": { "vite": ">=5" },
-  "devDependencies": { "@ahemui/cli": "0.1.0", "@ahemui/core": "0.1.0", "@ahemui/overlay": "0.1.0" }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "ahemui": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "peerDependencies": {
+    "vite": ">=5"
+  },
+  "devDependencies": {
+    "@ahemui/cli": "0.1.0",
+    "@ahemui/core": "0.1.0",
+    "@ahemui/overlay": "0.1.0"
+  },
+  "license": "MIT",
+  "homepage": "https://ahemui.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ahemui/ahemui.git",
+    "directory": "packages/vite"
+  },
+  "bugs": {
+    "url": "https://github.com/ahemui/ahemui/issues"
+  },
+  "keywords": [
+    "vite-plugin",
+    "vue",
+    "claude-code",
+    "ui-feedback",
+    "visual-feedback",
+    "backlog"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
 }

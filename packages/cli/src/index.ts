@@ -34,6 +34,7 @@ usage:
   ahemui update [--from <tgz>] [--force]
                                   install the newest AhemUI package into this project (used by /ahemui:update)
   ahemui clear [--archive] [--yes]  delete all backlog items (and with --archive, .ahemui/done/ too); setup stays
+  ahemui --version
 
 ids can be abbreviated to any unique prefix.
 types: ${TYPES.join(", ")} · priorities: ${PRIORITIES.join(", ")}`;
@@ -68,11 +69,19 @@ const OPTIONS = {
   from: { type: "string" },
   yes: { type: "boolean", short: "y" },
   help: { type: "boolean", short: "h" },
+  version: { type: "boolean", short: "v" },
 } as const;
+
+declare const __AHEMUI_VERSION__: string | undefined;
+declare const __AHEMUI_BUILD__: string | undefined;
 
 async function main(argv: string[]) {
   const { values: o, positionals } = parseArgs({ args: argv, options: OPTIONS, allowPositionals: true });
   const [cmd, ...args] = positionals;
+  if (o.version) {
+    const v = typeof __AHEMUI_VERSION__ === "string" ? __AHEMUI_VERSION__ : "dev";
+    return console.log(`ahemui ${v}${typeof __AHEMUI_BUILD__ === "string" ? ` (build ${__AHEMUI_BUILD__})` : ""}`);
+  }
   if (!cmd || o.help) return console.log(HELP);
 
   process.env.AHEMUI_AUTHOR ||= defaultAuthor();

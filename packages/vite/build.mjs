@@ -21,6 +21,7 @@ await build({ ...common, entryPoints: ["../cli/src/index.ts"], outfile: "dist/cl
 await chmod("dist/cli.js", 0o755);
 await copyFile("../overlay/dist/overlay-inject.js", "dist/overlay-inject.js");
 await copyFile("../overlay/dist/agent.js", "dist/agent.js");
+await copyFile("../../LICENSE", "LICENSE"); // npm ships it with the package
 await writeFile(
   "dist/index.d.ts",
   `import type { Plugin } from "vite";

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy · AhemUI</title>
+  <meta name="description" content="What the AhemUI browser extension, plugin and CLI do with your data: nothing leaves your machine except to your own repo.">
+  <meta name="theme-color" content="#0c0d11">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="logo" href="/" aria-label="AhemUI home"><img src="favicon.svg" alt="" width="22" height="22"><span>ahem<b>ui</b></span></a>
+      <nav aria-label="Primary"><a href="/#how">How it works</a><a class="gh" href="https://github.com/ahemui/ahemui" rel="noopener">GitHub ↗</a></nav>
+    </div>
+  </header>
+  <main id="main" class="legal">
+    <div class="wrap">
+      <h1>Privacy</h1>
+      <p class="lede">AhemUI doesn't collect anything. Captures stay on your computer and in your own git repository.</p>
+      <p class="updated">Last updated 29 September 2026</p>
+
+      <h2>What AhemUI handles</h2>
+      <p>When you capture feedback, AhemUI records a screenshot of the area you highlighted, the text you type, and details
+        about the page: its address, the element and source file, styles, recent console errors and failed requests,
+        and the clicks that led there.</p>
+
+      <h2>Where it goes</h2>
+      <ul>
+        <li>To <code>ahemui serve</code>, a small server running on your own computer (<code>127.0.0.1</code>), which writes it
+          into the <code>.ahemui/</code> folder of your project. From there it's shared only if you commit and push it.</li>
+        <li>To Claude Code on your computer, when you or a Claude session read the backlog.</li>
+        <li>To your issue tracker (Linear, Jira, Notion, GitHub), only if you ask Claude to sync, through the connection you set up yourself.</li>
+      </ul>
+      <p>AhemUI has no servers of its own, no analytics, no tracking and no advertising. Nothing is sold or shared.</p>
+
+      <h2>The browser extension</h2>
+      <ul>
+        <li>It runs on local development sites, and on other sites only after you switch it on for that site.</li>
+        <li>It takes a screenshot of the visible tab only when you capture feedback.</li>
+        <li>On deployed sites, password fields, anything marked private, email addresses, long numbers and URL query strings
+          are masked or removed before anything leaves the page.</li>
+        <li>It stores your per-site project choices and settings in the browser's extension storage.</li>
+      </ul>
+
+      <h2>Settings</h2>
+      <p>Your personal settings (toolbar corner, notifications and so on) are saved in <code>~/.ahemui/prefs.json</code> on your computer.</p>
+
+      <h2>Contact</h2>
+      <p>Questions: <a href="mailto:privacy@ahemui.com">privacy@ahemui.com</a>.</p>
+    </div>
+  </main>
+  <footer class="foot"><div class="wrap foot-inner"><span>MIT licensed · AhemUI</span><a href="/">Home</a></div></footer>
+</body>
+</html>
