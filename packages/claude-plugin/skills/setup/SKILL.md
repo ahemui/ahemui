@@ -1,5 +1,5 @@
 ---
-description: Set up AhemUI in the current Vue + Vite project — create .ahemui/, vendor and install ahemui, and add the plugin to the Vite config. Use when the user asks to set up or install AhemUI in a project.
+description: Set up AhemUI in the current Vue + Vite project — create .ahemui/, install ahemui, and add the plugin to the Vite config. Use when the user asks to set up or install AhemUI in a project.
 ---
 
 # Set up AhemUI in this project
@@ -13,12 +13,12 @@ description: Set up AhemUI in the current Vue + Vite project — create .ahemui/
    so this only matters for the browser extension.
 3. **Initialise.** Call `ahemui_init` with `dev_origins` set to that origin. `.ahemui/` must sit at the **git repo root**
    (the directory you're in), even when the Vite app is in a subfolder. The Vite plugin searches upward for it.
-   `ahemui_init` also copies `ahemui.tgz` into `.ahemui/vendor/`. If the team prefers screenshots in Git LFS, pass `lfs: true`.
-4. **Install** the vendored package from the Vite app's directory, using the project's package manager (check for
-   `pnpm-lock.yaml` or `yarn.lock`). Use the path relative to that directory:
-   ```bash
-   npm i -D ./.ahemui/vendor/ahemui.tgz
-   ```
+   Screenshots are committed with the items (WebP, capped at 300 KB each). Ask whether the team wants them in
+   **Git LFS** instead; if so, pass `lfs: true`. Pass `vendor: true` only when the machine can't reach the npm registry.
+4. **Install** the package from the Vite app's directory with the project's package manager (check for
+   `pnpm-lock.yaml`, `yarn.lock` or `bun.lock`). `ahemui_init` prints the exact command: normally
+   `npm i -D ahemui@<version>`, matching this plugin's version. For a local plugin build it prints a vendored tarball
+   path instead (`npm i -D ./.ahemui/vendor/ahemui.tgz`), because those builds aren't on npm.
 5. **Add the plugin** to the Vite config, after `vue()`:
    ```js
    import ahemui from "ahemui";
@@ -33,7 +33,7 @@ description: Set up AhemUI in the current Vue + Vite project — create .ahemui/
    - Restart the dev server. A **✎ AhemUI** pill appears bottom-right, and **Alt+Shift+S** toggles capture mode.
      Drag a rectangle, click an element, or Shift+drag to draw, then type the change and press Enter.
    - Commit `.ahemui/` and the package.json change so teammates get the same setup.
-   - Optional: the AhemUI browser extension (load `packages/extension/dist` unpacked in Chromium or Vivaldi) takes
-     pixel-perfect screenshots instead of re-rendering the DOM.
+   - Optional: the AhemUI browser extension (Chrome Web Store, or `packages/extension/dist` unpacked) takes
+     pixel-perfect screenshots instead of re-rendering the DOM, and works on deployed sites.
    - Then run `/ahemui:work` to have Claude work through what was captured, or `/ahemui:watch` so that
      **⚡ Start now** in the browser is picked up immediately.

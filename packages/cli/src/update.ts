@@ -45,9 +45,31 @@ export function ahemuiDependents(root: string, depth = 3): string[] {
   return out;
 }
 
+/**
+ * The version of the Claude Code plugin this CLI ships with (…/scripts/ahemui.mjs → …/.claude-plugin/plugin.json),
+ * or null outside the plugin. A release plugin (0.4.0) installs the same version from npm; a local build
+ * (0.4.0-dev.<id>) isn't on npm, so projects get its bundled tarball instead.
+ */
+export function pluginVersion(): string | null {
+  const file = join(dirname(fileURLToPath(import.meta.url)), "..", ".claude-plugin", "plugin.json");
+  try {
+    return JSON.parse(readFileSync(file, "utf8")).version ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export const isRelease = (version: string | null): version is string => !!version && /^\d+\.\d+\.\d+$/.test(version);
+
+/** How an app depends on ahemui: a vendored tarball (file:…tgz) or a registry version. */
+function dependencySpec(appDir: string): string | undefined {
+  const json = JSON.parse(readFileSync(join(appDir, "package.json"), "utf8"));
+  return json.devDependencies?.["ahemui"] ?? json.dependencies?.["ahemui"];
+}
+
 /** The build id baked into an installed ahemui, or null if it isn't installed there. */
 export function installedBuild(appDir: string): string | null {
-  const file = join(appDir, "node_modules", "@ahemui", "vite", "dist", "index.js");
+  const file = join(appDir, "node_modules", "ahemui", "dist", "index.js");
   if (!existsSync(file)) return null;
   return /"(\d{14})"/.exec(readFileSync(file, "utf8"))?.[1] ?? "dev";
 }
@@ -66,14 +88,32 @@ function packageManager(dir: string, root: string): { cmd: string; args: (spec: 
 }
 
 export interface UpdateResult {
+  /** Where the new version came from: the vendored tarball, or "npm:ahemui@<version>". */
   tarball: string;
   changed: boolean;
   apps: { dir: string; before: string | null; after: string | null; ok: boolean }[];
 }
 
-/** Copies the newest AhemUI package into .ahemui/vendor/ and reinstalls it in every app that uses it. */
+/**
+ * Updates ahemui in every app that uses it. Apps installed from npm get the plugin's release version from npm
+ * (or the latest one); apps on a vendored tarball get the newest tarball copied into .ahemui/vendor/ first.
+ */
 export function updateProject(store: AhemStore, opts: { from?: string; force?: boolean; log?: (m: string) => void } = {}): UpdateResult {
   const log = opts.log ?? ((m) => console.log(m));
+  const dependents = ahemuiDependents(store.root);
+  const fromNpm = !opts.from && dependents.length > 0 && dependents.every((d) => !/\.tgz$|^file:/.test(dependencySpec(d) ?? ""));
+  if (fromNpm) {
+    const version = pluginVersion();
+    const spec = `ahemui@${isRelease(version) ? version : "latest"}`;
+    const apps = dependents.map((dir) => {
+      const before = installedBuild(dir);
+      const pm = packageManager(dir, store.root);
+      log(`installing in ${relative(store.root, dir) || "."}: ${pm.cmd} ${pm.args(spec).join(" ")}`);
+      const run = spawnSync(pm.cmd, pm.args(spec), { cwd: dir, stdio: "inherit", shell: process.platform === "win32" });
+      return { dir, before, after: installedBuild(dir), ok: run.status === 0 };
+    });
+    return { tarball: `npm:${spec}`, changed: apps.some((a) => a.before !== a.after), apps };
+  }
   const tarball = opts.from ?? newestPluginTarball();
   if (!tarball || !existsSync(tarball)) {
     throw new Error("no AhemUI package found to update from. Run this via /ahemui:update in Claude Code, or pass --from <ahemui.tgz>");
@@ -86,7 +126,7 @@ export function updateProject(store: AhemStore, opts: { from?: string; force?: b
     log(`copied ${tarball} → ${relative(store.root, dest)}`);
   }
 
-  const apps = ahemuiDependents(store.root).map((dir) => {
+  const apps = dependents.map((dir) => {
     const before = installedBuild(dir);
     if (!changed && !opts.force && before) return { dir, before, after: before, ok: true };
     const rel = relative(dir, dest).split("\\").join("/");

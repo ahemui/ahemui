@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { exportBoard } from "../../cli/src/board.js";
+import { isRelease, pluginVersion } from "../../cli/src/update.js";
 import { defaultAuthor, type Item, type ListFilter, PRIORITIES, AhemError, AhemStore, STATUSES, type Tracker, TRACKERS, TYPES, workOrder } from "@ahemui/core";
 import { z } from "zod";
 
@@ -179,19 +180,24 @@ tool(
 
 tool(
   "ahemui_init",
-  "Set up AhemUI in the current project: create .ahemui/ and vendor the ahemui package tarball into .ahemui/vendor/ so teammates get it via npm install.",
+  "Set up AhemUI in the current project: create .ahemui/ and say how to install the ahemui package (from npm, or from a tarball vendored into .ahemui/vendor/ for offline use and local plugin builds).",
   {
     dev_origins: z.array(z.string()).optional().describe('Dev server origins, e.g. ["http://localhost:5173"]'),
     port: z.number().int().optional().describe("Port for ahemui serve (default 4777)"),
     lfs: z.boolean().optional().describe("Track .ahemui screenshots with Git LFS (each machine needs `git lfs install`)"),
+    vendor: z.boolean().optional().describe("Vendor the package tarball into .ahemui/vendor/ instead of installing from npm (offline, or no registry access)"),
   },
-  async ({ dev_origins, port, lfs }) => {
+  async ({ dev_origins, port, lfs, vendor }) => {
     const root = projectDir();
     const s = await AhemStore.init(root, { ...(dev_origins && { devOrigins: dev_origins }), ...(port && { port }) });
     if (lfs) await s.enableLfs();
     const lines = [`AhemUI initialised in ${s.dir}`, `config: ${JSON.stringify(await s.config())}`];
     const tarball = join(here, "..", "vendor", VENDOR_TARBALL);
-    if (existsSync(tarball)) {
+    const version = pluginVersion();
+    // Release plugins install the same version from npm; local plugin builds (x.y.z-dev.<id>) aren't published.
+    if (!vendor && isRelease(version)) {
+      lines.push(`Install it with: npm i -D ahemui@${version}  (pnpm add -D / yarn add -D work too)`);
+    } else if (existsSync(tarball)) {
       await mkdir(join(s.dir, "vendor"), { recursive: true });
       const dest = join(s.dir, "vendor", VENDOR_TARBALL);
       await copyFile(tarball, dest);
