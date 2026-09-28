@@ -213,6 +213,9 @@ a.btn:hover { border-color: var(--accent); }
   padding: 8px 14px; border-radius: 8px; pointer-events: none; opacity: 0; transition: opacity .2s; max-width: 520px; text-align: center;
 }
 .toast.show { opacity: 1; }
+.toast.has-action.show { pointer-events: auto; }
+.toast-undo { margin-left: 10px; color: #a78bfa; font-weight: 600; }
+.toast-undo:hover { color: var(--fg); }
 
 /* capture: extra areas, redaction, tools */
 .thumb-wrap { position: relative; display: inline-block; max-width: 100%; }

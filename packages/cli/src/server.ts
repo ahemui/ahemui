@@ -247,6 +247,10 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
     return send(res, 200, await store.resolve(id, { status, note: body.note, author: body.author }));
   }
   if (req.method === "POST" && action === "reopen") return send(res, 200, await store.reopen(id));
+  if (req.method === "POST" && action === "restore") {
+    const body = await readJson(req, 16_000);
+    return send(res, 200, await store.restore(id, body.status));
+  }
   if (req.method === "POST" && action === "archive") return send(res, 200, await store.archive(id));
   if (req.method === "POST" && action === "triage") {
     const body = await readJson(req, 16_000);

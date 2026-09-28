@@ -127,6 +127,8 @@ dd { margin: 0; overflow-wrap: anywhere; }
 pre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; overflow: auto; font-size: 12px; max-height: 260px; margin: 0; }
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }
 .toast.show { opacity: 1; }
+.toast.has-action.show { pointer-events: auto; }
+.toast-undo { margin-left: 10px; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
 
 @media (max-width: 700px) {
   .top { padding: 10px 16px; }

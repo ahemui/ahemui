@@ -185,3 +185,13 @@ test("watcher heartbeat: a waiting watcher that stopped beating is gone", async 
   assert.equal(await store.watcher(), null);
   await store.setWatcher(null);
 });
+
+test("restore undoes an archive and a resolve", async () => {
+  const it = await store.create({ prompt: "tidy the footer", anchor: {} });
+  await store.resolve(it.id, { status: "wontfix", note: "not now" });
+  await store.archive(it.id);
+  assert.equal((await store.get(it.id)).location, "done");
+  const back = await store.restore(it.id, "open");
+  assert.equal(back.location, "items");
+  assert.equal(back.status, "open");
+});

@@ -437,7 +437,9 @@ async function act(id: string, action: string) {
       const { archived } = await api<{ archived: string[] }>("POST", "/api/prune", {});
       state.items = state.items.map((i) => (archived.includes(i.id) ? { ...i, location: "done" as const } : i));
       render();
-      toast(`Archived ${archived.length} finished item(s)`);
+      toast(`Archived ${archived.length} finished item(s)`, async () => {
+        for (const a of archived) await restore(a);
+      });
     } catch (err) {
       toast((err as Error).message);
     }
@@ -459,15 +461,18 @@ async function act(id: string, action: string) {
         toast(action === "later" ? "Moved to the backlog" : state.watcher?.state === "waiting" ? "⚡ Claude is starting on it" : state.watcher ? "Added to the queue" : "Queued; start /ahemui:watch in Claude Code to work it");
         break;
       case "done":
-      case "wontfix":
+      case "wontfix": {
+        const was = it.status;
         updated = await api<Item>("POST", `/api/items/${id}/resolve`, { status: action });
+        toast(action === "wontfix" ? "Marked won't fix" : "Marked done", () => restore(id, was));
         break;
+      }
       case "reopen":
         updated = await api<Item>("POST", `/api/items/${id}/reopen`, {});
         break;
       case "archive":
         updated = await api<Item>("POST", `/api/items/${id}/archive`, {});
-        toast("Archived");
+        toast("Archived", () => restore(id));
         break;
       case "reply":
         if (!text("reply")) return toast("Type an answer first");
@@ -545,12 +550,30 @@ function ago(iso: string): string {
 }
 
 let toastTimer = 0;
-function toast(msg: string) {
+function toast(msg: string, undo?: () => Promise<void>) {
   const t = $(".toast");
   t.textContent = msg;
+  t.classList.toggle("has-action", !!undo);
+  if (undo) {
+    const b = document.createElement("button");
+    b.className = "toast-undo";
+    b.textContent = "Undo";
+    b.addEventListener("click", async () => {
+      t.classList.remove("show");
+      await undo().then(() => toast("Undone"), (err) => toast(`Couldn't undo: ${err.message}`));
+    });
+    t.append(" ", b);
+  }
   t.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => t.classList.remove("show"), 2500);
+  toastTimer = window.setTimeout(() => t.classList.remove("show"), undo ? 6000 : 2500);
+}
+
+/** The toast's Undo: back into the backlog, and to the status it had before. */
+async function restore(id: string, status?: Status) {
+  const updated = await api<Item>("POST", `/api/items/${id}/restore`, status ? { status } : {});
+  state.items = state.items.map((i) => (i.id === id ? updated : i));
+  render();
 }
 
 function esc(s: string): string {

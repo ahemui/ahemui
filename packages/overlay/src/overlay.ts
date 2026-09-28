@@ -679,6 +679,13 @@ class Overlay {
   }
   private stale = false;
 
+  /** Puts an item back where it was before an archive or resolve (the toast's Undo). */
+  private async restoreItem(id: string, status?: Status) {
+    const updated = await this.host.transport.request<Item>("POST", `/api/items/${id}/restore`, status ? { status } : {});
+    this.items = this.items.some((i) => i.id === id) ? this.items.map((i) => (i.id === id ? updated : i)) : [...this.items, updated];
+    this.renderAll();
+  }
+
   private toastQueued() {
     if (this.watcher?.stopping) this.toast("Queued, but Claude is stopping its watch. Run /ahemui:watch again to have it picked up.", 6000);
     else if (this.watcher?.paused) this.toast("Queued. Claude is paused and starts on it when you resume.", 5000);
@@ -1084,9 +1091,11 @@ class Overlay {
           } else if (act === "archive") {
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/archive`, {});
             this.closePopups();
-            this.toast("Archived");
+            this.toast("Archived", 6000, () => this.restoreItem(item.id));
           } else {
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/resolve`, { status: act });
+            const was = item.status;
+            this.toast(act === "wontfix" ? "Marked won't fix" : "Marked done", 6000, () => this.restoreItem(item.id, was));
           }
           if (updated) {
             this.items = this.items.map((i) => (i.id === updated!.id ? updated! : i));
@@ -1184,7 +1193,9 @@ class Overlay {
         const { archived } = await this.host.transport.request<{ archived: string[] }>("POST", "/api/prune", {});
         this.items = this.items.map((i) => (archived.includes(i.id) ? { ...i, location: "done" } : i));
         this.renderAll();
-        this.toast(`Archived ${archived.length} finished item(s)`);
+        this.toast(`Archived ${archived.length} finished item(s)`, 6000, async () => {
+          for (const id of archived) await this.restoreItem(id);
+        });
       } catch (err) {
         this.toast((err as Error).message, 4000);
       }
@@ -1657,9 +1668,25 @@ class Overlay {
   }
 
   private toastTimer = 0;
-  private toast(msg: string, ms = 1800) {
+  private toast(msg: string, ms = 1800, undo?: () => Promise<void>) {
     const t = this.$(".toast");
     t.textContent = msg;
+    t.classList.toggle("has-action", !!undo);
+    if (undo) {
+      const b = document.createElement("button");
+      b.className = "toast-undo";
+      b.textContent = "Undo";
+      b.addEventListener("click", async () => {
+        t.classList.remove("show");
+        try {
+          await undo();
+          this.toast("Undone");
+        } catch (err) {
+          this.toast(`Couldn't undo: ${(err as Error).message}`, 4000);
+        }
+      });
+      t.append(" ", b);
+    }
     t.classList.add("show");
     clearTimeout(this.toastTimer);
     this.toastTimer = window.setTimeout(() => t.classList.remove("show"), ms);

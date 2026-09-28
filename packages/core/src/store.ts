@@ -19,6 +19,7 @@ import {
   TrackerSchema,
   type Watcher,
   WatcherSchema,
+  StatusSchema,
   type Batch,
   BatchSchema,
   type Intent,
@@ -345,6 +346,14 @@ export class AhemStore {
     const item = await this.get(id);
     if (item.status !== "open") throw new AhemError(`${item.id} is ${item.status}; only open items can be queued`);
     return this.save({ ...item, start });
+  }
+
+  /** Undo for archive and resolve: back into the backlog if archived, and back to `status` if given. */
+  async restore(id: string, status?: Status): Promise<Item> {
+    let item = await this.get(id);
+    if (item.location === "done") item = await this.move(item, "items");
+    if (!status || status === item.status) return item;
+    return this.save({ ...item, status: StatusSchema.parse(status), ...(status === "open" && { claimed_by: null }) });
   }
 
   async reopen(id: string): Promise<Item> {
