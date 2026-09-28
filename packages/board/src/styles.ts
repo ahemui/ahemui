@@ -85,7 +85,7 @@ body.modal-open { overflow: hidden; }
 .d-head .x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--muted); }
 .drawer h1 { font-size: 18px; margin: 10px 0 2px; }
 .d-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
-.pill { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; color: #fff; background: var(--open); }
+.pill { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; color: #fff; background: var(--open); }
 .pill.s-in-progress { background: var(--doing); } .pill.s-review { background: var(--review); } .pill.s-done { background: var(--done); } .pill.s-wontfix { background: var(--wontfix); } .pill.s-ask { background: var(--ask); color: #111; }
 .d-actions { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; }
 .acts { display: flex; gap: 6px; flex-wrap: wrap; }

@@ -151,7 +151,7 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 .pref-name:focus { outline: none; border-color: var(--accent); }
 .settings .note { color: var(--muted); font-size: 11px; padding: 0 2px 4px; }
 .settings .note:last-child { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
-.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #fff; }
+.pill { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; line-height: 1.3; color: #fff; }
 .pill.open { background: var(--open); } .pill.in-progress { background: var(--doing); }
 .pill.done { background: var(--done); } .pill.wontfix { background: var(--wontfix); }
 .meta { color: var(--muted); font-size: 11px; margin: 6px 0; overflow-wrap: anywhere; }
@@ -208,6 +208,7 @@ a.btn:hover { border-color: var(--accent); }
 @keyframes pulse-ask { 50% { box-shadow: 0 0 0 7px rgba(245,158,11,.3); } }
 .pill.review { background: #8b5cf6; }
 .pill.ask { background: #f59e0b; color: #111; }
+.list-item .pill { font-size: 11px; letter-spacing: 0; padding: 1px 6px; } /* icon-only in the backlog list */
 .pop { width: 340px; }
 .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
 .compare figure { margin: 0; }
