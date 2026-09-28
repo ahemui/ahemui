@@ -20,14 +20,24 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .bar .capture.on { background: var(--accent); }
 .bar .counts { color: var(--muted); font-variant-numeric: tabular-nums; }
 .bar .counts b { font-weight: 600; margin-right: 2px; }
-.bar .proj { color: var(--muted); font-size: 11px; padding: 0 4px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bar .proj:empty { display: none; }
-.bar .proj.live { color: #a78bfa; }
+.bar .counts .none { opacity: .8; }
 .bubble .buttons { white-space: nowrap; }
-.bar .dot { width: 8px; height: 8px; border-radius: 50%; margin: 0 8px 0 4px; background: var(--wontfix); }
+.bar .state { padding: 5px 9px 5px 6px; display: flex; align-items: center; }
+.bar .dot { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--wontfix); }
 .bar .dot.ok { background: var(--done); }
-.bar .dot.stale { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.3); }
-.bar .markers-toggle.off { opacity: .45; }
+.bar .dot.watching { background: #a78bfa; box-shadow: 0 0 0 3px rgba(167,139,250,.25); }
+.bar .dot.working { background: #a78bfa; animation: ahemui-pulse 1.4s infinite; }
+.bar .dot.stale { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.3); animation: none; }
+@keyframes ahemui-pulse { 50% { box-shadow: 0 0 0 5px rgba(167,139,250,.3); } }
+@media (prefers-reduced-motion: reduce) { .bar .dot.working { animation: none; box-shadow: 0 0 0 3px rgba(167,139,250,.35); } }
+.panel-head { display: flex; align-items: flex-start; gap: 10px; padding: 2px 6px 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
+.panel-head .proj { font-weight: 600; overflow-wrap: anywhere; }
+.panel-head .claude { color: var(--muted); font-size: 11px; }
+.panel-head .claude.live { color: #a78bfa; }
+.panel-head .stale-note { color: #f59e0b; font-size: 11px; margin-top: 2px; }
+.seg { flex: none; display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+.seg button { font-size: 11px; padding: 2px 8px; border-radius: 999px; color: var(--muted); }
+.seg button.on { background: var(--bg2); color: var(--fg); }
 
 .layer { position: fixed; inset: 0; pointer-events: none; cursor: crosshair; }
 .layer.active { pointer-events: auto; }

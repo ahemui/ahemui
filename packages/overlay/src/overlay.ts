@@ -64,7 +64,7 @@ class Overlay {
   private connected = false;
   private mode: "idle" | "select" | "compose" = "idle";
   /** Which markers to show: everything, only unfinished items, or none. Remembered per site. */
-  private markerMode: "all" | "active" | "none" = loadMarkerMode();
+  private markerMode: MarkerMode = loadMarkerMode();
   private drag: { start: Point; freehand: boolean; points: Point[] } | null = null;
   private strokes: Point[][] = [];
   private markers = new Map<string, Marker>();
@@ -116,9 +116,7 @@ class Overlay {
         <div class="bar" hidden>
           <button class="capture" title="Capture feedback (Alt+Shift+S). Shift+drag to draw.">✎ AhemUI</button>
           <button class="counts" title="Show backlog"></button>
-          <button class="markers-toggle" title="Markers: all">◉</button>
-          <span class="proj"></span>
-          <span class="dot" title="ahemui serve"></span>
+          <button class="state"><span class="dot"></span></button>
         </div>
         <div class="toast"></div>
       </div>`;
@@ -151,15 +149,7 @@ class Overlay {
   private bindEvents() {
     this.$(".capture").addEventListener("click", () => this.toggle());
     this.$(".counts").addEventListener("click", () => this.togglePanel());
-    this.$(".markers-toggle").addEventListener("click", () => {
-      this.markerMode = this.markerMode === "all" ? "active" : this.markerMode === "active" ? "none" : "all";
-      saveMarkerMode(this.markerMode);
-      this.renderBar();
-      this.renderMarkers();
-      this.toast(
-        this.markerMode === "all" ? "Showing all markers" : this.markerMode === "active" ? "Hiding finished markers (✓, won't fix)" : "Markers hidden",
-      );
-    });
+    this.$(".state").addEventListener("click", () => this.togglePanel());
     this.host.onToggle?.(() => this.toggle());
 
     addEventListener(
@@ -229,7 +219,7 @@ class Overlay {
 
     this.shadow.addEventListener("mousedown", (e) => {
       const t = e.target as Element;
-      if (!t.closest(".pop, .marker, .panel, .counts")) this.closePopups();
+      if (!t.closest(".pop, .marker, .panel, .counts, .state")) this.closePopups();
     });
     document.addEventListener("mousedown", (e) => {
       if (!e.composedPath().includes(this.hostEl)) this.closePopups();
@@ -669,23 +659,44 @@ class Overlay {
     const active = this.items.filter((i) => i.location === "items");
     const n = (s: Status) => active.filter((i) => i.status === s).length;
     const asks = active.filter((i) => i.needs_reply).length;
-    this.$(".counts").innerHTML =
-      `<b>${ICON.open}</b>${n("open")}&nbsp; <b>${ICON["in-progress"]}</b>${n("in-progress")}&nbsp; ` +
-      `<b class="rv">${ICON.review}</b>${n("review")}&nbsp; <b>${ICON.done}</b>${n("done")}` +
-      (asks ? `&nbsp; <b class="ask">?</b>${asks}` : "");
-    this.$(".dot").classList.toggle("ok", this.connected);
+    // Only what needs attention; done counts, project and Claude's state live in the panel header.
+    const counts = [
+      n("open") ? `<b>${ICON.open}</b>${n("open")}` : "",
+      n("in-progress") ? `<b>${ICON["in-progress"]}</b>${n("in-progress")}` : "",
+      n("review") ? `<b class="rv">${ICON.review}</b>${n("review")}` : "",
+      asks ? `<b class="ask">?</b>${asks}` : "",
+    ].filter(Boolean);
+    this.$(".counts").innerHTML = counts.length ? counts.join("&nbsp; ") : `<span class="none">☰</span>`;
+    const dot = this.$(".dot");
+    dot.classList.toggle("ok", this.connected);
+    dot.classList.toggle("watching", this.watcher?.state === "waiting");
+    dot.classList.toggle("working", this.watcher?.state === "working");
+    dot.classList.toggle("stale", this.stale);
+    this.$(".state").title = this.statusLines().join("\n");
+    if (this.$(".panel").style.display === "block") this.renderPanel();
+  }
+
+  /** Project, branch, Claude's state and server details: the bar's tooltip and the panel header. */
+  private statusLines(): string[] {
     const h = this.health;
+    if (!h) return ["Not connected to ahemui serve"];
     const w = this.watcher;
-    const claude = w ? (w.state === "waiting" ? " · Claude watching" : " · Claude working") : "";
-    this.$(".proj").textContent = h?.project ? `${h.project}${h.branch ? ` · ${h.branch}` : ""}${claude}` : "";
-    this.$(".proj").classList.toggle("live", !!w);
-    this.$(".dot").title = h ? `ahemui serve · ${h.root}` : "not connected to ahemui serve";
-    this.$(".dot").classList.toggle("stale", this.stale);
-    if (this.stale) this.$(".dot").title = `Overlay build ${BUILD} ≠ server build ${h?.build}: reload the page${this.host.mode === "ext" ? " and the AhemUI extension" : ""}`;
-    const toggle = this.$(".markers-toggle");
-    toggle.textContent = this.markerMode === "all" ? "◉" : this.markerMode === "active" ? "◐" : "○";
-    toggle.title = `Markers: ${this.markerMode === "all" ? "all" : this.markerMode === "active" ? "unfinished only" : "hidden"} (click to change)`;
-    toggle.classList.toggle("off", this.markerMode === "none");
+    return [
+      `${h.project ?? "project"}${h.branch ? ` · ${h.branch}` : ""}`,
+      w ? (w.state === "waiting" ? "Claude is watching for Start now" : "Claude is working") : "No Claude session watching (run /ahemui:watch)",
+      ...(this.stale ? [`Overlay build ${BUILD} ≠ server build ${h.build}: reload the page${this.host.mode === "ext" ? " and the AhemUI extension" : ""}`] : []),
+    ];
+  }
+
+  private panelHead(): string {
+    const [proj, claude, stale] = this.statusLines();
+    const w = this.watcher;
+    const mode = (m: MarkerMode, label: string, title: string) =>
+      `<button class="${this.markerMode === m ? "on" : ""}" data-mode="${m}" title="${title}">${label}</button>`;
+    return `<div class="panel-head">
+        <div class="grow"><div class="proj">${esc(proj)}</div><div class="claude ${w ? "live" : ""}">${esc(claude ?? "")}</div>${stale ? `<div class="stale-note">${esc(stale)}</div>` : ""}</div>
+        <div class="seg" title="Which markers to show on the page">${mode("all", "All", "Show every marker")}${mode("active", "Open", "Hide finished markers (✓, won't fix)")}${mode("none", "None", "Hide markers")}</div>
+      </div>`;
   }
 
   private visibleItems(): Item[] {
@@ -918,8 +929,19 @@ class Overlay {
     const board = this.health?.base
       ? `<a class="board-link" href="${esc(this.health.base)}/" target="_blank" rel="noopener">Open full board ↗</a>`
       : "";
+    const bindHead = () =>
+      panel.querySelectorAll<HTMLButtonElement>(".seg button").forEach((b) =>
+        b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.markerMode = b.dataset.mode as MarkerMode;
+          saveMarkerMode(this.markerMode);
+          this.renderMarkers();
+          this.renderPanel();
+        }),
+      );
     if (!active.length) {
-      panel.innerHTML = `<div class="empty">Backlog is empty. Press ✎ AhemUI or Alt+Shift+S to capture.</div>${board}`;
+      panel.innerHTML = `${this.panelHead()}<div class="empty">Backlog is empty. Press ✎ AhemUI or Alt+Shift+S to capture.</div>${board}`;
+      bindHead();
       return;
     }
     // Group by path (+ host for other sites); label each group with the richest page info any item has.
@@ -948,8 +970,10 @@ class Overlay {
       ? `<button class="btn clear-finished" title="Archive every done and won't-fix item (moves them to .ahemui/done/)">Clear ${finished} finished</button>`
       : "";
     panel.innerHTML =
+      this.panelHead() +
       [...groups].map(([key, items]) => `<div class="group">${esc(groupLabel(key, items))}</div>${items.map(row).join("")}`).join("") +
       `<div class="panel-foot">${clear}${board}</div>`;
+    bindHead();
     panel.querySelector(".clear-finished")?.addEventListener("click", async (e) => {
       e.stopPropagation();
       try {
@@ -1004,7 +1028,9 @@ class Overlay {
 
 const MARKER_KEY = "ahemui:markers";
 
-function loadMarkerMode(): "all" | "active" | "none" {
+type MarkerMode = "all" | "active" | "none";
+
+function loadMarkerMode(): MarkerMode {
   try {
     const v = localStorage.getItem(MARKER_KEY);
     return v === "active" || v === "none" ? v : "all";
