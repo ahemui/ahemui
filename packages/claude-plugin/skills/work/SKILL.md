@@ -1,6 +1,6 @@
 ---
 description: Work through the AhemUI visual-feedback backlog (.ahemui/items) — implement each UI change someone highlighted in the browser, hand it back for their review, and commit it together with its status. Use when the user asks to work the ahemui queue/backlog, process ahemui items, or fix the highlighted UI feedback.
-argument-hint: "[item id | area:<name> | type:<type> | label:<label> | route:<path>] (omit to work the whole queue)"
+argument-hint: "[item id | batch:<name> | area:<name> | type:<type> | label:<label> | route:<path>] (omit to work the whole queue)"
 ---
 
 # Work the AhemUI backlog
@@ -20,6 +20,10 @@ person's answer, purple ◎ = ready for their review, green ✓ = approved or do
    - If many items are untriaged, suggest `/ahemui:triage` first, but don't block on it.
    - Skip items claimed by someone else.
    - Skip items marked `?awaiting-reply`; they wait for the person.
+   - Skip items marked `◇for-review`. They were captured in a **"flag for review" batch**: things for a person to
+     look at and decide on, not changes to make. `ahemui_next` leaves them out. Work them only when the user names
+     the batch (`/ahemui:work batch:<name>`, see `ahemui_batches`), and then treat each one as a proposal: check it
+     makes sense before changing anything, and ask when it doesn't.
 2. Run `git status --porcelain` and `git branch --show-current`.
    - If there are uncommitted changes unrelated to `.ahemui/`, ask the user whether to continue. They would get mixed into the per-item commits.
    - If you're on `main`/`master` (or the repo's default branch), ask before committing there. Suggest `git switch -c ahemui/<topic>`.
@@ -44,7 +48,7 @@ Say the plan in a few lines before starting: the groups, their order, and anythi
 
 If `$ARGUMENTS` names an item id, call `ahemui_claim` on it and then `ahemui_get`. Otherwise call `ahemui_next`, which claims the
 next open item and turns its marker blue. The order is: ⚡ Start-now first, then high priority, then page by page. If `$ARGUMENTS` holds filters
-(`area:Pricing`, `type:copy`, `label:mobile`, `route:/pricing`), pass them to every `ahemui_next` call.
+(`batch:"Home review · 28 Sep"`, `area:Pricing`, `type:copy`, `label:mobile`, `route:/pricing`), pass them to every `ahemui_next` call.
 
 1. **Understand it.** `ahemui_get` gives you everything. Use what's there:
    - **Screenshots.** Red strokes are the person's drawing and dark blocks are redactions. "Area N (also applies here)" means the same

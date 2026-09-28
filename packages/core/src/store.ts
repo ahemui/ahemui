@@ -19,6 +19,9 @@ import {
   TrackerSchema,
   type Watcher,
   WatcherSchema,
+  type Batch,
+  BatchSchema,
+  type Intent,
   type WatchControl,
   WatchControlSchema,
 } from "./schema.js";
@@ -209,8 +212,48 @@ export class AhemStore {
   }
 
   /** `extraShots[i]` is the screenshot of `input.extras[i]`, if any. */
+  // ——— batches (.ahemui/batches/<id>.json) ———
+
+  async createBatch(input: { name: string; intent: Intent; author?: string }): Promise<Batch> {
+    const batch = BatchSchema.parse({ id: ulid(), name: input.name.trim(), intent: input.intent, author: input.author ?? defaultAuthor(), created: new Date().toISOString() });
+    await mkdir(join(this.dir, "batches"), { recursive: true });
+    await writeFile(join(this.dir, "batches", `${batch.id}.json`), JSON.stringify(batch, null, 2) + "\n");
+    return batch;
+  }
+
+  async listBatches(): Promise<Batch[]> {
+    const dir = join(this.dir, "batches");
+    const files = existsSync(dir) ? (await readdir(dir)).filter((f) => f.endsWith(".json")) : [];
+    const batches: Batch[] = [];
+    for (const f of files) {
+      try {
+        batches.push(BatchSchema.parse(JSON.parse(await readFile(join(dir, f), "utf8"))));
+      } catch {
+        /* skip a malformed batch file */
+      }
+    }
+    return batches.sort((a, b) => b.created.localeCompare(a.created));
+  }
+
+  /** By id, id prefix or (case-insensitive) name. */
+  async findBatch(ref: string): Promise<Batch | null> {
+    const all = await this.listBatches();
+    const r = ref.trim().toLowerCase();
+    return all.find((b) => b.id.toLowerCase().startsWith(r)) ?? all.find((b) => b.name.toLowerCase() === r) ?? null;
+  }
+
   async create(input: NewItem, shot?: Shot, extraShots: (Shot | undefined)[] = []): Promise<Item> {
     const { prompt, ...rest } = NewItemSchema.parse(input);
+    // Items take their batch's intent; flagged-for-review ones never go straight to Claude.
+    const batch = rest.batch ? await this.findBatch(rest.batch) : null;
+    if (rest.batch && !batch) delete rest.batch;
+    if (batch) {
+      rest.batch = batch.id;
+      if (batch.intent === "review") {
+        (rest as { intent?: Intent }).intent = "review";
+        rest.start = "later";
+      }
+    }
     rest.anchor.source = this.relativeSource(rest.anchor.source);
     for (const el of rest.elements ?? []) el.source = this.relativeSource(el.source);
     for (const ex of rest.extras ?? []) {
@@ -435,6 +478,10 @@ export interface ListFilter {
   linked?: boolean;
   /** false: skip items waiting for the requester's reply. */
   needsReply?: boolean;
+  /** "action" skips items flagged for review; "review" keeps only those. */
+  intent?: Intent;
+  /** Batch id, id prefix or exact name. */
+  batch?: string;
 }
 
 function matches(it: Item, f: ListFilter): boolean {
@@ -447,6 +494,8 @@ function matches(it: Item, f: ListFilter): boolean {
   if (f.start && (it.start ?? "later") !== f.start) return false;
   if (f.linked !== undefined && !!it.external !== f.linked) return false;
   if (f.needsReply !== undefined && !!it.needs_reply !== f.needsReply) return false;
+  if (f.intent && (it.intent ?? "action") !== f.intent) return false;
+  if (f.batch && !(it.batch && it.batch.toLowerCase().startsWith(f.batch.toLowerCase()))) return false;
   return true;
 }
 

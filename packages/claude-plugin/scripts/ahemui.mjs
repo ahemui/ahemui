@@ -11054,7 +11054,7 @@ var require_websocket_server = __commonJS({
 });
 
 // ../cli/src/index.ts
-import { readFile as readFile3 } from "node:fs/promises";
+import { readFile as readFile4 } from "node:fs/promises";
 import { extname } from "node:path";
 import { parseArgs } from "node:util";
 
@@ -15228,10 +15228,22 @@ var ReviewSchema = external_exports.object({
   by: short(120),
   at: external_exports.string()
 });
+var INTENTS = ["action", "review"];
+var IntentSchema = external_exports.enum(INTENTS);
+var BatchSchema = external_exports.object({
+  id: external_exports.string(),
+  name: short(120),
+  intent: IntentSchema,
+  author: short(120),
+  created: external_exports.string()
+});
 var ItemMetaSchema = external_exports.object({
   id: external_exports.string(),
   status: StatusSchema,
   start: StartSchema.optional(),
+  /** The batch it was captured in, and that batch's intent (absent: action). */
+  batch: short(40).optional(),
+  intent: IntentSchema.optional(),
   /** Claude asked a question and is waiting for the person to answer (from the browser popover). */
   needs_reply: external_exports.boolean().optional(),
   ...TriageSchema.shape,
@@ -15269,7 +15281,29 @@ var WatcherSchema = external_exports.object({
   pid: external_exports.number().int(),
   since: external_exports.string(),
   item: external_exports.string().optional(),
+  by: external_exports.string().optional(),
+  /** Set by the browser (from .watch-control.json when read): hold Start-now items until resumed. */
+  paused: external_exports.boolean().optional(),
+  /** Set by the browser: the watch ends when the current item is done (or right away when waiting). */
+  stopping: external_exports.boolean().optional()
+});
+var WatchControlSchema = external_exports.object({
+  mode: external_exports.enum(["paused", "stop"]),
+  at: external_exports.string(),
   by: external_exports.string().optional()
+});
+var PrefsSchema = external_exports.object({
+  /** Corner the toolbar sits in; the panel and popovers open from there. */
+  position: external_exports.enum(["bottom-right", "bottom-left", "top-right", "top-left"]).optional(),
+  /** off: nothing; page: toasts on the page; desktop: toasts plus system notifications. */
+  notifications: external_exports.enum(["off", "page", "desktop"]).optional(),
+  /** What Enter does in the capture box; Ctrl/⌘+Enter does the other. */
+  enter: external_exports.enum(["now", "backlog"]).optional(),
+  markers: external_exports.enum(["all", "active", "none"]).optional(),
+  /** ask: pick or name a batch when starting to capture; off: never ask. */
+  batches: external_exports.enum(["ask", "off"]).optional(),
+  /** Name on items, replies and reviews; defaults to the git user. */
+  name: short(80).optional()
 });
 var ConfigSchema = external_exports.object({
   version: external_exports.literal(1).default(1),
@@ -15278,7 +15312,9 @@ var ConfigSchema = external_exports.object({
   screenshot: external_exports.object({ format: external_exports.enum(["webp", "png"]).default("webp"), maxBytes: external_exports.number().int().default(3e5) }).default({}),
   /** Finished items wait for the requester's approval in the browser before counting as done. */
   review: external_exports.boolean().default(true),
-  tracker: TrackerSchema.optional()
+  tracker: TrackerSchema.optional(),
+  /** Team-wide overlay defaults; each person's own settings override them. */
+  overlay: external_exports.object({ defaults: PrefsSchema.omit({ name: true }).default({}) }).optional()
 });
 var NewItemSchema = external_exports.object({
   prompt: external_exports.string().min(1),
@@ -15289,6 +15325,7 @@ var NewItemSchema = external_exports.object({
   page: PageSchema.optional(),
   type: TypeSchema.optional(),
   start: StartSchema.optional(),
+  batch: short(40).optional(),
   design: short(500).optional(),
   rect: RectSchema.optional(),
   anchor: AnchorSchema.default({}),
@@ -15304,7 +15341,7 @@ var NewItemSchema = external_exports.object({
 
 // ../core/dist/store.js
 import { execFileSync } from "node:child_process";
-import { existsSync, renameSync } from "node:fs";
+import { existsSync, renameSync, rmSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
@@ -15348,6 +15385,7 @@ function ulid(now = Date.now()) {
 var AHEMUI_DIR = ".ahemui";
 var LEGACY_DIR = ".snap";
 var WATCHER_FILE = ".watcher.json";
+var CONTROL_FILE = ".watch-control.json";
 var ITEM_FILE = "item.md";
 var AhemError = class extends Error {
 };
@@ -15366,6 +15404,7 @@ var AhemStore = class _AhemStore {
         return new _AhemStore(dir);
       if (existsSync(join(dir, LEGACY_DIR, "config.json")) && !existsSync(join(dir, AHEMUI_DIR))) {
         renameSync(join(dir, LEGACY_DIR), join(dir, AHEMUI_DIR));
+        rmSync(join(dir, AHEMUI_DIR, WATCHER_FILE), { force: true });
         return new _AhemStore(dir);
       }
       const parent = dirname(dir);
@@ -15398,7 +15437,7 @@ var AhemStore = class _AhemStore {
     const file = join(this.dir, ".gitignore");
     const current = existsSync(file) ? await readFile(file, "utf8") : "";
     const lines = current.split(/\r?\n/).filter(Boolean);
-    const missing = [WATCHER_FILE, "backlog.html"].filter((l) => !lines.includes(l));
+    const missing = [WATCHER_FILE, CONTROL_FILE, "backlog.html"].filter((l) => !lines.includes(l));
     if (missing.length)
       await writeFile(file, [...lines, ...missing].join("\n") + "\n");
   }
@@ -15421,9 +15460,27 @@ var AhemStore = class _AhemStore {
     } catch {
       return null;
     }
-    if (w.state === "waiting")
-      return processAlive(w.pid) ? w : null;
-    return Date.now() - Date.parse(w.since) < 30 * 6e4 ? w : null;
+    const alive = w.state === "waiting" ? processAlive(w.pid) : Date.now() - Date.parse(w.since) < 30 * 6e4;
+    if (!alive)
+      return null;
+    const control = await this.watchControl();
+    return { ...w, paused: control?.mode === "paused" || void 0, stopping: control?.mode === "stop" || void 0 };
+  }
+  /** The browser's pause or stop request for the watching session, if any. */
+  async watchControl() {
+    try {
+      return WatchControlSchema.parse(JSON.parse(await readFile(join(this.dir, CONTROL_FILE), "utf8")));
+    } catch {
+      return null;
+    }
+  }
+  /** "paused" holds Start-now items until resumed (null); "stop" ends the watch after the current item. */
+  async setWatchControl(mode, by) {
+    const file = join(this.dir, CONTROL_FILE);
+    if (!mode)
+      return void await rm(file, { force: true });
+    await this.ensureGitignore();
+    await writeFile(file, JSON.stringify({ mode, at: (/* @__PURE__ */ new Date()).toISOString(), by }));
   }
   /** Sets (or with null, removes) the external tracker in .ahemui/config.json. */
   async setTracker(tracker) {
@@ -15498,8 +15555,43 @@ var AhemStore = class _AhemStore {
     return this.read(...matches2[0]);
   }
   /** `extraShots[i]` is the screenshot of `input.extras[i]`, if any. */
+  // ——— batches (.ahemui/batches/<id>.json) ———
+  async createBatch(input) {
+    const batch = BatchSchema.parse({ id: ulid(), name: input.name.trim(), intent: input.intent, author: input.author ?? defaultAuthor(), created: (/* @__PURE__ */ new Date()).toISOString() });
+    await mkdir(join(this.dir, "batches"), { recursive: true });
+    await writeFile(join(this.dir, "batches", `${batch.id}.json`), JSON.stringify(batch, null, 2) + "\n");
+    return batch;
+  }
+  async listBatches() {
+    const dir = join(this.dir, "batches");
+    const files = existsSync(dir) ? (await readdir(dir)).filter((f) => f.endsWith(".json")) : [];
+    const batches = [];
+    for (const f of files) {
+      try {
+        batches.push(BatchSchema.parse(JSON.parse(await readFile(join(dir, f), "utf8"))));
+      } catch {
+      }
+    }
+    return batches.sort((a, b) => b.created.localeCompare(a.created));
+  }
+  /** By id, id prefix or (case-insensitive) name. */
+  async findBatch(ref) {
+    const all = await this.listBatches();
+    const r = ref.trim().toLowerCase();
+    return all.find((b) => b.id.toLowerCase().startsWith(r)) ?? all.find((b) => b.name.toLowerCase() === r) ?? null;
+  }
   async create(input, shot, extraShots = []) {
     const { prompt, ...rest } = NewItemSchema.parse(input);
+    const batch = rest.batch ? await this.findBatch(rest.batch) : null;
+    if (rest.batch && !batch)
+      delete rest.batch;
+    if (batch) {
+      rest.batch = batch.id;
+      if (batch.intent === "review") {
+        rest.intent = "review";
+        rest.start = "later";
+      }
+    }
     rest.anchor.source = this.relativeSource(rest.anchor.source);
     for (const el of rest.elements ?? [])
       el.source = this.relativeSource(el.source);
@@ -15723,6 +15815,10 @@ function matches(it, f) {
     return false;
   if (f.needsReply !== void 0 && !!it.needs_reply !== f.needsReply)
     return false;
+  if (f.intent && (it.intent ?? "action") !== f.intent)
+    return false;
+  if (f.batch && !(it.batch && it.batch.toLowerCase().startsWith(f.batch.toLowerCase())))
+    return false;
   return true;
 }
 var PRIORITY_RANK = { high: 0, normal: 1, low: 2 };
@@ -15769,7 +15865,7 @@ import { writeFile as writeFile2 } from "node:fs/promises";
 import { basename, dirname as dirname2, join as join2, relative as relative2, resolve as resolve2 } from "node:path";
 
 // ../cli/src/board-assets.generated.ts
-var BOARD_JS = '"use strict";(()=>{var E=`\n:root {\n  --bg: #f6f6f9; --panel: #ffffff; --card: #ffffff; --line: #e3e4ec; --fg: #1d2030; --muted: #6b7084;\n  --accent: #6d4aff; --accent-soft: rgba(109,74,255,.12);\n  --open: #d97706; --doing: #2563eb; --review: #7c3aed; --done: #16a34a; --wontfix: #6b7280; --ask: #d97706;\n  --shadow: 0 1px 2px rgba(20,20,40,.06), 0 4px 16px rgba(20,20,40,.06);\n  color-scheme: light;\n}\n@media (prefers-color-scheme: dark) {\n  :root {\n    --bg: #111318; --panel: #171a21; --card: #1d2029; --line: #2b2f3a; --fg: #eceef4; --muted: #9398a8;\n    --accent: #8b6dff; --accent-soft: rgba(139,109,255,.16);\n    --open: #f59e0b; --doing: #60a5fa; --review: #a78bfa; --done: #34d399; --wontfix: #9ca3af; --ask: #fbbf24;\n    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.25);\n    color-scheme: dark;\n  }\n}\n* { box-sizing: border-box; }\nhtml, body { margin: 0; height: 100%; }\nbody { background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }\na { color: var(--accent); }\ncode, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; }\nbutton, select, input, textarea { font: inherit; color: inherit; }\n\n.top { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }\n.brand { display: flex; align-items: center; gap: 6px; white-space: nowrap; }\n.brand .logo { color: var(--accent); font-size: 18px; }\n.brand .proj { color: var(--muted); margin-left: 6px; }\n.filters { display: flex; gap: 8px; flex: 1; min-width: 280px; flex-wrap: wrap; align-items: center; }\n.filters input.search { flex: 1; min-width: 180px; }\n.filters input.search, .filters select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; outline: none; }\n.filters input:focus, .filters select:focus { border-color: var(--accent); }\n.f-arch { color: var(--muted); font-size: 13px; display: flex; gap: 4px; align-items: center; }\n.status { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: 12px; flex-wrap: wrap; }\n.status b { color: var(--fg); }\n.live { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }\n.live.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }\n.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wontfix); }\n.dot.ok { background: var(--done); }\n.banner { padding: 8px 20px; background: var(--accent-soft); color: var(--fg); font-size: 13px; border-bottom: 1px solid var(--line); }\n\n.board { flex: 1; overflow: auto; padding: 16px 20px 40px; }\n.board.columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 14px; align-items: start; }\n.col h2, .grp h2 { font-size: 13px; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\n.col h2 span, .grp h2 span { background: var(--line); color: var(--fg); border-radius: 999px; padding: 0 8px; font-size: 12px; }\n.col-queue h2 { color: var(--open); }\n.col h2 .clear { margin-left: auto; margin-right: 6px; font-size: 11px; padding: 1px 8px; text-transform: none; letter-spacing: 0; }\n.col-you h2 { color: var(--review); }\n.col .cards { display: flex; flex-direction: column; gap: 10px; }\n.board.groups .grp { margin-bottom: 24px; }\n.board.groups .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }\n.empty { color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 0; }\n.empty.big { font-size: 14px; }\n\n.card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--open); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); cursor: pointer; display: flex; flex-direction: column; gap: 6px; outline: none; }\n.card:hover, .card:focus-visible { border-color: var(--accent); border-left-width: 3px; }\n.card.sel { outline: 2px solid var(--accent); outline-offset: 1px; }\n.card.s-in-progress { border-left-color: var(--doing); }\n.card.s-review { border-left-color: var(--review); }\n.card.s-done { border-left-color: var(--done); }\n.card.s-wontfix { border-left-color: var(--wontfix); opacity: .75; }\n.card.s-ask { border-left-color: var(--ask); }\n.thumb { margin: -2px -4px 0; border-radius: 6px; overflow: hidden; background: var(--bg); max-height: 120px; display: flex; align-items: center; justify-content: center; }\n.thumb img { max-width: 100%; max-height: 120px; display: block; }\n.c-title { font-weight: 600; }\n.c-page { color: var(--muted); font-size: 12px; }\n.chips { display: flex; flex-wrap: wrap; gap: 4px; }\n.chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }\n.chip.t { color: var(--fg); }\n.chip.now, .chip.ask { color: var(--open); border-color: var(--open); }\n.chip.review { color: var(--review); border-color: var(--review); }\n.chip.high { color: #dc2626; border-color: #dc2626; }\n.chip.ext { color: var(--accent); border-color: var(--accent); }\n.c-foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; gap: 8px; }\n.quick { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 2px 9px; font-size: 12px; cursor: pointer; white-space: nowrap; }\n\n.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 30px rgba(0,0,0,.15); overflow: auto; padding: 16px 20px 40px; z-index: 10; }\n.drawer[hidden] { display: none; }\n.d-head { display: flex; align-items: center; gap: 10px; }\n.d-head code { color: var(--muted); }\n.d-head .x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--muted); }\n.drawer h1 { font-size: 18px; margin: 10px 0 2px; }\n.d-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }\n.pill { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; color: #fff; background: var(--open); }\n.pill.s-in-progress { background: var(--doing); } .pill.s-review { background: var(--review); } .pill.s-done { background: var(--done); } .pill.s-wontfix { background: var(--wontfix); } .pill.s-ask { background: var(--ask); color: #111; }\n.d-actions { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; }\n.acts { display: flex; gap: 6px; flex-wrap: wrap; }\n.acts.minor .btn { font-size: 12px; padding: 3px 10px; }\n.btn { border: 1px solid var(--line); background: var(--card); border-radius: 7px; padding: 5px 12px; cursor: pointer; text-decoration: none; color: var(--fg); }\n.btn:hover { border-color: var(--accent); }\n.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }\ntextarea { width: 100%; min-height: 64px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; outline: none; }\ntextarea:focus, .triage input:focus, .triage select:focus { border-color: var(--accent); }\nfigure { margin: 0 0 12px; }\nfigure img { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }\nfigcaption { color: var(--muted); font-size: 11px; margin-top: 3px; }\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.pending { height: 80px; display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 8px; padding: 6px; }\nsection { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 14px; }\nsection h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }\n.prose { white-space: pre-wrap; overflow-wrap: anywhere; }\n.entry { border-left: 2px solid var(--line); padding-left: 10px; margin-top: 10px; }\n.entry .who { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }\n.entry.k-question { border-color: var(--ask); }\n.entry.k-feedback { border-color: #dc2626; }\n.entry.k-reply, .entry.k-approved { border-color: var(--done); }\ndl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }\ndt { color: var(--muted); font-size: 12px; }\ndd { margin: 0; overflow-wrap: anywhere; }\n.triage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.triage label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }\n.triage .wide { grid-column: 1 / -1; }\n.triage input, .triage select { background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; color: var(--fg); outline: none; }\n.mono-list { margin: 0; padding-left: 18px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }\npre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; overflow: auto; font-size: 12px; max-height: 260px; margin: 0; }\n.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }\n.toast.show { opacity: 1; }\n\n@media (max-width: 700px) {\n  .top { padding: 10px 16px; }\n  .board { padding: 12px 16px 40px; }\n  .board.columns { grid-auto-flow: row; grid-auto-columns: auto; }\n  .compare, .triage { grid-template-columns: 1fr; }\n}\n`;var x=window.__AHEMUI_BOARD__,m=x.mode==="live",n={items:x.items??[],watcher:null,connected:!m,project:x.project??"",branch:x.branch??null,q:"",type:"",groupBy:"status",archived:!1,selected:location.hash.slice(1)||null},M=["bug","style","layout","copy","feature","a11y","other"],P=["high","normal","low"],_={open:"open","in-progress":"in progress",review:"ready for review",done:"done",wontfix:"won\'t fix"},I=[{key:"queue",title:"\\u26A1 Queue",hint:"Claude works these as soon as a session runs /ahemui:watch",test:e=>e.status==="open"&&e.start==="now"&&!e.needs_reply},{key:"backlog",title:"Backlog",hint:"Saved for later: /ahemui:work, or press Start",test:e=>e.status==="open"&&e.start!=="now"&&!e.needs_reply},{key:"progress",title:"In progress",hint:"Claude is on it",test:e=>e.status==="in-progress"},{key:"you",title:"Needs you",hint:"Review the result or answer Claude\'s question",test:e=>e.status==="review"||e.status==="open"&&!!e.needs_reply},{key:"done",title:"Done",hint:"Approved, done or won\'t fix",test:e=>e.status==="done"||e.status==="wontfix"}];async function g(e,t,a){let r=await fetch(t,{method:e,headers:{"Content-Type":"application/json"},body:a===void 0?void 0:JSON.stringify(a)}),l=await r.json().catch(()=>({}));if(!r.ok)throw new Error(l.error??`HTTP ${r.status}`);return l}function k(e,t){return m?`/api/items/${e.id}/file/${encodeURIComponent(t)}`:`${x.base?`${x.base}/`:""}${e.location}/${e.id}/${encodeURIComponent(t)}`}async function q(){try{let t=await g("GET","/api/health");n.project=t.project,n.branch=t.branch,n.watcher=t.watcher,n.items=await g("GET","/api/items?all"),w()}catch{}let e=new WebSocket(`ws://${location.host}/ws`);e.onopen=()=>{n.connected=!0,S()},e.onmessage=t=>{let a=JSON.parse(t.data);a.type==="items"&&(n.items=a.items,a.watcher!==void 0&&(n.watcher=a.watcher),w())},e.onclose=()=>{n.connected=!1,S(),setTimeout(q,2e3)}}var u=e=>document.querySelector(e);function B(){document.head.insertAdjacentHTML("beforeend",`<style>${E}</style>`),document.body.innerHTML=`\n    <header class="top">\n      <div class="brand"><span class="logo">\\u25C9</span> <b>AhemUI</b> <span class="proj"></span></div>\n      <div class="filters">\n        <input class="search" type="search" placeholder="Search requests, pages, files\\u2026  ( / )">\n        <select class="f-type"><option value="">All types</option>${M.map(e=>`<option>${e}</option>`).join("")}</select>\n        <select class="f-group">\n          <option value="status">Columns by status</option>\n          <option value="page">Group by page</option>\n          <option value="area">Group by area</option>\n        </select>\n        <label class="f-arch"><input type="checkbox"> archived</label>\n      </div>\n      <div class="status"></div>\n    </header>\n    ${m?"":`<div class="banner">Read-only snapshot${x.generated?` from ${new Date(x.generated).toLocaleString()}`:""}. For the live board with actions, run <code>npx ahemui board</code> in the repo.</div>`}\n    <main class="board"></main>\n    <aside class="drawer" hidden></aside>\n    <div class="toast"></div>`,u(".search").addEventListener("input",e=>{n.q=e.target.value.toLowerCase(),b()}),u(".f-type").addEventListener("change",e=>{n.type=e.target.value,b()}),u(".f-group").addEventListener("change",e=>{n.groupBy=e.target.value,b()}),u(".f-arch input").addEventListener("change",e=>{n.archived=e.target.checked,b()}),addEventListener("keydown",e=>{let t=e.target.closest("input, textarea, select");e.key==="/"&&!t?(e.preventDefault(),u(".search").focus()):e.key==="Escape"&&$(null)}),addEventListener("hashchange",()=>$(location.hash.slice(1)||null,!1)),u(".board").addEventListener("click",e=>{let t=e.target.closest(".card"),a=e.target.closest("[data-quick]");if(a)return e.stopPropagation(),z(a.dataset.id,a.dataset.quick);t&&$(t.dataset.id)})}function w(){S(),b(),H()}function S(){let e=n.items.filter(s=>s.location==="items"),t=n.watcher;u(".proj").textContent=[n.project,n.branch].filter(Boolean).join(" \\xB7 "),document.title=`AhemUI backlog${n.project?` \\u2014 ${n.project}`:""}`;let a=I.map(s=>`<span title="${s.hint}">${s.title} <b>${e.filter(s.test).length}</b></span>`).join(""),r=m?t?`<span class="live on">Claude ${t.state==="waiting"?"watching":"working"}</span>`:\'<span class="live" title="Run /ahemui:watch in Claude Code">No Claude session watching</span>\':"",l=m?`<span class="dot ${n.connected?"ok":""}" title="${n.connected?"Live":"Reconnecting\\u2026"}"></span>`:"";u(".status").innerHTML=`${a}${r}${l}`}function O(){return n.items.filter(e=>n.archived||e.location==="items").filter(e=>!n.type||e.type===n.type).filter(e=>n.q?[e.body,e.id,e.area,e.route,e.anchor.source,e.anchor.text,e.page?.heading,e.page?.title,e.page?.routeName,e.page?.section,e.labels?.join(" "),e.external?.key].filter(Boolean).join(" ").toLowerCase().includes(n.q):!0).sort((e,t)=>t.id>e.id?1:-1)}function b(){let e=O(),t=u(".board");if(n.groupBy==="status")t.className="board columns",t.innerHTML=I.map(a=>{let r=e.filter(a.test),l=r.filter(i=>i.location==="items").length,s=m&&a.key==="done"&&l?`<button class="btn clear" data-quick="prune" data-id="" title="Archive every done and won\'t-fix item (moves them to .ahemui/done/)">Clear ${l}</button>`:"";return`<section class="col col-${a.key}"><h2 title="${a.hint}">${a.title} <span>${r.length}</span>${s}</h2><div class="cards">${r.map(j).join("")||`<p class="empty">${a.hint}</p>`}</div></section>`}).join("");else{t.className="board groups";let a=new Map;for(let r of e){let l=n.groupBy==="page"?T(r.page,r.route):r.area??"No area yet (run /ahemui:triage)";a.set(l,[...a.get(l)??[],r])}t.innerHTML=[...a].sort(([r],[l])=>r.localeCompare(l)).map(([r,l])=>`<section class="grp"><h2>${o(r)} <span>${l.length}</span></h2><div class="cards">${l.map(j).join("")}</div></section>`).join("")||\'<p class="empty big">Nothing matches.</p>\'}t.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===n.selected))}function j(e){let t=e.status==="open"&&e.needs_reply,a=[e.start==="now"&&e.status==="open"&&!t?\'<span class="chip now">\\u26A1 queued</span>\':"",t?\'<span class="chip ask">? question for you</span>\':"",e.status==="review"?\'<span class="chip review">\\u25CE review</span>\':"",e.status==="wontfix"?`<span class="chip">won\'t fix</span>`:"",e.location==="done"?\'<span class="chip">archived</span>\':"",e.type?`<span class="chip t">${o(e.type)}</span>`:"",e.priority==="high"?\'<span class="chip high">high</span>\':"",e.area?`<span class="chip">${o(e.area)}</span>`:"",...(e.labels??[]).map(l=>`<span class="chip">#${o(l)}</span>`),e.external?`<span class="chip ext">${o(e.external.key)}</span>`:""].join(""),r=m&&e.status==="open"&&!t&&e.start!=="now"?`<button class="quick" data-quick="start" data-id="${e.id}" title="Have Claude work on this now">${n.watcher?.state==="working"?"Add to queue":"\\u26A1 Start"}</button>`:"";return`<article class="card s-${e.status}${t?" s-ask":""}" data-id="${e.id}" tabindex="0">\n    ${e.shot?`<div class="thumb"><img loading="lazy" src="${k(e,e.shot)}" alt=""></div>`:""}\n    <div class="c-title">${o(A(e))}</div>\n    <div class="c-page">${o(T(e.page,e.route))}${e.page?.section?` \\u203A ${o(e.page.section)}`:""}</div>\n    ${a?`<div class="chips">${a}</div>`:""}\n    <div class="c-foot"><span>${o(e.author)} \\xB7 ${W(e.created)}</span>${r}</div>\n  </article>`}function $(e,t=!0){n.selected=e,t&&history.replaceState(null,"",e?`#${e}`:location.pathname+location.search),H(),document.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===e))}function H(){let e=u(".drawer"),t=n.items.find(d=>d.id===n.selected);if(!t){e.hidden=!0;return}let a=new Map([...e.querySelectorAll("[data-keep]")].map(d=>[d.dataset.keep,d.value]));if(e.dataset.id===t.id&&[...a.values()].some(d=>d.trim()))return;e.dataset.id=t.id,e.hidden=!1;let r=t.status==="open"&&t.needs_reply,{prompt:l,thread:s}=U(t.body),i=t.page??{},c=t.anchor,f=[];t.status==="review"||t.after?f.push(`<div class="compare">${y(t,t.shot,"before")}${t.after?y(t,t.after,"after"):\'<figure><div class="pending">after-shot is taken when the page is open</div><figcaption>after</figcaption></figure>\'}</div>`):t.shot&&f.push(y(t,t.shot,"highlighted area"));for(let[d,v]of(t.extras??[]).entries())v.shot&&f.push(y(t,v.shot,v.role==="reference"?`area ${d+2}: example to match`:`area ${d+2}: also applies here`));e.innerHTML=`\n    <div class="d-head">\n      <span class="pill s-${t.status}${r?" s-ask":""}">${r?"question for you":_[t.status]}</span>\n      <code>${t.id}</code>\n      <button class="x" title="Close (Esc)">\\u2715</button>\n    </div>\n    <h1>${o(A(t))}</h1>\n    <div class="d-sub">${o(t.author)} \\xB7 ${new Date(t.created).toLocaleString()}${t.claimed_by&&t.status==="in-progress"?` \\xB7 ${o(t.claimed_by)} is on it`:""}</div>\n    ${m?R(t,r):""}\n    ${f.join("")}\n    <section><h3>Request</h3><div class="prose">${o(l)}</div>\n      ${s.map(d=>`<div class="entry k-${d.kind.toLowerCase()}"><div class="who">${o(d.kind)} \\xB7 ${o(d.who)}</div><div class="prose">${o(d.text)}</div></div>`).join("")}\n    </section>\n    <section><h3>Where</h3><dl>\n      ${h("Page",T(i,t.route)+(i.section?` \\u203A ${i.section}`:""))}\n      ${t.url?`<dt>URL</dt><dd><a href="${o(t.url)}" target="_blank" rel="noopener">${o(t.url)}</a>${i.env==="deployed"?" (deployed)":""}</dd>`:""}\n      ${h("Source",c.source,!0)}\n      ${h("Components",c.components?.join(" \\u203A "))}\n      ${h("Page file",i.pageFile,!0)}\n      ${h("Story",i.storyTitle?`${i.storyTitle}${i.storyFile?` \\u2014 ${i.storyFile}`:""}`:void 0)}\n      ${h("Element",c.text?`"${c.text}"`:void 0)}\n      ${h("CSS path",c.selector,!0)}\n      ${h("Seen in",[i.browser,t.viewport,i.colorScheme&&`${i.colorScheme} mode`].filter(Boolean).join(", "))}\n      ${t.design?`<dt>Design</dt><dd><a href="${o(t.design)}" target="_blank" rel="noopener">${o(t.design)}</a></dd>`:""}\n      ${t.external?`<dt>Ticket</dt><dd>${t.external.url?`<a href="${o(t.external.url)}" target="_blank" rel="noopener">${o(t.external.key)}</a>`:o(t.external.key)}${t.external.status?` \\xB7 ${o(t.external.status)}`:""}</dd>`:""}\n    </dl></section>\n    ${N(t)}\n    ${D(t)}`;for(let[d,v]of a){let L=e.querySelector(`[data-keep="${d}"]`);L&&(L.value=v)}e.querySelector(".x").addEventListener("click",()=>$(null)),e.querySelectorAll("[data-act]").forEach(d=>d.addEventListener("click",()=>z(t.id,d.dataset.act))),e.querySelectorAll("textarea, input").forEach(d=>d.addEventListener("keydown",v=>v.stopPropagation()))}function y(e,t,a){return t?`<figure><a href="${k(e,t)}" target="_blank"><img src="${k(e,t)}" alt=""></a><figcaption>${o(a)}</figcaption></figure>`:`<figure><div class="pending">no screenshot</div><figcaption>${o(a)}</figcaption></figure>`}function R(e,t){let a=(l,s,i=!1)=>`<button class="btn${i?" primary":""}" data-act="${l}">${s}</button>`,r="";return t?r=`<textarea data-keep="reply" placeholder="Answer Claude\'s question\\u2026"></textarea><div class="acts">${a("reply","Reply",!0)}</div>`:e.status==="review"?r=`<div class="acts">${a("approve","Looks good \\u2713",!0)}</div>\n      <textarea data-keep="changes" placeholder="Not quite? Say what still needs to change\\u2026"></textarea><div class="acts">${a("changes","Send back")}</div>`:e.status==="open"?r=`<div class="acts">${e.start==="now"?a("later","Move to backlog"):a("start",n.watcher?.state==="working"?"Add to queue":"\\u26A1 Start now",!0)}${a("done","Mark done")}${a("wontfix","Won\'t fix")}</div>`:e.status==="in-progress"?r=`<div class="acts">${a("done","Mark done")}${a("reopen","Put back to open")}</div>`:e.location==="items"?r=`<div class="acts">${a("archive","Archive")}${a("reopen","Reopen")}</div>`:r=`<div class="acts">${a("reopen","Reopen")}</div>`,`<div class="d-actions">${r}<div class="acts minor">${a("copy","Copy id")}${e.url?`<a class="btn" href="${o(e.url)}" target="_blank" rel="noopener">Open page \\u2197</a>`:""}</div></div>`}function N(e){if(!m){let a=[e.type,e.priority,e.area,...(e.labels??[]).map(r=>`#${r}`)].filter(Boolean).join(" \\xB7 ");return a?`<section><h3>Classification</h3><p>${o(a)}</p></section>`:""}let t=(a,r,l="\\u2014")=>`<option value="">${l}</option>${a.map(s=>`<option ${s===r?"selected":""}>${s}</option>`).join("")}`;return`<section><h3>Classification</h3><div class="triage">\n    <label>Type <select data-t="type">${t(M,e.type)}</select></label>\n    <label>Priority <select data-t="priority">${t(P,e.priority,"normal")}</select></label>\n    <label class="wide">Area <input data-t="area" value="${o(e.area??"")}" placeholder="Page \\u203A Section"></label>\n    <label class="wide">Labels <input data-t="labels" value="${o((e.labels??[]).join(", "))}" placeholder="mobile, dark-mode"></label>\n    <div class="acts"><button class="btn" data-act="triage">Save classification</button></div>\n  </div></section>`}function D(e){let t=[],a=e.styles;a?.computed&&t.push(`<section><h3>Styles</h3><dl>${Object.entries(a.computed).map(([c,f])=>h(c,`${f}${a.tokens?.[c]?`  \\u2192  ${a.tokens[c]}`:""}`,!0)).join("")}${a.classes?h("classes",a.classes.join(" "),!0):""}</dl></section>`);let r=e.evidence;(r?.console?.length||r?.network?.length)&&t.push(`<section><h3>Errors before capture</h3><ul class="mono-list">${[...(r.console??[]).map(c=>`<li><b>console.${o(c.level)}</b> ${o(c.message)}</li>`),...(r.network??[]).map(c=>`<li><b>${o(c.method)} ${c.status||"failed"}</b> ${o(c.url)}</li>`)].join("")}</ul></section>`);let l=e.steps;l?.length&&t.push(`<section><h3>Steps before capture</h3><ol class="mono-list">${l.map(c=>`<li>${o(c.kind)} ${o(c.target??"")}${c.detail?` (${o(c.detail)})`:""}</li>`).join("")}</ol></section>`);let s=e.a11y;s?.length&&t.push(`<section><h3>Accessibility</h3><ul class="mono-list">${s.map(c=>`<li><b>${o(c.impact??"")}</b> ${o(c.id)}: ${o(c.help)}</li>`).join("")}</ul></section>`);let i=e.state;return i&&(i.props!==void 0||i.state!==void 0)&&t.push(`<section><h3>Component state${i.component?` \\xB7 ${o(i.component)}`:""}</h3><pre>${o(JSON.stringify({props:i.props,state:i.state},null,2))}</pre></section>`),t.join("")}async function z(e,t){if(t==="prune"){try{let{archived:s}=await g("POST","/api/prune",{});n.items=n.items.map(i=>s.includes(i.id)?{...i,location:"done"}:i),w(),p(`Archived ${s.length} finished item(s)`)}catch(s){p(s.message)}return}if(!n.items.find(s=>s.id===e))return;let r=u(".drawer"),l=s=>r.querySelector(`[data-keep="${s}"]`)?.value.trim()??"";try{let s;switch(t){case"copy":return await navigator.clipboard.writeText(e),p("Copied");case"start":case"later":s=await g("POST",`/api/items/${e}/start`,{start:t==="start"?"now":"later"}),p(t==="later"?"Moved to the backlog":n.watcher?.state==="waiting"?"\\u26A1 Claude is starting on it":n.watcher?"Added to the queue":"Queued; start /ahemui:watch in Claude Code to work it");break;case"done":case"wontfix":s=await g("POST",`/api/items/${e}/resolve`,{status:t});break;case"reopen":s=await g("POST",`/api/items/${e}/reopen`,{});break;case"archive":s=await g("POST",`/api/items/${e}/archive`,{}),p("Archived");break;case"reply":if(!l("reply"))return p("Type an answer first");s=await g("POST",`/api/items/${e}/reply`,{text:l("reply")}),p("Sent to Claude \\u2713");break;case"approve":s=await g("POST",`/api/items/${e}/review`,{verdict:"approved"}),p("Approved \\u2713");break;case"changes":if(!l("changes"))return p("Say what still needs to change");s=await g("POST",`/api/items/${e}/review`,{verdict:"changes",comment:l("changes")}),p("Sent back to Claude");break;case"triage":{let i=f=>r.querySelector(`[data-t="${f}"]`).value.trim(),c=i("labels").split(",").map(f=>f.trim()).filter(Boolean);s=await g("POST",`/api/items/${e}/triage`,{type:i("type")||null,priority:i("priority")||null,area:i("area")||null,labels:c.length?c:null}),p("Saved");break}}s&&(r.querySelectorAll("[data-keep]").forEach(i=>i.value=""),n.items=n.items.map(i=>i.id===s.id?s:i),w())}catch(s){p(s.message)}}function h(e,t,a=!1){return t?`<dt>${o(e)}</dt><dd${a?\' class="mono"\':""}>${o(t)}</dd>`:""}function A(e){return e.body.split(`\n`)[0].slice(0,140)}function T(e,t){let a=e?.storyTitle||e?.heading||e?.title||e?.pageComponent,r=e?.routePattern??t??"?";return a?`${a} (${r})`:r}function U(e){let t=e.split(/\\n\\n### (Note|Question|Reply|Feedback|Approved) \u2014 ([^\\n]+)\\n\\n/),a=[];for(let r=1;r+2<t.length+1;r+=3)a.push({kind:t[r],who:t[r+1].replace(/, \\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d$/,""),text:(t[r+2]??"").trim()});return{prompt:t[0],thread:a}}function W(e){let t=(Date.now()-Date.parse(e))/1e3;return t<60?"just now":t<3600?`${Math.round(t/60)} min ago`:t<86400?`${Math.round(t/3600)} h ago`:`${Math.round(t/86400)} d ago`}var C=0;function p(e){let t=u(".toast");t.textContent=e,t.classList.add("show"),clearTimeout(C),C=window.setTimeout(()=>t.classList.remove("show"),2500)}function o(e){return e.replace(/[&<>"\']/g,t=>`&#${t.charCodeAt(0)};`)}B();w();m&&q();})();\n';
+var BOARD_JS = '"use strict";(()=>{var j=`\n:root {\n  --bg: #f6f6f9; --panel: #ffffff; --card: #ffffff; --line: #e3e4ec; --fg: #1d2030; --muted: #6b7084;\n  --accent: #6d4aff; --accent-soft: rgba(109,74,255,.12);\n  --open: #d97706; --doing: #2563eb; --review: #7c3aed; --done: #16a34a; --wontfix: #6b7280; --ask: #d97706;\n  --shadow: 0 1px 2px rgba(20,20,40,.06), 0 4px 16px rgba(20,20,40,.06);\n  color-scheme: light;\n}\n@media (prefers-color-scheme: dark) {\n  :root {\n    --bg: #111318; --panel: #171a21; --card: #1d2029; --line: #2b2f3a; --fg: #eceef4; --muted: #9398a8;\n    --accent: #8b6dff; --accent-soft: rgba(139,109,255,.16);\n    --open: #f59e0b; --doing: #60a5fa; --review: #a78bfa; --done: #34d399; --wontfix: #9ca3af; --ask: #fbbf24;\n    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.25);\n    color-scheme: dark;\n  }\n}\n* { box-sizing: border-box; }\nhtml, body { margin: 0; height: 100%; }\nbody { background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }\na { color: var(--accent); }\ncode, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; }\nbutton, select, input, textarea { font: inherit; color: inherit; }\n\n.top { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }\n.brand { display: flex; align-items: center; gap: 6px; white-space: nowrap; }\n.brand .logo { color: var(--accent); font-size: 18px; }\n.brand .proj { color: var(--muted); margin-left: 6px; }\n.filters { display: flex; gap: 8px; flex: 1; min-width: 280px; flex-wrap: wrap; align-items: center; }\n.filters input.search { flex: 1; min-width: 180px; }\n.filters input.search, .filters select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; outline: none; }\n.filters input:focus, .filters select:focus { border-color: var(--accent); }\n.f-arch { color: var(--muted); font-size: 13px; display: flex; gap: 4px; align-items: center; }\n.status { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: 12px; flex-wrap: wrap; }\n.status b { color: var(--fg); }\n.live { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }\n.live.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }\n.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wontfix); }\n.dot.ok { background: var(--done); }\n.banner { padding: 8px 20px; background: var(--accent-soft); color: var(--fg); font-size: 13px; border-bottom: 1px solid var(--line); }\n\n.board { flex: 1; overflow: auto; padding: 16px 20px 40px; }\n.board.columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 14px; align-items: start; }\n.col h2, .grp h2 { font-size: 13px; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\n.col h2 span, .grp h2 span { background: var(--line); color: var(--fg); border-radius: 999px; padding: 0 8px; font-size: 12px; }\n.col-queue h2 { color: var(--open); }\n.col h2 .clear { margin-left: auto; margin-right: 6px; font-size: 11px; padding: 1px 8px; text-transform: none; letter-spacing: 0; }\n.col-you h2 { color: var(--review); }\n.col .cards { display: flex; flex-direction: column; gap: 10px; }\n.board.groups .grp { margin-bottom: 24px; }\n.board.groups .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }\n.empty { color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 0; }\n.empty.big { font-size: 14px; }\n\n.card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--open); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); cursor: pointer; display: flex; flex-direction: column; gap: 6px; outline: none; }\n.card:hover, .card:focus-visible { border-color: var(--accent); border-left-width: 3px; }\n.card.sel { outline: 2px solid var(--accent); outline-offset: 1px; }\n.card.s-in-progress { border-left-color: var(--doing); }\n.card.s-review { border-left-color: var(--review); }\n.card.s-done { border-left-color: var(--done); }\n.card.s-wontfix { border-left-color: var(--wontfix); opacity: .75; }\n.card.s-ask { border-left-color: var(--ask); }\n.thumb { margin: -2px -4px 0; border-radius: 6px; overflow: hidden; background: var(--bg); max-height: 120px; display: flex; align-items: center; justify-content: center; }\n.thumb img { max-width: 100%; max-height: 120px; display: block; }\n.c-title { font-weight: 600; }\n.c-page { color: var(--muted); font-size: 12px; }\n.chips { display: flex; flex-wrap: wrap; gap: 4px; }\n.chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }\n.chip.t { color: var(--fg); }\n.chip.now, .chip.ask { color: var(--open); border-color: var(--open); }\n.chip.review { color: var(--review); border-color: var(--review); }\n.chip.high { color: #dc2626; border-color: #dc2626; }\n.chip.ext { color: var(--accent); border-color: var(--accent); }\n.c-foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; gap: 8px; }\n.quick { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 2px 9px; font-size: 12px; cursor: pointer; white-space: nowrap; }\n\n.scrim { position: fixed; inset: 0; background: rgba(8,9,12,.62); backdrop-filter: blur(2px); z-index: 9; }\n.scrim[hidden] { display: none; }\n.drawer { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 80px rgba(0,0,0,.45); overflow: auto; padding: 18px 24px 28px; z-index: 10; }\n.drawer[hidden] { display: none; }\nbody.modal-open { overflow: hidden; }\n@media (max-width: 640px) { .drawer { top: auto; bottom: 0; left: 0; transform: none; width: 100vw; max-height: 92vh; border-radius: 14px 14px 0 0; } }\n.d-head { display: flex; align-items: center; gap: 10px; }\n.d-head code { color: var(--muted); }\n.d-head .x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--muted); }\n.drawer h1 { font-size: 18px; margin: 10px 0 2px; }\n.d-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }\n.pill { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; color: #fff; background: var(--open); }\n.pill.s-in-progress { background: var(--doing); } .pill.s-review { background: var(--review); } .pill.s-done { background: var(--done); } .pill.s-wontfix { background: var(--wontfix); } .pill.s-ask { background: var(--ask); color: #111; }\n.d-actions { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 8px; }\n.acts { display: flex; gap: 6px; flex-wrap: wrap; }\n.acts.minor .btn { font-size: 12px; padding: 3px 10px; }\n.btn { border: 1px solid var(--line); background: var(--card); border-radius: 7px; padding: 5px 12px; cursor: pointer; text-decoration: none; color: var(--fg); }\n.btn:hover { border-color: var(--accent); }\n.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }\ntextarea { width: 100%; min-height: 64px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; outline: none; }\ntextarea:focus, .triage input:focus, .triage select:focus { border-color: var(--accent); }\nfigure { margin: 0 0 12px; }\nfigure img { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }\nfigcaption { color: var(--muted); font-size: 11px; margin-top: 3px; }\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.pending { height: 80px; display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 8px; padding: 6px; }\nsection { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 14px; }\nsection h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }\n.prose { white-space: pre-wrap; overflow-wrap: anywhere; }\n.entry { border-left: 2px solid var(--line); padding-left: 10px; margin-top: 10px; }\n.entry .who { color: var(--muted); font-size: 12px; }\n.entry .who b { color: var(--fg); font-weight: 600; }\n.entry.k-question { border-color: var(--ask); }\n.entry.k-feedback { border-color: #dc2626; }\n.entry.k-reply, .entry.k-approved { border-color: var(--done); }\ndl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }\ndt { color: var(--muted); font-size: 12px; }\ndd { margin: 0; overflow-wrap: anywhere; }\n.triage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.triage label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }\n.triage .wide { grid-column: 1 / -1; }\n.triage input, .triage select { background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; color: var(--fg); outline: none; }\n.mono-list { margin: 0; padding-left: 18px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }\npre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; overflow: auto; font-size: 12px; max-height: 260px; margin: 0; }\n.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }\n.toast.show { opacity: 1; }\n\n@media (max-width: 700px) {\n  .top { padding: 10px 16px; }\n  .board { padding: 12px 16px 40px; }\n  .board.columns { grid-auto-flow: row; grid-auto-columns: auto; }\n  .compare, .triage { grid-template-columns: 1fr; }\n}\n`;var b=window.__AHEMUI_BOARD__,m=b.mode==="live",o={items:b.items??[],batches:b.batches??[],watcher:null,connected:!m,project:b.project??"",branch:b.branch??null,q:"",type:"",groupBy:"status",archived:!1,selected:location.hash.slice(1)||null},M=["bug","style","layout","copy","feature","a11y","other"],_=["high","normal","low"],O={open:"open","in-progress":"in progress",review:"ready for review",done:"done",wontfix:"won\'t fix"},q=[{key:"queue",title:"\\u26A1 Queue",hint:"Claude works these as soon as a session runs /ahemui:watch",test:e=>e.status==="open"&&e.start==="now"&&!e.needs_reply},{key:"backlog",title:"Backlog",hint:"Saved for later: /ahemui:work, or press Start",test:e=>e.status==="open"&&e.start!=="now"&&!e.needs_reply},{key:"progress",title:"In progress",hint:"Claude is on it",test:e=>e.status==="in-progress"},{key:"you",title:"Needs you",hint:"Review the result or answer Claude\'s question",test:e=>e.status==="review"||e.status==="open"&&!!e.needs_reply},{key:"done",title:"Done",hint:"Approved, done or won\'t fix",test:e=>e.status==="done"||e.status==="wontfix"}];async function u(e,t,a){let r=await fetch(t,{method:e,headers:{"Content-Type":"application/json"},body:a===void 0?void 0:JSON.stringify(a)}),i=await r.json().catch(()=>({}));if(!r.ok)throw new Error(i.error??`HTTP ${r.status}`);return i}function T(e,t){return m?`/api/items/${e.id}/file/${encodeURIComponent(t)}`:`${b.base?`${b.base}/`:""}${e.location}/${e.id}/${encodeURIComponent(t)}`}async function H(){try{let t=await u("GET","/api/health");o.project=t.project,o.branch=t.branch,o.watcher=t.watcher,o.items=await u("GET","/api/items?all"),o.batches=await u("GET","/api/batches").catch(()=>[]),v()}catch{}let e=new WebSocket(`ws://${location.host}/ws`);e.onopen=()=>{o.connected=!0,S()},e.onmessage=t=>{let a=JSON.parse(t.data);a.type==="items"&&(o.items=a.items,a.watcher!==void 0&&(o.watcher=a.watcher),a.items.some(r=>r.batch&&!o.batches.some(i=>i.id===r.batch))&&u("GET","/api/batches").then(r=>(o.batches=r,v()),()=>{}),v())},e.onclose=()=>{o.connected=!1,S(),setTimeout(H,2e3)}}var p=e=>document.querySelector(e);function R(){document.head.insertAdjacentHTML("beforeend",`<style>${j}</style>`),document.body.innerHTML=`\n    <header class="top">\n      <div class="brand"><span class="logo">\\u25C9</span> <b>AhemUI</b> <span class="proj"></span></div>\n      <div class="filters">\n        <input class="search" type="search" placeholder="Search requests, pages, files\\u2026  ( / )">\n        <select class="f-type"><option value="">All types</option>${M.map(e=>`<option>${e}</option>`).join("")}</select>\n        <select class="f-group">\n          <option value="status">Columns by status</option>\n          <option value="page">Group by page</option>\n          <option value="area">Group by area</option>\n          <option value="batch">Group by batch</option>\n        </select>\n        <label class="f-arch"><input type="checkbox"> archived</label>\n      </div>\n      <div class="status"></div>\n    </header>\n    ${m?"":`<div class="banner">Read-only snapshot${b.generated?` from ${new Date(b.generated).toLocaleString()}`:""}. For the live board with actions, run <code>npx ahemui board</code> in the repo.</div>`}\n    <main class="board"></main>\n    <div class="scrim" hidden></div>\n    <aside class="drawer" role="dialog" aria-modal="true" aria-label="Item details" hidden></aside>\n    <div class="toast"></div>`,p(".scrim").addEventListener("click",()=>y(null)),p(".search").addEventListener("input",e=>{o.q=e.target.value.toLowerCase(),w()}),p(".f-type").addEventListener("change",e=>{o.type=e.target.value,w()}),p(".f-group").addEventListener("change",e=>{o.groupBy=e.target.value,w()}),p(".f-arch input").addEventListener("change",e=>{o.archived=e.target.checked,w()}),addEventListener("keydown",e=>{let t=e.target.closest("input, textarea, select");e.key==="/"&&!t?(e.preventDefault(),p(".search").focus()):e.key==="Escape"&&y(null)}),addEventListener("hashchange",()=>y(location.hash.slice(1)||null,!1)),p(".board").addEventListener("click",e=>{let t=e.target.closest(".card"),a=e.target.closest("[data-quick]");if(a)return e.stopPropagation(),A(a.dataset.id,a.dataset.quick);t&&y(t.dataset.id)})}function v(){S(),w(),z()}function S(){let e=o.items.filter(s=>s.location==="items"),t=o.watcher;p(".proj").textContent=[o.project,o.branch].filter(Boolean).join(" \\xB7 "),document.title=`AhemUI backlog${o.project?` \\u2014 ${o.project}`:""}`;let a=q.map(s=>`<span title="${s.hint}">${s.title} <b>${e.filter(s.test).length}</b></span>`).join(""),r=m?t?`<span class="live ${t.paused||t.stopping?"":"on"}">Claude ${t.stopping?"stopping":t.paused?"paused":t.state==="waiting"?"watching":"working"}</span>`:\'<span class="live" title="Run /ahemui:watch in Claude Code">No Claude session watching</span>\':"",i=m?`<span class="dot ${o.connected?"ok":""}" title="${o.connected?"Live":"Reconnecting\\u2026"}"></span>`:"";p(".status").innerHTML=`${a}${r}${i}`}function N(){return o.items.filter(e=>o.archived||e.location==="items").filter(e=>!o.type||e.type===o.type).filter(e=>o.q?[e.body,e.id,e.area,e.route,e.anchor.source,e.anchor.text,e.page?.heading,e.page?.title,e.page?.routeName,e.page?.section,e.labels?.join(" "),e.external?.key].filter(Boolean).join(" ").toLowerCase().includes(o.q):!0).sort((e,t)=>t.id>e.id?1:-1)}function w(){let e=N(),t=p(".board");if(o.groupBy==="status")t.className="board columns",t.innerHTML=q.map(a=>{let r=e.filter(a.test),i=r.filter(l=>l.location==="items").length,s=m&&a.key==="done"&&i?`<button class="btn clear" data-quick="prune" data-id="" title="Archive every done and won\'t-fix item (moves them to .ahemui/done/)">Clear ${i}</button>`:"";return`<section class="col col-${a.key}"><h2 title="${a.hint}">${a.title} <span>${r.length}</span>${s}</h2><div class="cards">${r.map(C).join("")||`<p class="empty">${a.hint}</p>`}</div></section>`}).join("");else{t.className="board groups";let a=new Map;for(let r of e){let i=o.groupBy==="page"?L(r.page,r.route):o.groupBy==="batch"?P(r):r.area??"No area yet (run /ahemui:triage)";a.set(i,[...a.get(i)??[],r])}t.innerHTML=[...a].sort(([r],[i])=>r.localeCompare(i)).map(([r,i])=>`<section class="grp"><h2>${n(r)} <span>${i.length}</span></h2><div class="cards">${i.map(C).join("")}</div></section>`).join("")||\'<p class="empty big">Nothing matches.</p>\'}t.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===o.selected))}function C(e){let t=e.status==="open"&&e.needs_reply,a=[e.start==="now"&&e.status==="open"&&!t?\'<span class="chip now">\\u26A1 queued</span>\':"",e.intent==="review"?\'<span class="chip ask">for review</span>\':"",t?\'<span class="chip ask">? question for you</span>\':"",e.status==="review"?\'<span class="chip review">\\u25CE review</span>\':"",e.status==="wontfix"?`<span class="chip">won\'t fix</span>`:"",e.location==="done"?\'<span class="chip">archived</span>\':"",e.type?`<span class="chip t">${n(e.type)}</span>`:"",e.priority==="high"?\'<span class="chip high">high</span>\':"",e.area?`<span class="chip">${n(e.area)}</span>`:"",...(e.labels??[]).map(i=>`<span class="chip">#${n(i)}</span>`),e.external?`<span class="chip ext">${n(e.external.key)}</span>`:""].join(""),r=m&&e.status==="open"&&!t&&e.start!=="now"?`<button class="quick" data-quick="start" data-id="${e.id}" title="Have Claude work on this now">${o.watcher?.state==="working"?"Add to queue":"\\u26A1 Start"}</button>`:"";return`<article class="card s-${e.status}${t?" s-ask":""}" data-id="${e.id}" tabindex="0">\n    ${e.shot?`<div class="thumb"><img loading="lazy" src="${T(e,e.shot)}" alt=""></div>`:""}\n    <div class="c-title">${n(B(e))}</div>\n    <div class="c-page">${n(L(e.page,e.route))}${e.page?.section?` \\u203A ${n(e.page.section)}`:""}</div>\n    ${a?`<div class="chips">${a}</div>`:""}\n    <div class="c-foot"><span>${n(e.author)} \\xB7 ${F(e.created)}</span>${r}</div>\n  </article>`}function y(e,t=!0){o.selected=e,t&&history.replaceState(null,"",e?`#${e}`:location.pathname+location.search),z(),document.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===e))}function z(){let e=p(".drawer"),t=o.items.find(d=>d.id===o.selected),a=p(".scrim");if(!t){e.hidden=!0,a.hidden=!0,document.body.classList.remove("modal-open");return}let r=new Map([...e.querySelectorAll("[data-keep]")].map(d=>[d.dataset.keep,d.value]));if(e.dataset.id===t.id&&[...r.values()].some(d=>d.trim()))return;e.dataset.id=t.id,e.hidden=!1,a.hidden=!1,document.body.classList.add("modal-open");let i=t.status==="open"&&t.needs_reply,{prompt:s,thread:l}=W(t.body),c=t.page??{},f=t.anchor,$=[];t.status==="review"||t.after?$.push(`<div class="compare">${k(t,t.shot,"before")}${t.after?k(t,t.after,"after"):\'<figure><div class="pending">after-shot is taken when the page is open</div><figcaption>after</figcaption></figure>\'}</div>`):t.shot&&$.push(k(t,t.shot,"highlighted area"));for(let[d,x]of(t.extras??[]).entries())x.shot&&$.push(k(t,x.shot,x.role==="reference"?`area ${d+2}: example to match`:`area ${d+2}: also applies here`));e.innerHTML=`\n    <div class="d-head">\n      <span class="pill s-${t.status}${i?" s-ask":""}">${i?"question for you":O[t.status]}</span>\n      <code>${t.id}</code>\n      <button class="x" title="Close (Esc)">\\u2715</button>\n    </div>\n    <h1>${n(B(t))}</h1>\n    <div class="d-sub">${n(t.author)} \\xB7 ${new Date(t.created).toLocaleString()}${t.claimed_by&&t.status==="in-progress"?` \\xB7 ${n(t.claimed_by)} is on it`:""}</div>\n    ${m?D(t,i):""}\n    ${$.join("")}\n    <section><h3>Request</h3><div class="prose">${n(s)}</div>\n      ${l.map(d=>`<div class="entry k-${d.kind.toLowerCase()}"><div class="who"><b>${n(d.who)}</b> \\xB7 ${n(d.kind.toLowerCase())}</div><div class="prose">${n(d.text)}</div></div>`).join("")}\n    </section>\n    <section><h3>Where</h3><dl>\n      ${t.batch?h("Batch",P(t)):""}\n      ${h("Page",L(c,t.route)+(c.section?` \\u203A ${c.section}`:""))}\n      ${t.url?`<dt>URL</dt><dd><a href="${n(t.url)}" target="_blank" rel="noopener">${n(t.url)}</a>${c.env==="deployed"?" (deployed)":""}</dd>`:""}\n      ${h("Source",f.source,!0)}\n      ${h("Components",f.components?.join(" \\u203A "))}\n      ${h("Page file",c.pageFile,!0)}\n      ${h("Story",c.storyTitle?`${c.storyTitle}${c.storyFile?` \\u2014 ${c.storyFile}`:""}`:void 0)}\n      ${h("Element",f.text?`"${f.text}"`:void 0)}\n      ${h("CSS path",f.selector,!0)}\n      ${h("Seen in",[c.browser,t.viewport,c.colorScheme&&`${c.colorScheme} mode`].filter(Boolean).join(", "))}\n      ${t.design?`<dt>Design</dt><dd><a href="${n(t.design)}" target="_blank" rel="noopener">${n(t.design)}</a></dd>`:""}\n      ${t.external?`<dt>Ticket</dt><dd>${t.external.url?`<a href="${n(t.external.url)}" target="_blank" rel="noopener">${n(t.external.key)}</a>`:n(t.external.key)}${t.external.status?` \\xB7 ${n(t.external.status)}`:""}</dd>`:""}\n    </dl></section>\n    ${U(t)}\n    ${G(t)}`;for(let[d,x]of r){let E=e.querySelector(`[data-keep="${d}"]`);E&&(E.value=x)}e.querySelector(".x").addEventListener("click",()=>y(null)),e.querySelectorAll("[data-act]").forEach(d=>d.addEventListener("click",()=>A(t.id,d.dataset.act))),e.querySelectorAll("textarea, input").forEach(d=>d.addEventListener("keydown",x=>x.stopPropagation()))}function k(e,t,a){return t?`<figure><a href="${T(e,t)}" target="_blank"><img src="${T(e,t)}" alt=""></a><figcaption>${n(a)}</figcaption></figure>`:`<figure><div class="pending">no screenshot</div><figcaption>${n(a)}</figcaption></figure>`}function D(e,t){let a=(i,s,l=!1)=>`<button class="btn${l?" primary":""}" data-act="${i}">${s}</button>`,r="";return t?r=`<textarea data-keep="reply" placeholder="Answer Claude\'s question\\u2026"></textarea><div class="acts">${a("reply","Reply",!0)}</div>`:e.status==="review"?r=`<div class="acts">${a("approve","Looks good \\u2713",!0)}</div>\n      <textarea data-keep="changes" placeholder="Not quite? Say what still needs to change\\u2026"></textarea><div class="acts">${a("changes","Send back")}</div>`:e.status==="open"?r=`<div class="acts">${e.start==="now"?a("later","Move to backlog"):a("start",o.watcher?.state==="working"?"Add to queue":"\\u26A1 Start now",!0)}${a("done","Mark done")}${a("wontfix","Won\'t fix")}</div>`:e.status==="in-progress"?r=`<div class="acts">${a("done","Mark done")}${a("reopen","Put back to open")}</div>`:e.location==="items"?r=`<div class="acts">${a("archive","Archive")}${a("reopen","Reopen")}</div>`:r=`<div class="acts">${a("reopen","Reopen")}</div>`,`<div class="d-actions">${r}<div class="acts minor">${a("copy","Copy id")}${e.url?`<a class="btn" href="${n(e.url)}" target="_blank" rel="noopener">Open page \\u2197</a>`:""}</div></div>`}function U(e){if(!m){let a=[e.type,e.priority,e.area,...(e.labels??[]).map(r=>`#${r}`)].filter(Boolean).join(" \\xB7 ");return a?`<section><h3>Classification</h3><p>${n(a)}</p></section>`:""}let t=(a,r,i="\\u2014")=>`<option value="">${i}</option>${a.map(s=>`<option ${s===r?"selected":""}>${s}</option>`).join("")}`;return`<section><h3>Classification</h3><div class="triage">\n    <label>Type <select data-t="type">${t(M,e.type)}</select></label>\n    <label>Priority <select data-t="priority">${t(_,e.priority,"normal")}</select></label>\n    <label class="wide">Area <input data-t="area" value="${n(e.area??"")}" placeholder="Page \\u203A Section"></label>\n    <label class="wide">Labels <input data-t="labels" value="${n((e.labels??[]).join(", "))}" placeholder="mobile, dark-mode"></label>\n    <div class="acts"><button class="btn" data-act="triage">Save classification</button></div>\n  </div></section>`}function G(e){let t=[],a=e.styles;a?.computed&&t.push(`<section><h3>Styles</h3><dl>${Object.entries(a.computed).map(([c,f])=>h(c,`${f}${a.tokens?.[c]?`  \\u2192  ${a.tokens[c]}`:""}`,!0)).join("")}${a.classes?h("classes",a.classes.join(" "),!0):""}</dl></section>`);let r=e.evidence;(r?.console?.length||r?.network?.length)&&t.push(`<section><h3>Errors before capture</h3><ul class="mono-list">${[...(r.console??[]).map(c=>`<li><b>console.${n(c.level)}</b> ${n(c.message)}</li>`),...(r.network??[]).map(c=>`<li><b>${n(c.method)} ${c.status||"failed"}</b> ${n(c.url)}</li>`)].join("")}</ul></section>`);let i=e.steps;i?.length&&t.push(`<section><h3>Steps before capture</h3><ol class="mono-list">${i.map(c=>`<li>${n(c.kind)} ${n(c.target??"")}${c.detail?` (${n(c.detail)})`:""}</li>`).join("")}</ol></section>`);let s=e.a11y;s?.length&&t.push(`<section><h3>Accessibility</h3><ul class="mono-list">${s.map(c=>`<li><b>${n(c.impact??"")}</b> ${n(c.id)}: ${n(c.help)}</li>`).join("")}</ul></section>`);let l=e.state;return l&&(l.props!==void 0||l.state!==void 0)&&t.push(`<section><h3>Component state${l.component?` \\xB7 ${n(l.component)}`:""}</h3><pre>${n(JSON.stringify({props:l.props,state:l.state},null,2))}</pre></section>`),t.join("")}async function A(e,t){if(t==="prune"){try{let{archived:s}=await u("POST","/api/prune",{});o.items=o.items.map(l=>s.includes(l.id)?{...l,location:"done"}:l),v(),g(`Archived ${s.length} finished item(s)`)}catch(s){g(s.message)}return}if(!o.items.find(s=>s.id===e))return;let r=p(".drawer"),i=s=>r.querySelector(`[data-keep="${s}"]`)?.value.trim()??"";try{let s;switch(t){case"copy":return await navigator.clipboard.writeText(e),g("Copied");case"start":case"later":s=await u("POST",`/api/items/${e}/start`,{start:t==="start"?"now":"later"}),g(t==="later"?"Moved to the backlog":o.watcher?.state==="waiting"?"\\u26A1 Claude is starting on it":o.watcher?"Added to the queue":"Queued; start /ahemui:watch in Claude Code to work it");break;case"done":case"wontfix":s=await u("POST",`/api/items/${e}/resolve`,{status:t});break;case"reopen":s=await u("POST",`/api/items/${e}/reopen`,{});break;case"archive":s=await u("POST",`/api/items/${e}/archive`,{}),g("Archived");break;case"reply":if(!i("reply"))return g("Type an answer first");s=await u("POST",`/api/items/${e}/reply`,{text:i("reply")}),g("Sent to Claude \\u2713");break;case"approve":s=await u("POST",`/api/items/${e}/review`,{verdict:"approved"}),g("Approved \\u2713");break;case"changes":if(!i("changes"))return g("Say what still needs to change");s=await u("POST",`/api/items/${e}/review`,{verdict:"changes",comment:i("changes")}),g("Sent back to Claude");break;case"triage":{let l=f=>r.querySelector(`[data-t="${f}"]`).value.trim(),c=l("labels").split(",").map(f=>f.trim()).filter(Boolean);s=await u("POST",`/api/items/${e}/triage`,{type:l("type")||null,priority:l("priority")||null,area:l("area")||null,labels:c.length?c:null}),g("Saved");break}}s&&(r.querySelectorAll("[data-keep]").forEach(l=>l.value=""),o.items=o.items.map(l=>l.id===s.id?s:l),v())}catch(s){g(s.message)}}function h(e,t,a=!1){return t?`<dt>${n(e)}</dt><dd${a?\' class="mono"\':""}>${n(t)}</dd>`:""}function B(e){return e.body.split(`\n`)[0].slice(0,140)}function P(e){if(!e.batch)return"No batch";let t=o.batches.find(a=>a.id===e.batch);return t?`${t.name} (${t.intent==="review"?"for review":"changes"} \\xB7 ${t.author})`:`Batch ${e.batch.slice(0,8)}`}function L(e,t){let a=e?.storyTitle||e?.routeName||e?.pageComponent?.replace(/(Page|View)$/,""),r=e?.routePattern??t??"?";return a?`${r} \\xB7 ${a}`:r}function W(e){let t=e.split(/\\n\\n### (Note|Question|Reply|Feedback|Approved) \u2014 ([^\\n]+)\\n\\n/),a=[];for(let r=1;r+2<t.length+1;r+=3)a.push({kind:t[r],who:t[r+1].replace(/, \\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d$/,""),text:(t[r+2]??"").trim()});return{prompt:t[0],thread:a}}function F(e){let t=(Date.now()-Date.parse(e))/1e3;return t<60?"just now":t<3600?`${Math.round(t/60)} min ago`:t<86400?`${Math.round(t/3600)} h ago`:`${Math.round(t/86400)} d ago`}var I=0;function g(e){let t=p(".toast");t.textContent=e,t.classList.add("show"),clearTimeout(I),I=window.setTimeout(()=>t.classList.remove("show"),2500)}function n(e){return e.replace(/[&<>"\']/g,t=>`&#${t.charCodeAt(0)};`)}R();v();m&&H();})();\n';
 
 // ../cli/src/git.ts
 import { execFileSync as execFileSync2 } from "node:child_process";
@@ -15814,6 +15910,7 @@ async function exportBoard(store, out = join2(store.dir, "backlog.html")) {
     branch: gitBranch(store.root),
     generated: (/* @__PURE__ */ new Date()).toISOString(),
     items: await store.list({ includeDone: true }),
+    batches: await store.listBatches(),
     base
   });
   await writeFile2(file, html);
@@ -15830,7 +15927,7 @@ function escapeHtml(s) {
 // ../cli/src/server.ts
 import { watch } from "node:fs";
 import { basename as basename2 } from "node:path";
-import { readFile as readFile2 } from "node:fs/promises";
+import { readFile as readFile3 } from "node:fs/promises";
 import { createServer } from "node:http";
 
 // ../../node_modules/ws/wrapper.mjs
@@ -15843,9 +15940,40 @@ var import_subprotocol = __toESM(require_subprotocol(), 1);
 var import_websocket = __toESM(require_websocket(), 1);
 var import_websocket_server = __toESM(require_websocket_server(), 1);
 
+// ../cli/src/prefs.ts
+import { mkdir as mkdir2, readFile as readFile2, writeFile as writeFile3 } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname as dirname3, join as join3 } from "node:path";
+var prefsFile = () => join3(process.env.AHEMUI_HOME ?? join3(homedir(), ".ahemui"), "prefs.json");
+async function readPrefs() {
+  try {
+    const raw = JSON.parse(await readFile2(prefsFile(), "utf8"));
+    const out = {};
+    for (const [k, v] of Object.entries(raw ?? {})) {
+      const one = PrefsSchema.safeParse({ [k]: v });
+      if (one.success && k in one.data) out[k] = one.data[k];
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+async function updatePrefs(patch) {
+  const next = { ...await readPrefs() };
+  for (const [k, v] of Object.entries(patch)) {
+    if (!(k in PrefsSchema.shape)) continue;
+    if (v === null || v === "") delete next[k];
+    else next[k] = v;
+  }
+  const prefs = PrefsSchema.parse(next);
+  await mkdir2(dirname3(prefsFile()), { recursive: true });
+  await writeFile3(prefsFile(), JSON.stringify(prefs, null, 2) + "\n");
+  return prefs;
+}
+
 // ../cli/src/server.ts
 var MIME = { webp: "image/webp", png: "image/png", jpg: "image/jpeg" };
-var BUILD = true ? "20260927100011" : "dev";
+var BUILD = true ? "20260928041236" : "dev";
 async function serve(store, opts = {}) {
   const config = await store.config();
   config.devOrigins = [.../* @__PURE__ */ new Set([...config.devOrigins, ...opts.origins ?? []])];
@@ -15884,7 +16012,7 @@ async function serve(store, opts = {}) {
     if (file?.endsWith(".tmp") || file?.endsWith("backlog.html")) return;
     clearTimeout(timer);
     timer = setTimeout(broadcast, 150);
-    if (!file?.endsWith(".watcher.json")) exportSoon();
+    if (!file?.endsWith(".watcher.json") && !file?.endsWith(".watch-control.json")) exportSoon();
   });
   exportSoon();
   let lastWatcher = "";
@@ -15977,6 +16105,33 @@ async function handle(store, config, self, req, res) {
     config.devOrigins = [.../* @__PURE__ */ new Set([...config.devOrigins, ...added])];
     return send(res, 200, { devOrigins: config.devOrigins });
   }
+  if (parts[1] === "batches" && !parts[2]) {
+    if (req.method === "GET") return send(res, 200, await store.listBatches());
+    if (req.method === "POST") {
+      const body = await readJson(req, 16e3);
+      if (typeof body.name !== "string" || !body.name.trim()) throw new HttpError(400, "name is required");
+      if (body.intent !== "action" && body.intent !== "review") throw new HttpError(400, "intent must be action or review");
+      return send(res, 201, await store.createBatch({ name: body.name.slice(0, 120), intent: body.intent, author: body.author ?? defaultAuthor() }));
+    }
+  }
+  if (parts[1] === "prefs" && (req.method === "GET" || req.method === "POST")) {
+    if (req.method === "POST") {
+      const body = await readJson(req, 16e3);
+      if (!body || typeof body !== "object" || Array.isArray(body)) throw new HttpError(400, "expected an object of settings");
+      await updatePrefs(body).catch((err) => {
+        throw new HttpError(400, `invalid setting: ${err?.issues?.[0]?.message ?? err?.message ?? err}`);
+      });
+    }
+    return send(res, 200, { prefs: await readPrefs(), defaults: config.overlay?.defaults ?? {} });
+  }
+  if (req.method === "POST" && parts[1] === "watch") {
+    const body = await readJson(req, 16e3);
+    const action2 = body.action;
+    if (action2 !== "pause" && action2 !== "resume" && action2 !== "stop") throw new HttpError(400, "action must be pause, resume or stop");
+    if (action2 !== "resume" && !await store.watcher()) throw new HttpError(409, "no Claude session is watching; run /ahemui:watch in Claude Code");
+    await store.setWatchControl(action2 === "pause" ? "paused" : action2 === "stop" ? "stop" : null, body.author ?? defaultAuthor());
+    return send(res, 200, { watcher: await store.watcher() });
+  }
   if (req.method === "POST" && parts[1] === "prune") {
     const { moved } = await store.prune();
     return send(res, 200, { archived: moved.map((i) => i.id) });
@@ -16001,7 +16156,7 @@ async function handle(store, config, self, req, res) {
     const path = store.filePath(item, decodeURIComponent(name));
     const ext = path.split(".").pop();
     res.writeHead(200, { "Content-Type": MIME[ext] ?? "application/octet-stream", "Cache-Control": "no-cache" });
-    return void res.end(await readFile2(path));
+    return void res.end(await readFile3(path));
   }
   if (req.method === "POST" && action === "resolve") {
     const body = await readJson(req, 64e3);
@@ -16071,16 +16226,16 @@ function send(res, status, body) {
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { copyFileSync, existsSync as existsSync2, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname as dirname3, join as join3, relative as relative3 } from "node:path";
+import { dirname as dirname4, join as join4, relative as relative3 } from "node:path";
 import { fileURLToPath } from "node:url";
 var TARBALL = "ahemui.tgz";
 var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", ".ahemui", "dist", "build", ".next", ".nuxt", ".output", "coverage"]);
 function newestPluginTarball() {
-  const here = dirname3(fileURLToPath(import.meta.url));
-  const versions = join3(here, "..", "..");
-  const candidates = [join3(here, "..", "vendor", TARBALL)];
+  const here = dirname4(fileURLToPath(import.meta.url));
+  const versions = join4(here, "..", "..");
+  const candidates = [join4(here, "..", "vendor", TARBALL)];
   try {
-    for (const v of readdirSync(versions)) candidates.push(join3(versions, v, "vendor", TARBALL));
+    for (const v of readdirSync(versions)) candidates.push(join4(versions, v, "vendor", TARBALL));
   } catch {
   }
   const found = candidates.filter((f) => existsSync2(f));
@@ -16090,21 +16245,21 @@ function newestPluginTarball() {
 function ahemuiDependents(root, depth = 3) {
   const out = [];
   const visit = (dir, level) => {
-    const pkg = join3(dir, "package.json");
+    const pkg = join4(dir, "package.json");
     if (existsSync2(pkg)) {
       const json = JSON.parse(readFileSync(pkg, "utf8"));
       if (json.dependencies?.["ahemui"] || json.devDependencies?.["ahemui"]) out.push(dir);
     }
     if (level >= depth) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory() && !SKIP_DIRS.has(entry.name) && !entry.name.startsWith(".")) visit(join3(dir, entry.name), level + 1);
+      if (entry.isDirectory() && !SKIP_DIRS.has(entry.name) && !entry.name.startsWith(".")) visit(join4(dir, entry.name), level + 1);
     }
   };
   visit(root, 0);
   return out;
 }
 function installedBuild(appDir) {
-  const file = join3(appDir, "node_modules", "@ahemui", "vite", "dist", "index.js");
+  const file = join4(appDir, "node_modules", "@ahemui", "vite", "dist", "index.js");
   if (!existsSync2(file)) return null;
   return /"(\d{14})"/.exec(readFileSync(file, "utf8"))?.[1] ?? "dev";
 }
@@ -16113,9 +16268,9 @@ function hash(file) {
 }
 function packageManager(dir, root) {
   for (const d of [dir, root]) {
-    if (existsSync2(join3(d, "pnpm-lock.yaml"))) return { cmd: "pnpm", args: (s) => ["add", "-D", s] };
-    if (existsSync2(join3(d, "yarn.lock"))) return { cmd: "yarn", args: (s) => ["add", "-D", s] };
-    if (existsSync2(join3(d, "bun.lockb")) || existsSync2(join3(d, "bun.lock"))) return { cmd: "bun", args: (s) => ["add", "-d", s] };
+    if (existsSync2(join4(d, "pnpm-lock.yaml"))) return { cmd: "pnpm", args: (s) => ["add", "-D", s] };
+    if (existsSync2(join4(d, "yarn.lock"))) return { cmd: "yarn", args: (s) => ["add", "-D", s] };
+    if (existsSync2(join4(d, "bun.lockb")) || existsSync2(join4(d, "bun.lock"))) return { cmd: "bun", args: (s) => ["add", "-d", s] };
   }
   return { cmd: "npm", args: (s) => ["install", "-D", s] };
 }
@@ -16125,10 +16280,10 @@ function updateProject(store, opts = {}) {
   if (!tarball || !existsSync2(tarball)) {
     throw new Error("no AhemUI package found to update from. Run this via /ahemui:update in Claude Code, or pass --from <ahemui.tgz>");
   }
-  const dest = join3(store.dir, "vendor", TARBALL);
+  const dest = join4(store.dir, "vendor", TARBALL);
   const changed = !existsSync2(dest) || hash(dest) !== hash(tarball);
   if (changed) {
-    mkdirSync(dirname3(dest), { recursive: true });
+    mkdirSync(dirname4(dest), { recursive: true });
     copyFileSync(tarball, dest);
     log(`copied ${tarball} \u2192 ${relative3(store.root, dest)}`);
   }
@@ -16152,29 +16307,37 @@ function updateProject(store, opts = {}) {
 
 // ../cli/src/wait.ts
 import { watch as watch2 } from "node:fs";
-import { join as join4 } from "node:path";
+import { join as join5 } from "node:path";
 var pendingNow = async (store) => workOrder(await store.list({ status: ["open"], start: "now", needsReply: false })).filter((it) => !it.claimed_by);
 async function waitForStartNow(store, by, timeoutMs = 0) {
-  const ready = await pendingNow(store);
+  const control = await store.watchControl();
+  if (control?.mode === "stop") return stopped(store);
+  const ready = control?.mode === "paused" ? [] : await pendingNow(store);
   if (ready.length) return claimWatch(store, by, ready);
   await store.setWatcher({ state: "waiting", pid: process.pid, by });
   const stop = () => store.setWatcher(null).finally(() => process.exit(130));
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
-  const items = await new Promise((resolve3) => {
+  const result = await new Promise((resolve3) => {
     let debounce;
     const check = async () => {
+      const c = await store.watchControl();
+      if (c?.mode === "stop") return finish("stopped");
+      if (c?.mode === "paused") return;
       const found = await pendingNow(store).catch(() => []);
       if (found.length) finish(found);
     };
-    const fsWatcher = watch2(join4(store.dir, "items"), { recursive: true }, () => {
+    const soon = () => {
       clearTimeout(debounce);
       debounce = setTimeout(check, 150);
-    });
+    };
+    const itemsWatcher = watch2(join5(store.dir, "items"), { recursive: true }, soon);
+    const controlWatcher = watch2(store.dir, (_event, file) => file === ".watch-control.json" && soon());
     const poll = setInterval(check, 5e3);
     const timer = timeoutMs ? setTimeout(() => finish([]), timeoutMs) : void 0;
     function finish(found) {
-      fsWatcher.close();
+      itemsWatcher.close();
+      controlWatcher.close();
       clearInterval(poll);
       clearTimeout(timer);
       clearTimeout(debounce);
@@ -16183,11 +16346,17 @@ async function waitForStartNow(store, by, timeoutMs = 0) {
   });
   process.off("SIGINT", stop);
   process.off("SIGTERM", stop);
-  if (!items.length) {
+  if (result === "stopped") return stopped(store);
+  if (!result.length) {
     await store.setWatcher(null);
     return [];
   }
-  return claimWatch(store, by, items);
+  return claimWatch(store, by, result);
+}
+async function stopped(store) {
+  await store.setWatcher(null);
+  await store.setWatchControl(null);
+  return "stopped";
 }
 async function claimWatch(store, by, items) {
   await store.setWatcher({ state: "working", pid: process.pid, by, item: items[0].id });
@@ -16354,6 +16523,10 @@ ${it.body}`);
     }
     case "wait": {
       const items = await waitForStartNow(store, o.as ?? process.env.AHEMUI_AUTHOR, o.timeout ? Number(o.timeout) * 1e3 : 0);
+      if (items === "stopped") {
+        console.log("STOPPED watching was stopped from the browser");
+        process.exit(4);
+      }
       if (!items.length) {
         console.log("TIMEOUT no start-now items");
         process.exit(3);
@@ -16398,6 +16571,7 @@ ${it.body}`);
     }
     case "unwatch":
       await store.setWatcher(null);
+      await store.setWatchControl(null);
       return console.log("no longer watching");
     case "prune": {
       const { moved, shotsDropped } = await store.prune({ dropShotsOlderThanDays: o["drop-shots"] ? Number(o["drop-shots"]) : void 0 });
@@ -16463,7 +16637,7 @@ function parseStatus(s) {
 async function loadShot(path) {
   const ext = extname(path).slice(1).toLowerCase().replace("jpeg", "jpg");
   if (ext !== "webp" && ext !== "png" && ext !== "jpg") fail("--shot must be .webp, .png or .jpg");
-  return { data: await readFile3(path), ext };
+  return { data: await readFile4(path), ext };
 }
 function fail(msg) {
   throw new AhemError(msg);

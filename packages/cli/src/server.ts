@@ -179,6 +179,16 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
     return send(res, 200, { devOrigins: config.devOrigins });
   }
 
+  // Named rounds of feedback ("Home changes · 28 Sep"), picked in the overlay when someone starts capturing.
+  if (parts[1] === "batches" && !parts[2]) {
+    if (req.method === "GET") return send(res, 200, await store.listBatches());
+    if (req.method === "POST") {
+      const body = await readJson(req, 16_000);
+      if (typeof body.name !== "string" || !body.name.trim()) throw new HttpError(400, "name is required");
+      if (body.intent !== "action" && body.intent !== "review") throw new HttpError(400, "intent must be action or review");
+      return send(res, 201, await store.createBatch({ name: body.name.slice(0, 120), intent: body.intent, author: body.author ?? defaultAuthor() }));
+    }
+  }
   // Personal overlay settings (~/.ahemui/prefs.json) plus the project's defaults from config.json.
   if (parts[1] === "prefs" && (req.method === "GET" || req.method === "POST")) {
     if (req.method === "POST") {

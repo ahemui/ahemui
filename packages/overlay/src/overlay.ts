@@ -4,7 +4,7 @@ import { stylesOf } from "./design.js";
 import { elementAt, inspectRect, type Inspection, locate } from "./inspect.js";
 import { collectPage, LOCAL_HOST } from "./page.js";
 import { scrub, scrubDeep, sensitiveRects } from "./redact.js";
-import { cachedPrefs, cachePrefs, DEFAULT_PREFS, type Prefs } from "./prefs.js";
+import { type Batch, cachedPrefs, cachePrefs, DEFAULT_PREFS, type Prefs } from "./prefs.js";
 import { recentSteps, recordSteps } from "./steps.js";
 import { STYLES } from "./styles.js";
 import { type Host, type Item, type ItemType, type Page, type Point, type Rect, type Status, type Styles, TYPES } from "./types.js";
@@ -70,6 +70,9 @@ class Overlay {
   private projectDefaults: Partial<Prefs> = {};
   private panelView: "list" | "settings" = "list";
   private suppressClick = false;
+  private batches: Batch[] = [];
+  /** The batch new captures go into, remembered per project in this browser. */
+  private batchId: string | null = null;
   /** An item to scroll to and open once its page (and element) shows up; reloadTo is the fallback navigation. */
   private pendingFocus: { id: string; until: number; reloadTo?: string } | null = null;
   private drag: { start: Point; freehand: boolean; points: Point[] } | null = null;
@@ -103,6 +106,7 @@ class Overlay {
           <div class="page-line"></div>
           <div class="thumb-wrap"><img class="thumb" alt="" hidden><div class="redact-box"></div></div>
           <div class="areas"></div>
+          <div class="batch-line" hidden></div>
           <textarea placeholder="What should change here?"></textarea>
           <input class="design" type="url" placeholder="Design link (Figma, …)" hidden>
           <div class="types">${TYPES.map((t) => `<button class="chip" data-type="${t}">${t}</button>`).join("")}</div>
@@ -118,6 +122,7 @@ class Overlay {
             <span class="buttons"><button class="btn cancel">Cancel</button> <button class="btn submit" title="Save for later: waits in the backlog until someone runs /ahemui:work (Ctrl/⌘+Enter)">Backlog</button> <button class="btn primary start"></button></span>
           </div>
         </div>
+        <div class="batchcard" hidden></div>
         <div class="pop"></div>
         <div class="panel"></div>
         <div class="statuspop"></div>
@@ -154,7 +159,10 @@ class Overlay {
         this.health = health;
         if (health?.watcher !== undefined) this.watcher = health.watcher;
         this.connected = !!health;
-        if (!was && this.connected) this.loadPrefs();
+        if (!was && this.connected) {
+          this.loadPrefs();
+          this.loadBatches();
+        }
         this.checkBuild();
         this.renderBar();
       },
@@ -187,6 +195,8 @@ class Overlay {
         } else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && this.popFor && this.mode === "idle" && !typingIn(e)) {
           e.preventDefault();
           this.stepOpen(e.key === "ArrowRight" ? 1 : -1);
+        } else if (e.key === "Escape" && !this.$(".batchcard").hidden) {
+          this.closeBatchCard();
         } else if (e.key === "Escape") {
           if (this.mode === "select" && this.draft?.adding) this.cancelAdding();
           else if (this.popFor || this.$(".panel").style.display === "block" || this.$(".statuspop").style.display === "block") this.closePopups();
@@ -271,6 +281,8 @@ class Overlay {
       this.toast(this.host.disconnectedHint, 6000);
       return;
     }
+    if (this.mode === "idle" && this.prefs.batches === "ask" && !this.currentBatch() && !this.batchSkipped && this.$(".batchcard").hidden) return this.openBatchCard();
+    this.closeBatchCard();
     this.setMode(this.mode === "idle" ? "select" : "idle");
   }
 
@@ -527,6 +539,7 @@ class Overlay {
 
   /** Both actions put the item in the backlog; "now" also asks a watching Claude session to start on it. */
   private async submit(start: "now" | "later") {
+    if (this.currentBatch()?.intent === "review") start = "later";
     const draft = this.draft;
     const ta = this.$<HTMLTextAreaElement>("textarea");
     const prompt = ta.value.trim();
@@ -546,6 +559,7 @@ class Overlay {
       const item = await this.host.transport.request<Item>("POST", "/api/items", {
         prompt,
         author: this.prefs.name || undefined,
+        batch: this.currentBatch()?.id,
         route: currentRoute(),
         url: deployed() ? location.origin + location.pathname : location.href,
         viewport: `${innerWidth}x${innerHeight}`,
@@ -570,7 +584,8 @@ class Overlay {
       });
       if (!this.items.some((i) => i.id === item.id)) this.items.push(item);
       this.renderAll();
-      if (start === "later") this.toast("Saved to the backlog ✓");
+      if (this.currentBatch()?.intent === "review") this.toast(`Flagged for review in ${this.currentBatch()!.name} ✓`);
+      else if (start === "later") this.toast("Saved to the backlog ✓");
       else this.toastQueued();
       this.setMode("select"); // stay in capture mode for the next note; Esc exits
     } catch (err) {
@@ -710,6 +725,16 @@ class Overlay {
         : `Queue it for Claude to start as soon as a session runs /ahemui:watch (${nowKey})`;
     const nowWord = busy ? "queue" : "start now";
     this.$(".hint").textContent = backlogFirst ? `Enter backlog · Ctrl+Enter ${nowWord}` : `Enter ${nowWord} · Ctrl+Enter backlog`;
+    // A "flag for review" batch is for a person to decide on: one button, no Start now.
+    const review = this.currentBatch()?.intent === "review";
+    start.hidden = review;
+    submit.textContent = review ? "Flag for review" : "Backlog";
+    submit.classList.toggle("primary", backlogFirst || review);
+    if (review) {
+      submit.title = "Saved for someone to review and decide on; Claude won't start it (Enter)";
+      this.$(".hint").textContent = "Enter flag for review";
+    }
+    this.renderBatchLine();
   }
 
   private renderBar() {
@@ -961,7 +986,9 @@ class Overlay {
 
     // Status and id; the request itself; who and when; where it lives; the picture; the conversation; actions.
     const also = extras.filter((e) => e.role === "also").length;
+    const batch = item.batch ? this.batches.find((b) => b.id === item.batch) : undefined;
     const where: [string, string][] = [
+      ...(batch ? [["Batch", `${esc(batch.name)}${batch.intent === "review" ? ' <span class="rv-tag">for review</span>' : ""}`] as [string, string]] : []),
       ["Page", esc(whereLabel(item))],
       ...(src ? [["Code", `<span class="mono">${esc(src)}</span>`] as [string, string]] : []),
       ...(also || extras.some((e) => e.role === "reference")
@@ -1133,7 +1160,7 @@ class Overlay {
     };
     const row = (i: Item) => `<div class="list-item ${i.route === this.route && sameSite(i.url) ? "" : "elsewhere"}" data-id="${i.id}">
           <span class="pill ${i.needs_reply ? "ask" : i.status}">${i.needs_reply ? "?" : ICON[i.status]}</span>
-          <span class="grow"><div>${esc(i.body.split("\n")[0].slice(0, 90))}</div><div class="route">${esc(classLine(i) || i.page?.section || "")}${i.anchor.source ? ` <span class="mono">${esc(i.anchor.source)}</span>` : ""}</div></span>
+          <span class="grow"><div>${esc(i.body.split("\n")[0].slice(0, 90))}</div><div class="route">${i.intent === "review" ? `<span class="rv-tag">for review</span> ` : ""}${esc(classLine(i) || i.page?.section || "")}${i.anchor.source ? ` <span class="mono">${esc(i.anchor.source)}</span>` : ""}</div></span>
           ${rowAction(i)}
         </div>`;
     const finished = active.filter((i) => i.status === "done" || i.status === "wontfix").length;
@@ -1180,6 +1207,141 @@ class Overlay {
     this.$(".pop").style.display = "none";
     this.$(".panel").style.display = "none";
     this.$(".statuspop").style.display = "none";
+  }
+
+  // ——— batches: a named round of notes, picked when capturing starts ———
+
+  private batchSkipped = false;
+
+  private batchKey(): string {
+    return `ahemui:batch:${this.health?.root ?? location.origin}`;
+  }
+
+  private async loadBatches() {
+    try {
+      this.batches = await this.host.transport.request<Batch[]>("GET", "/api/batches");
+    } catch {
+      this.batches = []; // an older ahemui serve without batches
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem(this.batchKey()) ?? "null");
+      // A choice from more than 12 hours ago is a different sitting: ask again.
+      this.batchId = saved && Date.now() - saved.at < 12 * 3600_000 ? saved.id : null;
+    } catch {
+      this.batchId = null;
+    }
+    this.renderActions();
+  }
+
+  private currentBatch(): Batch | null {
+    return this.batches.find((b) => b.id === this.batchId) ?? null;
+  }
+
+  private useBatch(id: string | null) {
+    this.batchId = id;
+    this.batchSkipped = !id;
+    try {
+      if (id) localStorage.setItem(this.batchKey(), JSON.stringify({ id, at: Date.now() }));
+      else localStorage.removeItem(this.batchKey());
+    } catch {
+      /* storage blocked: the choice lasts until the page reloads */
+    }
+    this.renderActions();
+  }
+
+  private openBatchCard() {
+    const card = this.$(".batchcard");
+    const day = new Date().toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    const pageName = (document.title.split(/\s[·|—–-]\s/)[0] || currentRoute()).trim().slice(0, 40);
+    const suggest = (intent: Batch["intent"]) => `${pageName} ${intent === "review" ? "review" : "changes"} · ${day}`;
+    const current = this.currentBatch();
+    let intent: Batch["intent"] = current?.intent ?? "action";
+    let edited = false;
+    const recent = this.batches.slice(0, 5);
+    const help = {
+      action: "Changes you want made. Claude can pick them up (⚡ Start now or /ahemui:work).",
+      review: "Things for someone to look at and decide on. Claude won't start these on its own.",
+    };
+    card.innerHTML = `
+      <div class="bc-title">What's this round of notes?</div>
+      <div class="seg bc-intent"><button data-intent="action">Changes to make</button><button data-intent="review">Flag for review</button></div>
+      <div class="bc-help"></div>
+      <label class="bc-label">Name<input class="bc-name" maxlength="120" value="${esc(suggest(intent))}"></label>
+      ${
+        recent.length
+          ? `<div class="bc-recent"><div class="bc-label">Or continue one</div>${recent
+              .map(
+                (b) =>
+                  `<button class="${b.id === current?.id ? "on" : ""}" data-batch="${b.id}"><span>${esc(b.name)}</span><em>${b.intent === "review" ? "for review" : "changes"} · ${esc(b.author)}</em></button>`,
+              )
+              .join("")}</div>`
+          : ""
+      }
+      <div class="bc-actions"><button class="btn bc-skip" title="Capture without a batch">No batch</button><button class="btn primary bc-start">Start</button></div>`;
+    const name = card.querySelector<HTMLInputElement>(".bc-name")!;
+    const paint = () => {
+      card.querySelectorAll<HTMLButtonElement>("[data-intent]").forEach((b) => b.classList.toggle("on", b.dataset.intent === intent));
+      card.querySelector(".bc-help")!.textContent = help[intent];
+      if (!edited) name.value = suggest(intent);
+    };
+    const begin = () => {
+      this.closeBatchCard();
+      if (this.mode === "idle") this.setMode("select");
+    };
+    card.querySelectorAll<HTMLButtonElement>("[data-intent]").forEach((b) =>
+      b.addEventListener("click", () => {
+        intent = b.dataset.intent as Batch["intent"];
+        paint();
+      }),
+    );
+    name.addEventListener("input", () => (edited = true));
+    name.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") card.querySelector<HTMLButtonElement>(".bc-start")!.click();
+      else if (e.key === "Escape") this.closeBatchCard();
+    });
+    card.querySelector(".bc-start")!.addEventListener("click", async () => {
+      const value = name.value.trim() || suggest(intent);
+      try {
+        const batch = await this.host.transport.request<Batch>("POST", "/api/batches", { name: value, intent, author: this.prefs.name || undefined });
+        this.batches.unshift(batch);
+        this.useBatch(batch.id);
+        this.toast(`${intent === "review" ? "Flagging for review" : "Collecting changes"} in “${batch.name}”`, 2500);
+        begin();
+      } catch (err) {
+        this.toast(`Couldn't start the batch: ${(err as Error).message}`, 4000);
+      }
+    });
+    card.querySelectorAll<HTMLButtonElement>("[data-batch]").forEach((b) =>
+      b.addEventListener("click", () => {
+        this.useBatch(b.dataset.batch!);
+        begin();
+      }),
+    );
+    card.querySelector(".bc-skip")!.addEventListener("click", () => {
+      this.useBatch(null);
+      begin();
+    });
+    paint();
+    card.hidden = false;
+    name.focus();
+    name.select();
+  }
+
+  private closeBatchCard() {
+    this.$(".batchcard").hidden = true;
+  }
+
+  /** "In Home changes · 28 Sep (changes) — change" above the text box, so it's clear where a note goes. */
+  private renderBatchLine() {
+    const line = this.$(".batch-line");
+    const b = this.currentBatch();
+    if (!b && this.prefs.batches === "off") return void (line.hidden = true);
+    line.hidden = false;
+    line.innerHTML = b
+      ? `<span class="bl-kind ${b.intent}">${b.intent === "review" ? "for review" : "changes"}</span><span class="bl-name">${esc(b.name)}</span><button class="bl-change" title="Pick or start another batch">change</button>`
+      : `<span class="bl-name muted">No batch</span><button class="bl-change">start one</button>`;
+    line.querySelector(".bl-change")!.addEventListener("click", () => this.openBatchCard());
   }
 
   // ——— jumping to an item on another page ———
@@ -1348,6 +1510,10 @@ class Overlay {
           ["all", "All", "Show every marker"],
           ["active", "Open", "Hide finished markers"],
           ["none", "None", "Hide markers"],
+        ])}</div>
+        <div class="setting"><span>Ask for a batch</span>${seg("batches", [
+          ["ask", "When I start", "Name and classify each round of notes when you start capturing"],
+          ["off", "Never", "Capture straight away, without a batch"],
         ])}</div>
         <div class="setting"><span>Your name</span><input class="pref-name" placeholder="Your git name" maxlength="80" value="${esc(p.name ?? "")}"></div>
         <div class="note">Saved for you in ~/.ahemui/prefs.json and used in every project on this computer.${

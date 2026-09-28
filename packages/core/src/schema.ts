@@ -166,10 +166,30 @@ export const ReviewSchema = z.object({
   at: z.string(),
 });
 
+/**
+ * A named round of feedback, chosen when someone starts marking things. "action": changes Claude can pick up;
+ * "review": things flagged for a person to look at and decide on, which Claude never starts on its own.
+ */
+export const INTENTS = ["action", "review"] as const;
+export const IntentSchema = z.enum(INTENTS);
+export type Intent = z.infer<typeof IntentSchema>;
+
+export const BatchSchema = z.object({
+  id: z.string(),
+  name: short(120),
+  intent: IntentSchema,
+  author: short(120),
+  created: z.string(),
+});
+export type Batch = z.infer<typeof BatchSchema>;
+
 export const ItemMetaSchema = z.object({
   id: z.string(),
   status: StatusSchema,
   start: StartSchema.optional(),
+  /** The batch it was captured in, and that batch's intent (absent: action). */
+  batch: short(40).optional(),
+  intent: IntentSchema.optional(),
   /** Claude asked a question and is waiting for the person to answer (from the browser popover). */
   needs_reply: z.boolean().optional(),
   ...TriageSchema.shape,
@@ -240,6 +260,8 @@ export const PrefsSchema = z.object({
   /** What Enter does in the capture box; Ctrl/⌘+Enter does the other. */
   enter: z.enum(["now", "backlog"]).optional(),
   markers: z.enum(["all", "active", "none"]).optional(),
+  /** ask: pick or name a batch when starting to capture; off: never ask. */
+  batches: z.enum(["ask", "off"]).optional(),
   /** Name on items, replies and reviews; defaults to the git user. */
   name: short(80).optional(),
 });
@@ -270,6 +292,7 @@ export const NewItemSchema = z.object({
   page: PageSchema.optional(),
   type: TypeSchema.optional(),
   start: StartSchema.optional(),
+  batch: short(40).optional(),
   design: short(500).optional(),
   rect: RectSchema.optional(),
   anchor: AnchorSchema.default({}),

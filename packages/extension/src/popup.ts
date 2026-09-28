@@ -78,8 +78,8 @@ function render(state: PopupState) {
 
 // ——— personal settings (~/.ahemui/prefs.json, shared with the on-page ⚙ view) ———
 
-type Prefs = { position?: string; notifications?: string; enter?: string; markers?: string; name?: string };
-const DEFAULTS: Prefs = { position: "bottom-right", notifications: "desktop", enter: "now", markers: "all" };
+type Prefs = { position?: string; notifications?: string; enter?: string; markers?: string; batches?: string; name?: string };
+const DEFAULTS: Prefs = { position: "bottom-right", notifications: "desktop", enter: "now", markers: "all", batches: "ask" };
 const settings = document.getElementById("settings")!;
 
 async function renderSettings() {
@@ -103,6 +103,7 @@ async function renderSettings() {
     <div class="setting"><span>Notifications</span>${seg("notifications", [["off", "Off"], ["page", "On page"], ["desktop", "Desktop"]])}</div>
     <div class="setting"><span>Enter key</span>${seg("enter", [["now", "Start now"], ["backlog", "Backlog"]])}</div>
     <div class="setting"><span>Markers</span>${seg("markers", [["all", "All"], ["active", "Open"], ["none", "None"]])}</div>
+    <div class="setting"><span>Ask for a batch</span>${seg("batches", [["ask", "When I start"], ["off", "Never"]])}</div>
     <div class="setting"><span>Your name</span><input id="pref-name" placeholder="Your git name" maxlength="80" value="${esc(p.name ?? "")}"></div>
     <div class="sub">Saved in ~/.ahemui/prefs.json for every project on this computer.</div>`;
   const save = async (patch: Record<string, string | null>) => {

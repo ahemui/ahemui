@@ -152,3 +152,22 @@ test("tracker config and item links", async () => {
   await store.setTracker(null);
   assert.equal((await store.config()).tracker, undefined);
 });
+
+test("batches: review items never start now and are left out of the action queue", async () => {
+  const review = await store.createBatch({ name: "Home review · 28 Sep", intent: "review", author: "anna" });
+  const changes = await store.createBatch({ name: "Home changes · 28 Sep", intent: "action", author: "me" });
+  const flagged = await store.create({ prompt: "is this copy right?", start: "now", batch: review.id, anchor: {} });
+  assert.equal(flagged.intent, "review");
+  assert.equal(flagged.start, "later");
+  const todo = await store.create({ prompt: "make it bigger", batch: changes.name, anchor: {} });
+  assert.equal(todo.batch, changes.id);
+  assert.equal(todo.intent, undefined);
+  const ghost = await store.create({ prompt: "no such batch", batch: "nope", anchor: {} });
+  assert.equal(ghost.batch, undefined);
+
+  const actionable = (await store.list({ status: ["open"], intent: "action" })).map((i) => i.id);
+  assert.ok(actionable.includes(todo.id) && !actionable.includes(flagged.id));
+  assert.deepEqual((await store.list({ batch: review.id })).map((i) => i.id), [flagged.id]);
+  assert.equal((await store.findBatch("home REVIEW · 28 sep"))?.id, review.id);
+  assert.equal((await store.listBatches()).length, 2);
+});

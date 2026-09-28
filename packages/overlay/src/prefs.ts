@@ -4,10 +4,21 @@ export interface Prefs {
   notifications: "off" | "page" | "desktop";
   enter: "now" | "backlog";
   markers: "all" | "active" | "none";
+  /** ask: choose or name a batch when starting to capture; off: never ask. */
+  batches: "ask" | "off";
   name?: string;
 }
 
-export const DEFAULT_PREFS: Prefs = { position: "bottom-right", notifications: "desktop", enter: "now", markers: "all" };
+/** A named round of feedback; mirrors BatchSchema in @ahemui/core. */
+export interface Batch {
+  id: string;
+  name: string;
+  intent: "action" | "review";
+  author: string;
+  created: string;
+}
+
+export const DEFAULT_PREFS: Prefs = { position: "bottom-right", notifications: "desktop", enter: "now", markers: "all", batches: "ask" };
 
 const CACHE_KEY = "ahemui:prefs";
 const LEGACY_MARKER_KEY = "ahemui:markers";

@@ -76,6 +76,8 @@ export interface Item {
   id: string;
   status: Status;
   start?: "now" | "later";
+  batch?: string;
+  intent?: "action" | "review";
   needs_reply?: boolean;
   type?: ItemType;
   priority?: "high" | "normal" | "low";

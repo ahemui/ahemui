@@ -112,6 +112,32 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 .pop-nav .pos { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .pop-board { color: #a78bfa; font-size: 12px; text-decoration: none; }
 .pop-board:hover { color: var(--fg); }
+/* batch picker and the batch line in the capture box */
+.batchcard { position: fixed; right: 16px; bottom: 60px; width: 320px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 14px; pointer-events: auto; box-shadow: 0 12px 40px rgba(0,0,0,.45); }
+.batchcard[hidden] { display: none; }
+.root[data-pos="bottom-left"] .batchcard, .root[data-pos="top-left"] .batchcard { right: auto; left: 16px; }
+.root[data-pos^="top"] .batchcard { bottom: auto; top: 60px; }
+.bc-title { font-weight: 600; font-size: 14px; margin-bottom: 10px; }
+.bc-intent { width: fit-content; margin-left: 0; }
+.bc-intent button { font-size: 12px; padding: 3px 10px; }
+.bc-help { color: var(--muted); font-size: 11.5px; margin: 6px 0 10px; }
+.bc-label { display: block; color: var(--muted); font-size: 11px; margin-top: 8px; }
+.bc-name { display: block; width: 100%; margin-top: 4px; font: inherit; color: var(--fg); background: var(--bg2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; }
+.bc-name:focus { outline: none; border-color: var(--accent); }
+.bc-recent { margin-top: 10px; display: grid; gap: 4px; }
+.bc-recent button { display: flex; justify-content: space-between; gap: 8px; text-align: left; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; }
+.bc-recent button:hover, .bc-recent button.on { border-color: var(--accent); }
+.bc-recent button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-recent em { font-style: normal; color: var(--muted); font-size: 10.5px; white-space: nowrap; }
+.bc-actions { display: flex; justify-content: space-between; margin-top: 14px; }
+.batch-line { display: flex; align-items: center; gap: 6px; font-size: 11.5px; margin: 0 0 6px; }
+.batch-line[hidden] { display: none; }
+.batch-line .bl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.batch-line .muted { color: var(--muted); }
+.batch-line .bl-change { color: #a78bfa; font-size: 11px; padding: 0 2px; }
+.bl-kind { flex: none; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; background: var(--bg2); color: var(--muted); }
+.bl-kind.review, .rv-tag { color: #f59e0b; }
+.rv-tag { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .pop, .panel, .statuspop {
   position: fixed; width: 320px; max-height: 60vh; overflow: auto; background: var(--bg); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px; pointer-events: auto; box-shadow: 0 12px 40px rgba(0,0,0,.45); display: none;

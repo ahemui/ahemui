@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
-import type { Item, AhemStore } from "@ahemui/core";
+import type { AhemStore, Batch, Item } from "@ahemui/core";
 import { BOARD_JS } from "./board-assets.generated.js";
 import { gitBranch } from "./git.js";
 
@@ -11,6 +11,7 @@ interface Boot {
   branch?: string | null;
   generated?: string;
   items?: Item[];
+  batches?: Batch[];
   /** Static mode: path from the HTML file to the .ahemui directory, for screenshot links. */
   base?: string;
 }
@@ -52,6 +53,7 @@ export async function exportBoard(store: AhemStore, out = join(store.dir, "backl
     branch: gitBranch(store.root),
     generated: new Date().toISOString(),
     items: await store.list({ includeDone: true }),
+    batches: await store.listBatches(),
     base,
   });
   await writeFile(file, html);

@@ -11,6 +11,8 @@ description: Show the AhemUI visual-feedback backlog at a glance — counts by s
      `id (first 10) · type/priority · section · first line of the request`. Show who claimed any in-progress item.
    - If items are untriaged, suggest `/ahemui:triage`.
    - If items are in review (◎) or awaiting reply (?), say they're waiting on the person in the browser.
+   - If `ahemui_batches` lists batches, add one line per open batch: name, "changes" or "for review", who started it,
+     and how many items are open. "For review" batches wait for a person to decide; `/ahemui:work` leaves them alone.
 3. Mention the board for a visual overview: `/ahemui:board`, or the **Open full board ↗** link in the overlay.
 4. If there are done items, mention that `/ahemui:archive` moves them to `.ahemui/done/` once the branch is ready to merge.
 

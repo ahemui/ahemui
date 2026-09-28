@@ -1,6 +1,7 @@
 // The AhemUI backlog board. One page, two modes:
 //  - live: served by `ahemui serve` at http://127.0.0.1:<port>/ with actions and WebSocket updates
 //  - static: `.ahemui/backlog.html`, a read-only snapshot with the data embedded and images referenced relatively
+import type { Batch } from "../../overlay/src/prefs.js";
 import type { Item, Page, Status } from "../../overlay/src/types.js";
 import { CSS } from "./styles.js";
 
@@ -16,6 +17,7 @@ interface Boot {
   branch?: string | null;
   generated?: string;
   items?: Item[];
+  batches?: Batch[];
   base?: string;
 }
 declare global {
@@ -29,13 +31,14 @@ const live = boot.mode === "live";
 
 const state = {
   items: (boot.items ?? []) as Item[],
+  batches: (boot.batches ?? []) as Batch[],
   watcher: null as Watcher | null,
   connected: !live,
   project: boot.project ?? "",
   branch: boot.branch ?? null,
   q: "",
   type: "",
-  groupBy: "status" as "status" | "page" | "area",
+  groupBy: "status" as "status" | "page" | "area" | "batch",
   archived: false,
   selected: location.hash.slice(1) || null,
 };
@@ -79,6 +82,7 @@ async function connect() {
     state.branch = health.branch;
     state.watcher = health.watcher;
     state.items = await api<Item[]>("GET", "/api/items?all");
+    state.batches = await api<Batch[]>("GET", "/api/batches").catch(() => []);
     render();
   } catch {
     /* the socket retry below covers it */
@@ -93,6 +97,10 @@ async function connect() {
     if (msg.type !== "items") return;
     state.items = msg.items;
     if (msg.watcher !== undefined) state.watcher = msg.watcher;
+    // A new batch may have been started in the browser since the last fetch.
+    if (msg.items.some((i: Item) => i.batch && !state.batches.some((b) => b.id === i.batch))) {
+      api<Batch[]>("GET", "/api/batches").then((b) => ((state.batches = b), render()), () => {});
+    }
     render();
   };
   ws.onclose = () => {
@@ -118,6 +126,7 @@ function mount() {
           <option value="status">Columns by status</option>
           <option value="page">Group by page</option>
           <option value="area">Group by area</option>
+          <option value="batch">Group by batch</option>
         </select>
         <label class="f-arch"><input type="checkbox"> archived</label>
       </div>
@@ -212,7 +221,12 @@ function renderBoard() {
     board.className = "board groups";
     const groups = new Map<string, Item[]>();
     for (const it of items) {
-      const key = state.groupBy === "page" ? pageName(it.page, it.route) : (it.area ?? "No area yet (run /ahemui:triage)");
+      const key =
+        state.groupBy === "page"
+          ? pageName(it.page, it.route)
+          : state.groupBy === "batch"
+            ? batchLabel(it)
+            : (it.area ?? "No area yet (run /ahemui:triage)");
       groups.set(key, [...(groups.get(key) ?? []), it]);
     }
     board.innerHTML =
@@ -228,6 +242,7 @@ function card(it: Item): string {
   const asking = it.status === "open" && it.needs_reply;
   const chips = [
     it.start === "now" && it.status === "open" && !asking ? `<span class="chip now">⚡ queued</span>` : "",
+    it.intent === "review" ? `<span class="chip ask">for review</span>` : "",
     asking ? `<span class="chip ask">? question for you</span>` : "",
     it.status === "review" ? `<span class="chip review">◎ review</span>` : "",
     it.status === "wontfix" ? `<span class="chip">won't fix</span>` : "",
@@ -302,6 +317,7 @@ function renderDrawer() {
       ${thread.map((t) => `<div class="entry k-${t.kind.toLowerCase()}"><div class="who"><b>${esc(t.who)}</b> · ${esc(t.kind.toLowerCase())}</div><div class="prose">${esc(t.text)}</div></div>`).join("")}
     </section>
     <section><h3>Where</h3><dl>
+      ${it.batch ? row("Batch", batchLabel(it)) : ""}
       ${row("Page", pageName(p, it.route) + (p.section ? ` › ${p.section}` : ""))}
       ${it.url ? `<dt>URL</dt><dd><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url)}</a>${p.env === "deployed" ? " (deployed)" : ""}</dd>` : ""}
       ${row("Source", a.source, true)}
@@ -479,6 +495,12 @@ function firstLine(it: Item): string {
 }
 
 /** "/pricing · Pricing": the route plus a short page name. Not the <h1>, which is often a whole sentence. */
+function batchLabel(it: Item): string {
+  if (!it.batch) return "No batch";
+  const b = state.batches.find((x) => x.id === it.batch);
+  return b ? `${b.name} (${b.intent === "review" ? "for review" : "changes"} · ${b.author})` : `Batch ${it.batch.slice(0, 8)}`;
+}
+
 function pageName(p: Page | undefined, route: string | undefined): string {
   const name = p?.storyTitle || p?.routeName || p?.pageComponent?.replace(/(Page|View)$/, "");
   const path = p?.routePattern ?? route ?? "?";

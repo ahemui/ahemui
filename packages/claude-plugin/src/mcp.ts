@@ -45,6 +45,7 @@ const filterArgs = {
   label: z.string().optional(),
   start_now: z.boolean().optional().describe('Only items the person sent with "Start now"'),
   linked: z.boolean().optional().describe("true: only items mirrored to a tracker ticket; false: only unlinked ones"),
+  batch: z.string().optional().describe("Batch id, id prefix or name (see ahemui_batches)"),
 };
 
 const toFilter = ({ start_now, ...f }: { start_now?: boolean } & Omit<ListFilter, "start">): ListFilter => ({
@@ -63,7 +64,10 @@ tool(
     ...filterArgs,
   },
   async ({ status, include_archived, untriaged, group_by, ...f }) => {
-    const items = await store().list({ status, includeDone: include_archived, untriaged, ...toFilter(f) });
+    const s = store();
+    const batch = f.batch ? await s.findBatch(f.batch) : null;
+    if (f.batch && !batch) return `No batch matches "${f.batch}". ahemui_batches lists them.`;
+    const items = await s.list({ status, includeDone: include_archived, untriaged, ...toFilter({ ...f, batch: batch?.id }) });
     if (!items.length) return "No matching AhemUI items.";
     if (group_by === "none") return items.map(summary).join("\n");
     const key = (it: Item) =>
@@ -71,6 +75,24 @@ tool(
     const groups = new Map<string, Item[]>();
     for (const it of workOrder(items)) groups.set(key(it), [...(groups.get(key(it)) ?? []), it]);
     return [...groups].map(([k, list]) => `## ${k} (${list.length})\n${list.map(summary).join("\n")}`).join("\n\n");
+  },
+);
+
+tool(
+  "ahemui_batches",
+  "List AhemUI batches: named rounds of feedback someone started in the browser. Intent \"action\" means changes to make; \"review\" means things flagged for a person to look at and decide on, which ahemui_next skips unless that batch is asked for.",
+  {},
+  async () => {
+    const s = store();
+    const [batches, items] = await Promise.all([s.listBatches(), s.list()]);
+    if (!batches.length) return "No batches yet. Items captured without one work as usual.";
+    return batches
+      .map((b) => {
+        const mine = items.filter((i) => i.batch === b.id);
+        const open = mine.filter((i) => i.status === "open" || i.status === "in-progress").length;
+        return `${b.id.slice(0, 10)}  ${b.intent === "review" ? "for review" : "changes"}  "${b.name}"  by ${b.author}  ${mine.length} item(s), ${open} open`;
+      })
+      .join("\n");
   },
 );
 
@@ -85,7 +107,12 @@ tool(
   filterArgs,
   async (f) => {
     const s = store();
-    const [next] = workOrder(await s.list({ status: ["open"], needsReply: false, ...toFilter(f) }));
+    // Items flagged for review are for a person to decide on; only work them when their batch is asked for by name.
+    const batch = f.batch ? await s.findBatch(f.batch) : null;
+    if (f.batch && !batch) return `No batch matches "${f.batch}". ahemui_batches lists them.`;
+    const [next] = workOrder(
+      await s.list({ status: ["open"], needsReply: false, ...toFilter({ ...f, batch: batch?.id }), ...(batch ? {} : { intent: "action" as const }) }),
+    );
     if (!next) return "No open AhemUI items match.";
     return describe(s, await s.claim(next.id, claimant()));
   },
@@ -370,7 +397,8 @@ function summary(it: Item): string {
   const where = [it.page?.section && `› ${it.page.section}`, it.anchor.source ?? (it.page?.env === "deployed" ? `(${new URL(it.url!).host})` : "")]
     .filter(Boolean)
     .join("  ");
-  const now = (it.start === "now" && it.status === "open" ? " ⚡start-now" : "") + (it.needs_reply ? " ?awaiting-reply" : "");
+  const now =
+    (it.start === "now" && it.status === "open" ? " ⚡start-now" : "") + (it.needs_reply ? " ?awaiting-reply" : "") + (it.intent === "review" ? " ◇for-review" : "");
   const ext = it.external ? `  → ${it.external.key}` : "";
   return `${ICON[it.status]} ${it.id}  ${it.status}${now}${archived}${cls ? `  [${cls}]` : "  [untriaged]"}${ext}  ${pageName(it)} ${where}\n    ${it.body.split("\n")[0].slice(0, 140)}`;
 }
