@@ -99,3 +99,20 @@ test("a taken port rejects cleanly instead of crashing the process", async () =>
   // srv already holds its port; a second server on the same port must throw EADDRINUSE, not emit an unhandled error.
   await assert.rejects(serve(store, { port: srv.port, log: () => {} }), /EADDRINUSE/);
 });
+
+test("personal settings live in AHEMUI_HOME/prefs.json; invalid values are refused", async () => {
+  process.env.AHEMUI_HOME = join(root, "home");
+  const post = (body: unknown) =>
+    fetch(`${base}/api/prefs`, { method: "POST", headers: { Origin: "http://localhost:5173", "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+  const empty = await (await fetch(`${base}/api/prefs`)).json();
+  assert.deepEqual(empty, { prefs: {}, defaults: {} });
+
+  const saved = await (await post({ position: "top-left", name: "Anna", ignored: 1 })).json();
+  assert.deepEqual(saved.prefs, { position: "top-left", name: "Anna" });
+  assert.equal((await post({ position: "middle" })).status, 400);
+
+  const cleared = await (await post({ name: null })).json();
+  assert.deepEqual(cleared.prefs, { position: "top-left" });
+  delete process.env.AHEMUI_HOME;
+});

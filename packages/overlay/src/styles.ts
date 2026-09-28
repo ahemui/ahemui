@@ -98,6 +98,29 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
   border-radius: 10px; padding: 10px; pointer-events: auto; box-shadow: 0 12px 40px rgba(0,0,0,.45); display: none;
 }
 .panel { right: 16px; bottom: 60px; width: 360px; }
+
+/* toolbar corner (settings or drag) */
+.root[data-pos="bottom-left"] .bar, .root[data-pos="bottom-left"] .panel { right: auto; left: 16px; }
+.root[data-pos="top-right"] .bar, .root[data-pos="top-left"] .bar { bottom: auto; top: 16px; }
+.root[data-pos="top-right"] .panel, .root[data-pos="top-left"] .panel { bottom: auto; top: 60px; }
+.root[data-pos="top-left"] .bar, .root[data-pos="top-left"] .panel { right: auto; left: 16px; }
+.bar.dragging { cursor: grabbing; opacity: .92; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+.bar.dragging button { pointer-events: none; }
+
+/* settings view */
+.panel-head .gear { flex: none; font-size: 14px; padding: 2px 6px; border-radius: 6px; color: var(--muted); }
+.panel-head .gear:hover { color: var(--fg); background: var(--bg2); }
+.settings-head { display: flex; align-items: center; gap: 10px; padding: 0 2px 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.settings-head .back { color: #a78bfa; font-size: 12px; padding: 2px 4px; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 2px 4px; }
+.setting > span { color: var(--fg); }
+.corners { display: grid; grid-template-columns: repeat(2, 28px); gap: 3px; }
+.corners button { height: 24px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); font-size: 12px; }
+.corners button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pref-name { width: 170px; font: inherit; font-size: 12px; color: var(--fg); background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+.pref-name:focus { outline: none; border-color: var(--accent); }
+.settings .note { color: var(--muted); font-size: 11px; padding: 0 2px 4px; }
+.settings .note:last-child { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #fff; }
 .pill.open { background: var(--open); } .pill.in-progress { background: var(--doing); }
 .pill.done { background: var(--done); } .pill.wontfix { background: var(--wontfix); }

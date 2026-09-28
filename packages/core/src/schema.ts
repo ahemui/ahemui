@@ -228,6 +228,23 @@ export const WatchControlSchema = z.object({
 });
 export type WatchControl = z.infer<typeof WatchControlSchema>;
 
+/**
+ * Personal overlay settings. Stored per person in ~/.ahemui/prefs.json (served by ahemui serve, so they follow
+ * the person across projects and ports); a project can set defaults in config.json under overlay.defaults.
+ */
+export const PrefsSchema = z.object({
+  /** Corner the toolbar sits in; the panel and popovers open from there. */
+  position: z.enum(["bottom-right", "bottom-left", "top-right", "top-left"]).optional(),
+  /** off: nothing; page: toasts on the page; desktop: toasts plus system notifications. */
+  notifications: z.enum(["off", "page", "desktop"]).optional(),
+  /** What Enter does in the capture box; Ctrl/⌘+Enter does the other. */
+  enter: z.enum(["now", "backlog"]).optional(),
+  markers: z.enum(["all", "active", "none"]).optional(),
+  /** Name on items, replies and reviews; defaults to the git user. */
+  name: short(80).optional(),
+});
+export type Prefs = z.infer<typeof PrefsSchema>;
+
 export const ConfigSchema = z.object({
   version: z.literal(1).default(1),
   port: z.number().int().default(4777),
@@ -238,6 +255,8 @@ export const ConfigSchema = z.object({
   /** Finished items wait for the requester's approval in the browser before counting as done. */
   review: z.boolean().default(true),
   tracker: TrackerSchema.optional(),
+  /** Team-wide overlay defaults; each person's own settings override them. */
+  overlay: z.object({ defaults: PrefsSchema.omit({ name: true }).default({}) }).optional(),
 });
 export type Config = z.infer<typeof ConfigSchema>;
 

@@ -4,6 +4,7 @@ import { stylesOf } from "./design.js";
 import { elementAt, inspectRect, type Inspection, locate } from "./inspect.js";
 import { collectPage, LOCAL_HOST } from "./page.js";
 import { scrub, scrubDeep, sensitiveRects } from "./redact.js";
+import { cachedPrefs, cachePrefs, DEFAULT_PREFS, type Prefs } from "./prefs.js";
 import { recentSteps, recordSteps } from "./steps.js";
 import { STYLES } from "./styles.js";
 import { type Host, type Item, type ItemType, type Page, type Point, type Rect, type Status, type Styles, TYPES } from "./types.js";
@@ -63,8 +64,12 @@ class Overlay {
   private watcher: Watcher | null = null;
   private connected = false;
   private mode: "idle" | "select" | "compose" = "idle";
-  /** Which markers to show: everything, only unfinished items, or none. Remembered per site. */
-  private markerMode: MarkerMode = loadMarkerMode();
+  /** Effective settings: built-in defaults, then the project's defaults, then the person's own choices. */
+  private prefs: Prefs = cachedPrefs();
+  private personal: Partial<Prefs> = {};
+  private projectDefaults: Partial<Prefs> = {};
+  private panelView: "list" | "settings" = "list";
+  private suppressClick = false;
   private drag: { start: Point; freehand: boolean; points: Point[] } | null = null;
   private strokes: Point[][] = [];
   private markers = new Map<string, Marker>();
@@ -122,6 +127,7 @@ class Overlay {
       </div>`;
     document.documentElement.appendChild(this.hostEl);
     this.bindEvents();
+    this.applyPrefs();
     recordSteps(this.isOwn, (s) => (deployed() ? scrub(s) : s));
     this.renderBar();
     this.host.transport.start(
@@ -132,9 +138,11 @@ class Overlay {
         this.renderAll();
       },
       (health) => {
+        const was = this.connected;
         this.health = health;
         if (health?.watcher !== undefined) this.watcher = health.watcher;
         this.connected = !!health;
+        if (!was && this.connected) this.loadPrefs();
         this.checkBuild();
         this.renderBar();
       },
@@ -150,6 +158,7 @@ class Overlay {
     this.$(".capture").addEventListener("click", () => this.toggle());
     this.$(".counts").addEventListener("click", () => this.togglePanel());
     this.$(".state").addEventListener("click", () => this.togglePanel());
+    this.bindDrag();
     this.host.onToggle?.(() => this.toggle());
 
     addEventListener(
@@ -175,12 +184,13 @@ class Overlay {
     const ta = this.$<HTMLTextAreaElement>("textarea");
     ta.addEventListener("keydown", (e) => {
       e.stopPropagation(); // keep app shortcuts from firing while typing
+      const enterNow = this.prefs.enter === "now";
       if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
-        this.submit("later");
+        this.submit(enterNow ? "later" : "now");
       } else if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
-        this.submit("now");
+        this.submit(enterNow ? "now" : "later");
       } else if (e.key === "Escape") this.setMode("select");
     });
     this.$(".design").addEventListener("keydown", (e) => e.stopPropagation());
@@ -491,7 +501,7 @@ class Overlay {
     const ta = this.$<HTMLTextAreaElement>("textarea");
     const prompt = ta.value.trim();
     if (!prompt || !draft?.areas.length) return;
-    if (start === "now") this.host.prepareNotifications?.();
+    if (start === "now" && this.prefs.notifications === "desktop") this.host.prepareNotifications?.();
     this.stopVoice?.();
     const buttons = [this.$<HTMLButtonElement>(".submit"), this.$<HTMLButtonElement>(".start")];
     buttons.forEach((b) => (b.disabled = true));
@@ -505,6 +515,7 @@ class Overlay {
       const design = this.$<HTMLInputElement>(".design").value.trim();
       const item = await this.host.transport.request<Item>("POST", "/api/items", {
         prompt,
+        author: this.prefs.name || undefined,
         route: currentRoute(),
         url: deployed() ? location.origin + location.pathname : location.href,
         viewport: `${innerWidth}x${innerHeight}`,
@@ -558,8 +569,9 @@ class Overlay {
   }
 
   private alert(title: string, body: string, tag: string) {
+    if (this.prefs.notifications === "off") return;
     this.toast(`${title}: ${body}`, 5000);
-    this.host.notify?.(`AhemUI — ${title}`, body, tag);
+    if (this.prefs.notifications === "desktop") this.host.notify?.(`AhemUI — ${title}`, body, tag);
   }
 
   /**
@@ -592,7 +604,7 @@ class Overlay {
     this.renderBar();
     this.renderMarkers();
     if (this.popFor) this.openPop(this.popFor);
-    if (this.$(".panel").style.display === "block") this.renderPanel();
+    if (this.$(".panel").style.display === "block" && this.panelView === "list") this.renderPanel();
   }
 
   private warnedBuild = false;
@@ -649,16 +661,24 @@ class Overlay {
   /** The primary action says what will actually happen: start now, or join the queue behind Claude's current item. */
   private renderActions() {
     const busy = this.queueing();
+    const backlogFirst = this.prefs.enter === "backlog";
+    const nowKey = backlogFirst ? "Ctrl+Enter" : "Enter";
+    const laterKey = backlogFirst ? "Enter" : "Ctrl/⌘+Enter";
     const start = this.$(".start");
+    const submit = this.$(".submit");
+    start.classList.toggle("primary", !backlogFirst);
+    submit.classList.toggle("primary", backlogFirst);
+    submit.title = `Save for later: waits in the backlog until someone runs /ahemui:work (${laterKey})`;
     start.textContent = busy ? (this.watcher?.paused ? "Add to queue (paused)" : "Add to queue") : "⚡ Start now";
     start.title = busy
       ? this.watcher?.paused
-        ? "Claude is paused; this starts when you resume (Enter)"
-        : "Claude is working on another item; this one goes next in line (Enter)"
+        ? `Claude is paused; this starts when you resume (${nowKey})`
+        : `Claude is working on another item; this one goes next in line (${nowKey})`
       : this.watcher
-        ? "Claude starts on it right away (Enter)"
-        : "Queue it for Claude to start as soon as a session runs /ahemui:watch (Enter)";
-    this.$(".hint").textContent = `Enter ${busy ? "queue" : "start now"} · Ctrl+Enter backlog`;
+        ? `Claude starts on it right away (${nowKey})`
+        : `Queue it for Claude to start as soon as a session runs /ahemui:watch (${nowKey})`;
+    const nowWord = busy ? "queue" : "start now";
+    this.$(".hint").textContent = backlogFirst ? `Enter backlog · Ctrl+Enter ${nowWord}` : `Enter ${nowWord} · Ctrl+Enter backlog`;
   }
 
   private renderBar() {
@@ -744,11 +764,12 @@ class Overlay {
   private panelHead(): string {
     const [proj, claude, stale] = this.statusLines();
     const w = this.watcher;
-    const mode = (m: MarkerMode, label: string, title: string) =>
-      `<button class="${this.markerMode === m ? "on" : ""}" data-mode="${m}" title="${title}">${label}</button>`;
+    const mode = (m: Prefs["markers"], label: string, title: string) =>
+      `<button class="${this.prefs.markers === m ? "on" : ""}" data-mode="${m}" title="${title}">${label}</button>`;
     return `<div class="panel-head">
         <div class="grow"><div class="proj">${esc(proj)}</div><div class="claude ${w && !w.paused ? "live" : ""}">${esc(claude ?? "")}</div>${stale ? `<div class="stale-note">${esc(stale)}</div>` : ""}${this.watchControls()}</div>
         <div class="seg" title="Which markers to show on the page">${mode("all", "All", "Show every marker")}${mode("active", "Open", "Hide finished markers (✓, won't fix)")}${mode("none", "None", "Hide markers")}</div>
+        <button class="gear" data-settings title="Settings">⚙</button>
       </div>`;
   }
 
@@ -758,9 +779,9 @@ class Overlay {
 
   private renderMarkers() {
     const wanted =
-      this.markerMode === "none"
+      this.prefs.markers === "none"
         ? []
-        : this.visibleItems().filter((i) => this.markerMode === "all" || (i.status !== "done" && i.status !== "wontfix"));
+        : this.visibleItems().filter((i) => this.prefs.markers === "all" || (i.status !== "done" && i.status !== "wontfix"));
     const keep = new Set(wanted.map((i) => i.id));
     for (const [id, m] of this.markers) {
       if (!keep.has(id)) {
@@ -924,13 +945,14 @@ class Overlay {
             return;
           } else if (act === "reply") {
             if (!text) return this.toast("Type an answer first");
-            updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/reply`, { text });
+            updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/reply`, { text, author: this.prefs.name || undefined });
             this.toast("Sent to Claude ✓");
           } else if (act === "approve" || act === "changes") {
             if (act === "changes" && !text) return this.toast("Say what still needs to change");
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/review`, {
               verdict: act === "approve" ? "approved" : "changes",
               comment: text || undefined,
+              author: this.prefs.name || undefined,
             });
             this.toast(act === "approve" ? "Approved ✓" : "Sent back to Claude");
           } else if (act === "reopen") {
@@ -978,11 +1000,17 @@ class Overlay {
 
   private renderPanel() {
     const panel = this.$(".panel");
+    if (this.panelView === "settings") return this.renderSettings();
     const active = this.items.filter((i) => i.location === "items");
     const board = this.health?.base
       ? `<a class="board-link" href="${esc(this.health.base)}/" target="_blank" rel="noopener">Open full board ↗</a>`
       : "";
     const bindHead = () => {
+      panel.querySelector("[data-settings]")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.panelView = "settings";
+        this.renderPanel();
+      });
       panel.querySelectorAll<HTMLButtonElement>("button[data-watch]").forEach((b) =>
         b.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -993,10 +1021,7 @@ class Overlay {
       panel.querySelectorAll<HTMLButtonElement>(".seg button").forEach((b) =>
         b.addEventListener("click", (e) => {
           e.stopPropagation();
-          this.markerMode = b.dataset.mode as MarkerMode;
-          saveMarkerMode(this.markerMode);
-          this.renderMarkers();
-          this.renderPanel();
+          this.setPrefs({ markers: b.dataset.mode as Prefs["markers"] });
         }),
       );
     };
@@ -1067,8 +1092,155 @@ class Overlay {
 
   private closePopups() {
     this.popFor = null;
+    this.panelView = "list";
     this.$(".pop").style.display = "none";
     this.$(".panel").style.display = "none";
+  }
+
+  // ——— settings ———
+
+  /** Loads the person's settings (~/.ahemui/prefs.json) and the project's defaults once connected. */
+  private async loadPrefs() {
+    try {
+      const { prefs, defaults } = await this.host.transport.request<{ prefs: Partial<Prefs>; defaults: Partial<Prefs> }>("GET", "/api/prefs");
+      this.personal = prefs ?? {};
+      this.projectDefaults = defaults ?? {};
+      this.prefs = { ...DEFAULT_PREFS, ...this.projectDefaults, ...this.personal };
+      cachePrefs(this.prefs);
+      this.applyPrefs();
+    } catch {
+      /* an older ahemui serve without /api/prefs: keep the cached settings */
+    }
+  }
+
+  /** Applies a change at once and saves it for the person; null clears it back to the default. */
+  private async setPrefs(patch: { [K in keyof Prefs]?: Prefs[K] | null }) {
+    const personal: Record<string, unknown> = { ...this.personal };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null || v === "") delete personal[k];
+      else personal[k] = v;
+    }
+    this.personal = personal as Partial<Prefs>;
+    this.prefs = { ...DEFAULT_PREFS, ...this.projectDefaults, ...this.personal };
+    cachePrefs(this.prefs);
+    this.applyPrefs();
+    try {
+      await this.host.transport.request("POST", "/api/prefs", patch);
+    } catch (err) {
+      this.toast(`Setting not saved: ${(err as Error).message}`, 4000);
+    }
+  }
+
+  private applyPrefs() {
+    this.$(".root").setAttribute("data-pos", this.prefs.position);
+    this.renderMarkers();
+    this.renderBar();
+    if (this.$(".panel").style.display === "block") this.renderPanel();
+  }
+
+  private renderSettings() {
+    const panel = this.$(".panel");
+    const p = this.prefs;
+    const seg = <K extends keyof Prefs>(key: K, options: [Prefs[K], string, string][]) =>
+      `<div class="seg" data-pref="${key}">${options
+        .map(([v, label, title]) => `<button class="${p[key] === v ? "on" : ""}" data-value="${v}" title="${title}">${label}</button>`)
+        .join("")}</div>`;
+    const corner = (v: Prefs["position"], arrow: string) =>
+      `<button class="${p.position === v ? "on" : ""}" data-value="${v}" title="${v.replace("-", " ")}">${arrow}</button>`;
+    const fromProject = Object.keys(this.projectDefaults).length > 0;
+    panel.innerHTML = `<div class="settings">
+        <div class="settings-head"><button class="back" title="Back to the backlog">‹ Backlog</button><b>Settings</b></div>
+        <div class="setting"><span>Toolbar corner</span><div class="corners" data-pref="position">${corner("top-left", "↖")}${corner("top-right", "↗")}${corner("bottom-left", "↙")}${corner("bottom-right", "↘")}</div></div>
+        <div class="note">Or drag the toolbar; it snaps to the nearest corner.</div>
+        <div class="setting"><span>Notifications</span>${seg("notifications", [
+          ["off", "Off", "No toasts or notifications when Claude finishes or asks"],
+          ["page", "On page", "Toasts on this page only"],
+          ["desktop", "Desktop", "Toasts, plus a system notification when this tab is in the background"],
+        ])}</div>
+        <div class="setting"><span>Enter key</span>${seg("enter", [
+          ["now", "Start now", "Enter hands it to Claude; Ctrl+Enter saves to the backlog"],
+          ["backlog", "Backlog", "Enter saves to the backlog; Ctrl+Enter hands it to Claude"],
+        ])}</div>
+        <div class="setting"><span>Markers</span>${seg("markers", [
+          ["all", "All", "Show every marker"],
+          ["active", "Open", "Hide finished markers"],
+          ["none", "None", "Hide markers"],
+        ])}</div>
+        <div class="setting"><span>Your name</span><input class="pref-name" placeholder="Your git name" maxlength="80" value="${esc(p.name ?? "")}"></div>
+        <div class="note">Saved for you in ~/.ahemui/prefs.json and used in every project on this computer.${
+          fromProject ? " This project sets some defaults in .ahemui/config.json; your choices here override them." : ""
+        }</div>
+      </div>`;
+    panel.querySelector(".back")!.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.panelView = "list";
+      this.renderPanel();
+    });
+    panel.querySelectorAll<HTMLElement>("[data-pref]").forEach((group) =>
+      group.querySelectorAll<HTMLButtonElement>("button").forEach((b) =>
+        b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const key = group.dataset.pref as keyof Prefs;
+          if (key === "notifications" && b.dataset.value === "desktop") this.host.prepareNotifications?.();
+          this.setPrefs({ [key]: b.dataset.value });
+        }),
+      ),
+    );
+    const name = panel.querySelector<HTMLInputElement>(".pref-name")!;
+    name.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") name.blur();
+    });
+    name.addEventListener("change", () => {
+      const value = name.value.trim();
+      this.setPrefs({ name: value || null });
+      this.toast(value ? `Your items and replies will say ${value}` : "Using your git name", 2500);
+    });
+  }
+
+  /** Drag the toolbar anywhere; on release it snaps to the nearest corner and remembers it. */
+  private bindDrag() {
+    const bar = this.$(".bar");
+    bar.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      const from = { x: e.clientX, y: e.clientY };
+      const box = bar.getBoundingClientRect();
+      let moving = false;
+      const move = (ev: PointerEvent) => {
+        if (!moving && Math.hypot(ev.clientX - from.x, ev.clientY - from.y) < 6) return;
+        if (!moving) {
+          moving = true;
+          bar.classList.add("dragging");
+          this.closePopups();
+        }
+        const left = Math.min(Math.max(0, box.left + ev.clientX - from.x), innerWidth - box.width);
+        const y0 = Math.min(Math.max(0, box.top + ev.clientY - from.y), innerHeight - box.height);
+        Object.assign(bar.style, { left: `${left}px`, top: `${y0}px`, right: "auto", bottom: "auto" });
+      };
+      const up = (ev: PointerEvent) => {
+        removeEventListener("pointermove", move, true);
+        removeEventListener("pointerup", up, true);
+        if (!moving) return;
+        bar.classList.remove("dragging");
+        bar.style.cssText = "";
+        // The click that follows the release would otherwise open whatever button the drag started on.
+        this.suppressClick = true;
+        setTimeout(() => (this.suppressClick = false), 0);
+        const position = `${ev.clientY < innerHeight / 2 ? "top" : "bottom"}-${ev.clientX < innerWidth / 2 ? "left" : "right"}` as Prefs["position"];
+        this.setPrefs({ position });
+      };
+      addEventListener("pointermove", move, true);
+      addEventListener("pointerup", up, true);
+    });
+    bar.addEventListener(
+      "click",
+      (e) => {
+        if (!this.suppressClick) return;
+        e.stopPropagation();
+        e.preventDefault();
+      },
+      true,
+    );
   }
 
   // ——— helpers ———
@@ -1088,26 +1260,6 @@ class Overlay {
   }
 }
 
-const MARKER_KEY = "ahemui:markers";
-
-type MarkerMode = "all" | "active" | "none";
-
-function loadMarkerMode(): MarkerMode {
-  try {
-    const v = localStorage.getItem(MARKER_KEY);
-    return v === "active" || v === "none" ? v : "all";
-  } catch {
-    return "all";
-  }
-}
-
-function saveMarkerMode(mode: string) {
-  try {
-    localStorage.setItem(MARKER_KEY, mode);
-  } catch {
-    /* storage blocked; the choice just won't survive a reload */
-  }
-}
 
 /** Splits an item body into the original request and its thread of notes, questions, replies and feedback. */
 function splitThread(body: string): { prompt: string; thread: { kind: string; who: string; text: string }[] } {

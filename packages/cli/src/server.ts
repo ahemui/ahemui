@@ -6,6 +6,7 @@ import { type Config, defaultAuthor, type Item, NewItemSchema, type Shot, AhemEr
 import { WebSocket, WebSocketServer } from "ws";
 import { boardHtml, exportBoard } from "./board.js";
 import { gitBranch } from "./git.js";
+import { readPrefs, updatePrefs } from "./prefs.js";
 
 const MIME: Record<string, string> = { webp: "image/webp", png: "image/png", jpg: "image/jpeg" };
 
@@ -178,6 +179,17 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
     return send(res, 200, { devOrigins: config.devOrigins });
   }
 
+  // Personal overlay settings (~/.ahemui/prefs.json) plus the project's defaults from config.json.
+  if (parts[1] === "prefs" && (req.method === "GET" || req.method === "POST")) {
+    if (req.method === "POST") {
+      const body = await readJson(req, 16_000);
+      if (!body || typeof body !== "object" || Array.isArray(body)) throw new HttpError(400, "expected an object of settings");
+      await updatePrefs(body).catch((err) => {
+        throw new HttpError(400, `invalid setting: ${err?.issues?.[0]?.message ?? err?.message ?? err}`);
+      });
+    }
+    return send(res, 200, { prefs: await readPrefs(), defaults: config.overlay?.defaults ?? {} });
+  }
   // Pause, resume or stop the Claude session running /ahemui:watch. Starting one is only possible from Claude Code.
   if (req.method === "POST" && parts[1] === "watch") {
     const body = await readJson(req, 16_000);
