@@ -35,7 +35,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .panel-head .claude { color: var(--muted); font-size: 11px; }
 .panel-head .claude.live { color: #a78bfa; }
 .panel-head .stale-note { color: #f59e0b; font-size: 11px; margin-top: 2px; }
-.seg { flex: none; display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+.panel-head .grow { flex: 1; min-width: 0; }
+.seg { flex: none; margin-left: auto; display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
 .seg button { font-size: 11px; padding: 2px 8px; border-radius: 999px; color: var(--muted); }
 .seg button.on { background: var(--bg2); color: var(--fg); }
 

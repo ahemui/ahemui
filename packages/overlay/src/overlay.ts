@@ -950,10 +950,11 @@ class Overlay {
       const key = (i.page?.routePattern ?? i.route ?? "?") + (sameSite(i.url) ? "" : ` · ${new URL(i.url!).host}`);
       groups.set(key, [...(groups.get(key) ?? []), i]);
     }
+    // The route plus a short page name; the page's <h1> is often a whole marketing sentence, so it's left out.
     const groupLabel = (key: string, items: Item[]) => {
-      const named = items.find((i) => i.page?.heading || i.page?.title || i.page?.routeName);
-      const host = key.includes(" · ") ? key.slice(key.indexOf(" · ")) : "";
-      return named ? pageLabel(named.page, named.route, false) + host : key;
+      const page = items.find((i) => i.page?.routeName || i.page?.pageComponent)?.page;
+      const name = page?.routeName ?? page?.pageComponent?.replace(/(Page|View)$/, "");
+      return name ? `${key} · ${name}` : key;
     };
     const rowAction = (i: Item) => {
       if (i.status !== "open" || i.needs_reply) return "";
