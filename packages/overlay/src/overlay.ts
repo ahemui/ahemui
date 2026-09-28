@@ -705,7 +705,7 @@ class Overlay {
       `Backlog: ${n("open")} open, ${n("in-progress")} in progress, ${n("review")} to review` +
       (asks ? `, ${asks} question${asks === 1 ? "" : "s"} for you` : "") +
       (n("done") ? ` · ${n("done")} done` : "");
-    const dot = this.$(".dot");
+    const dot = this.$(".bar .dot");
     dot.classList.toggle("ok", this.connected);
     const w = this.watcher;
     dot.classList.toggle("watching", w?.state === "waiting" && !w.paused);
@@ -1112,7 +1112,7 @@ class Overlay {
     const h = this.health;
     const w = this.watcher;
     const [proj, claude, stale] = this.statusLines();
-    const dotClass = this.$(".dot").className;
+    const dotClass = this.$(".bar .dot").className;
     pop.innerHTML = `
       <div class="status-head"><span class="${dotClass}"></span><div class="grow"><div class="proj">${esc(proj)}</div>${
         claude ? `<div class="claude ${w && !w.paused ? "live" : ""}">${esc(claude)}</div>` : ""
