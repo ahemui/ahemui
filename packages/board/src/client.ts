@@ -125,9 +125,11 @@ function mount() {
     </header>
     ${live ? "" : `<div class="banner">Read-only snapshot${boot.generated ? ` from ${new Date(boot.generated).toLocaleString()}` : ""}. For the live board with actions, run <code>npx ahemui board</code> in the repo.</div>`}
     <main class="board"></main>
-    <aside class="drawer" hidden></aside>
+    <div class="scrim" hidden></div>
+    <aside class="drawer" role="dialog" aria-modal="true" aria-label="Item details" hidden></aside>
     <div class="toast"></div>`;
 
+  $(".scrim").addEventListener("click", () => select(null));
   $<HTMLInputElement>(".search").addEventListener("input", (e) => {
     state.q = (e.target as HTMLInputElement).value.toLowerCase();
     renderBoard();
@@ -259,8 +261,11 @@ function select(id: string | null, updateHash = true) {
 function renderDrawer() {
   const drawer = $(".drawer");
   const it = state.items.find((i) => i.id === state.selected);
+  const scrim = $(".scrim");
   if (!it) {
     drawer.hidden = true;
+    scrim.hidden = true;
+    document.body.classList.remove("modal-open");
     return;
   }
   // Keep text someone is typing across live updates.
@@ -268,6 +273,8 @@ function renderDrawer() {
   if (drawer.dataset.id === it.id && [...drafts.values()].some((v) => v.trim())) return;
   drawer.dataset.id = it.id;
   drawer.hidden = false;
+  scrim.hidden = false;
+  document.body.classList.add("modal-open");
   const asking = it.status === "open" && it.needs_reply;
   const { prompt, thread } = splitThread(it.body);
   const p: Page = it.page ?? {};
@@ -292,7 +299,7 @@ function renderDrawer() {
     ${live ? actions(it, asking) : ""}
     ${images.join("")}
     <section><h3>Request</h3><div class="prose">${esc(prompt)}</div>
-      ${thread.map((t) => `<div class="entry k-${t.kind.toLowerCase()}"><div class="who">${esc(t.kind)} · ${esc(t.who)}</div><div class="prose">${esc(t.text)}</div></div>`).join("")}
+      ${thread.map((t) => `<div class="entry k-${t.kind.toLowerCase()}"><div class="who"><b>${esc(t.who)}</b> · ${esc(t.kind.toLowerCase())}</div><div class="prose">${esc(t.text)}</div></div>`).join("")}
     </section>
     <section><h3>Where</h3><dl>
       ${row("Page", pageName(p, it.route) + (p.section ? ` › ${p.section}` : ""))}
@@ -471,10 +478,11 @@ function firstLine(it: Item): string {
   return it.body.split("\n")[0].slice(0, 140);
 }
 
+/** "/pricing · Pricing": the route plus a short page name. Not the <h1>, which is often a whole sentence. */
 function pageName(p: Page | undefined, route: string | undefined): string {
-  const name = p?.storyTitle || p?.heading || p?.title || p?.pageComponent;
+  const name = p?.storyTitle || p?.routeName || p?.pageComponent?.replace(/(Page|View)$/, "");
   const path = p?.routePattern ?? route ?? "?";
-  return name ? `${name} (${path})` : path;
+  return name ? `${path} · ${name}` : path;
 }
 
 function splitThread(body: string): { prompt: string; thread: { kind: string; who: string; text: string }[] } {

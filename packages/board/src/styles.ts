@@ -74,8 +74,12 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .c-foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; gap: 8px; }
 .quick { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 2px 9px; font-size: 12px; cursor: pointer; white-space: nowrap; }
 
-.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); background: var(--panel); border-left: 1px solid var(--line); box-shadow: -8px 0 30px rgba(0,0,0,.15); overflow: auto; padding: 16px 20px 40px; z-index: 10; }
+.scrim { position: fixed; inset: 0; background: rgba(8,9,12,.62); backdrop-filter: blur(2px); z-index: 9; }
+.scrim[hidden] { display: none; }
+.drawer { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 80px rgba(0,0,0,.45); overflow: auto; padding: 18px 24px 28px; z-index: 10; }
 .drawer[hidden] { display: none; }
+body.modal-open { overflow: hidden; }
+@media (max-width: 640px) { .drawer { top: auto; bottom: 0; left: 0; transform: none; width: 100vw; max-height: 92vh; border-radius: 14px 14px 0 0; } }
 .d-head { display: flex; align-items: center; gap: 10px; }
 .d-head code { color: var(--muted); }
 .d-head .x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--muted); }
@@ -100,7 +104,8 @@ section { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 14px
 section h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
 .prose { white-space: pre-wrap; overflow-wrap: anywhere; }
 .entry { border-left: 2px solid var(--line); padding-left: 10px; margin-top: 10px; }
-.entry .who { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+.entry .who { color: var(--muted); font-size: 12px; }
+.entry .who b { color: var(--fg); font-weight: 600; }
 .entry.k-question { border-color: var(--ask); }
 .entry.k-feedback { border-color: #dc2626; }
 .entry.k-reply, .entry.k-approved { border-color: var(--done); }
