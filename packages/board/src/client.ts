@@ -81,7 +81,7 @@ async function connect() {
     state.project = health.project;
     state.branch = health.branch;
     state.watcher = health.watcher;
-    state.items = await api<Item[]>("GET", "/api/items?all");
+    state.items = await api<Item[]>("GET", state.archived ? "/api/items?all" : "/api/items");
     state.batches = await api<Batch[]>("GET", "/api/batches").catch(() => []);
     render();
   } catch {
@@ -95,7 +95,8 @@ async function connect() {
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
     if (msg.type !== "items") return;
-    state.items = msg.items;
+    // Live updates carry active items only; keep any archived ones fetched for the "archived" filter.
+    state.items = state.archived ? [...msg.items, ...state.items.filter((i) => i.location === "done")] : msg.items;
     if (msg.watcher !== undefined) state.watcher = msg.watcher;
     // A new batch may have been started in the browser since the last fetch.
     if (msg.items.some((i: Item) => i.batch && !state.batches.some((b) => b.id === i.batch))) {
@@ -151,8 +152,9 @@ function mount() {
     state.groupBy = (e.target as HTMLSelectElement).value as typeof state.groupBy;
     renderBoard();
   });
-  $(".f-arch input").addEventListener("change", (e) => {
+  $(".f-arch input").addEventListener("change", async (e) => {
     state.archived = (e.target as HTMLInputElement).checked;
+    if (live && state.archived) state.items = await api<Item[]>("GET", "/api/items?all").catch(() => state.items);
     renderBoard();
   });
   addEventListener("keydown", (e) => {

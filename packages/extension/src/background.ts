@@ -100,7 +100,7 @@ async function handle(msg: any, sender: chrome.runtime.MessageSender): Promise<u
       }
       tabServer.set(tabId, server.base);
       ensureSocket(server.base);
-      const items = await (await fetch(`${server.base}/api/items?all`)).json();
+      const items = await (await fetch(`${server.base}/api/items`)).json();
       return { health: server, items };
     }
     case "api": {

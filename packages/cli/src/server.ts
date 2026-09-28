@@ -51,7 +51,8 @@ export async function serve(store: AhemStore, opts: ServeOptions = {}) {
   wss.on("error", () => {});
 
   const snapshot = async () =>
-    JSON.stringify({ type: "items", items: await store.list({ includeDone: true }), watcher: await store.watcher() });
+    // Active items only: archived ones can run into the hundreds and are fetched on demand (GET /api/items?all).
+    JSON.stringify({ type: "items", items: await store.list(), watcher: await store.watcher() });
   wss.on("connection", async (ws) => ws.send(await snapshot()));
 
   // Files are the bus: any change — from Claude, the CLI, or a git checkout — is pushed to the overlay.
