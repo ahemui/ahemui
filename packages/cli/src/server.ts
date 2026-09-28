@@ -70,7 +70,7 @@ export async function serve(store: AhemStore, opts: ServeOptions = {}) {
     if (file?.endsWith(".tmp") || file?.endsWith("backlog.html")) return;
     clearTimeout(timer);
     timer = setTimeout(broadcast, 150);
-    if (!file?.endsWith(".watcher.json")) exportSoon();
+    if (!file?.endsWith(".watcher.json") && !file?.endsWith(".watch-control.json")) exportSoon();
   });
   exportSoon();
   // A watching Claude session can vanish without touching any file (process killed), so re-check presence.
@@ -178,6 +178,15 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
     return send(res, 200, { devOrigins: config.devOrigins });
   }
 
+  // Pause, resume or stop the Claude session running /ahemui:watch. Starting one is only possible from Claude Code.
+  if (req.method === "POST" && parts[1] === "watch") {
+    const body = await readJson(req, 16_000);
+    const action = body.action;
+    if (action !== "pause" && action !== "resume" && action !== "stop") throw new HttpError(400, "action must be pause, resume or stop");
+    if (action !== "resume" && !(await store.watcher())) throw new HttpError(409, "no Claude session is watching; run /ahemui:watch in Claude Code");
+    await store.setWatchControl(action === "pause" ? "paused" : action === "stop" ? "stop" : null, body.author ?? defaultAuthor());
+    return send(res, 200, { watcher: await store.watcher() });
+  }
   if (req.method === "POST" && parts[1] === "prune") {
     const { moved } = await store.prune();
     return send(res, 200, { archived: moved.map((i) => i.id) });

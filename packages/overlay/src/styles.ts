@@ -19,14 +19,19 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .bar button:hover { background: var(--bg2); }
 .bar .capture.on { background: var(--accent); }
 .bar .counts { color: var(--muted); font-variant-numeric: tabular-nums; }
-.bar .counts b { font-weight: 600; margin-right: 2px; }
-.bar .counts .none { opacity: .8; }
+.bar .counts { display: flex; align-items: center; gap: 6px; }
+.bar .counts .badge { min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--bg2); color: var(--fg); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
+.bar .counts .badge.rv { background: #8b5cf6; color: #fff; }
+.bar .counts .badge.ask { background: #f59e0b; color: #111; }
 .bubble .buttons { white-space: nowrap; }
 .bar .state { padding: 5px 9px 5px 6px; display: flex; align-items: center; }
 .bar .dot { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--wontfix); }
 .bar .dot.ok { background: var(--done); }
 .bar .dot.watching { background: #a78bfa; box-shadow: 0 0 0 3px rgba(167,139,250,.25); }
 .bar .dot.working { background: #a78bfa; animation: ahemui-pulse 1.4s infinite; }
+.bar .dot.paused { background: transparent; box-shadow: inset 0 0 0 2px #a78bfa; }
+.watch-ctl { display: flex; gap: 6px; margin-top: 6px; }
+.watch-ctl .btn { font-size: 11px; padding: 2px 9px; }
 .bar .dot.stale { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.3); animation: none; }
 @keyframes ahemui-pulse { 50% { box-shadow: 0 0 0 5px rgba(167,139,250,.3); } }
 @media (prefers-reduced-motion: reduce) { .bar .dot.working { animation: none; box-shadow: 0 0 0 3px rgba(167,139,250,.35); } }
@@ -150,8 +155,6 @@ a.btn:hover { border-color: var(--accent); }
 @keyframes pulse-ask { 50% { box-shadow: 0 0 0 7px rgba(245,158,11,.3); } }
 .pill.review { background: #8b5cf6; }
 .pill.ask { background: #f59e0b; color: #111; }
-.counts .rv { color: #a78bfa; }
-.counts .ask { color: #f59e0b; }
 .pop { width: 340px; }
 .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
 .compare figure { margin: 0; }

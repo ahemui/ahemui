@@ -24,7 +24,8 @@ If `$ARGUMENTS` is `stop`, or the user asks you to stop watching:
 
 1. Do the one-time checks from `/ahemui:work` step 1: the git branch (don't commit to main/master without asking) and
    unrelated uncommitted changes.
-2. Call `ahemui_list` with `start_now: true` and status `["open"]`. If there are items already waiting, work them first (step 4).
+2. Don't look for waiting items yourself: `ahemui wait` returns any Start-now items that are already queued straight
+   away, and respects a pause set in the browser.
 3. **Arm the watcher.** Run this with the Bash tool and `run_in_background: true`:
    ```bash
    node "${CLAUDE_PLUGIN_ROOT}/scripts/ahemui.mjs" wait
@@ -36,10 +37,15 @@ If `$ARGUMENTS` is `stop`, or the user asks you to stop watching:
      and then `ahemui_get`, and do the item exactly as in `/ahemui:work` step 2: understand it, implement, verify, resolve
      (to review by default), commit, and update any linked tracker ticket. Keep the user posted with one short line per item.
    - **Exit code 3** (timeout). Nothing arrived; go straight back to step 3.
+   - **Exit code 4** (`STOPPED`). The user stopped watching from the browser. Don't re-arm; say in one line that
+     watching has stopped and that `/ahemui:watch` starts it again.
    - **Any other failure.** Report it and stop.
 
-   After the batch, call `ahemui_list` with `start_now: true` and status `["open"]` to catch anything that arrived while
-   you were working, then go back to step 3.
+   After the batch, go back to step 3. `ahemui wait` returns anything that arrived while you were working straight
+   away, unless the user paused or stopped the watch from the browser: then it holds, or exits with code 4.
+
+The browser can **pause** the watch: `ahemui wait` keeps running but holds Start-now items until the user resumes.
+Nothing changes on your side; just leave the wait running.
 
 While an item is being worked, the browser shows "Claude working", and new Start-now presses queue up behind it.
 Plain queued items are left for `/ahemui:work`.

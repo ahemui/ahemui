@@ -7,6 +7,8 @@ import { CSS } from "./styles.js";
 interface Watcher {
   state: "waiting" | "working";
   item?: string;
+  paused?: boolean;
+  stopping?: boolean;
 }
 interface Boot {
   mode: "live" | "static";
@@ -173,7 +175,7 @@ function renderHeader() {
   $(".proj").textContent = [state.project, state.branch].filter(Boolean).join(" · ");
   document.title = `AhemUI backlog${state.project ? ` — ${state.project}` : ""}`;
   const counts = COLUMNS.map((c) => `<span title="${c.hint}">${c.title} <b>${active.filter(c.test).length}</b></span>`).join("");
-  const claude = !live ? "" : w ? `<span class="live on">Claude ${w.state === "waiting" ? "watching" : "working"}</span>` : `<span class="live" title="Run /ahemui:watch in Claude Code">No Claude session watching</span>`;
+  const claude = !live ? "" : w ? `<span class="live ${w.paused || w.stopping ? "" : "on"}">Claude ${w.stopping ? "stopping" : w.paused ? "paused" : w.state === "waiting" ? "watching" : "working"}</span>` : `<span class="live" title="Run /ahemui:watch in Claude Code">No Claude session watching</span>`;
   const conn = live ? `<span class="dot ${state.connected ? "ok" : ""}" title="${state.connected ? "Live" : "Reconnecting…"}"></span>` : "";
   $(".status").innerHTML = `${counts}${claude}${conn}`;
 }

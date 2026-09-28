@@ -170,6 +170,10 @@ async function main(argv: string[]) {
     }
     case "wait": {
       const items = await waitForStartNow(store, o.as ?? process.env.AHEMUI_AUTHOR!, o.timeout ? Number(o.timeout) * 1000 : 0);
+      if (items === "stopped") {
+        console.log("STOPPED watching was stopped from the browser");
+        process.exit(4);
+      }
       if (!items.length) {
         console.log("TIMEOUT no start-now items");
         process.exit(3);
@@ -213,6 +217,7 @@ async function main(argv: string[]) {
     }
     case "unwatch":
       await store.setWatcher(null);
+      await store.setWatchControl(null);
       return console.log("no longer watching");
     case "prune": {
       const { moved, shotsDropped } = await store.prune({ dropShotsOlderThanDays: o["drop-shots"] ? Number(o["drop-shots"]) : undefined });

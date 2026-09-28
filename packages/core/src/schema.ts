@@ -213,8 +213,20 @@ export const WatcherSchema = z.object({
   since: z.string(),
   item: z.string().optional(),
   by: z.string().optional(),
+  /** Set by the browser (from .watch-control.json when read): hold Start-now items until resumed. */
+  paused: z.boolean().optional(),
+  /** Set by the browser: the watch ends when the current item is done (or right away when waiting). */
+  stopping: z.boolean().optional(),
 });
 export type Watcher = z.infer<typeof WatcherSchema>;
+
+/** What the person asked the watching Claude session to do from the browser. Local-only, like .watcher.json. */
+export const WatchControlSchema = z.object({
+  mode: z.enum(["paused", "stop"]),
+  at: z.string(),
+  by: z.string().optional(),
+});
+export type WatchControl = z.infer<typeof WatchControlSchema>;
 
 export const ConfigSchema = z.object({
   version: z.literal(1).default(1),

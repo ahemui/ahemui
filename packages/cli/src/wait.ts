@@ -8,10 +8,13 @@ const pendingNow = async (store: AhemStore) =>
 /**
  * Blocks until someone presses "Start now" in the browser, then returns those items (oldest first).
  * While waiting it advertises itself in .ahemui/.watcher.json so the overlay can tell the person Claude is listening.
- * Resolves with [] on timeout.
+ * The browser can pause (Start-now items wait until resumed) or stop the watch through .ahemui/.watch-control.json.
+ * Resolves with [] on timeout and "stopped" when the person stopped the watch.
  */
-export async function waitForStartNow(store: AhemStore, by: string, timeoutMs = 0): Promise<Item[]> {
-  const ready = await pendingNow(store);
+export async function waitForStartNow(store: AhemStore, by: string, timeoutMs = 0): Promise<Item[] | "stopped"> {
+  const control = await store.watchControl();
+  if (control?.mode === "stop") return stopped(store);
+  const ready = control?.mode === "paused" ? [] : await pendingNow(store);
   if (ready.length) return claimWatch(store, by, ready);
 
   await store.setWatcher({ state: "waiting", pid: process.pid, by });
@@ -19,20 +22,26 @@ export async function waitForStartNow(store: AhemStore, by: string, timeoutMs = 
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
 
-  const items = await new Promise<Item[]>((resolve) => {
+  const result = await new Promise<Item[] | "stopped">((resolve) => {
     let debounce: NodeJS.Timeout | undefined;
     const check = async () => {
+      const c = await store.watchControl();
+      if (c?.mode === "stop") return finish("stopped");
+      if (c?.mode === "paused") return;
       const found = await pendingNow(store).catch(() => []);
       if (found.length) finish(found);
     };
-    const fsWatcher = watch(join(store.dir, "items"), { recursive: true }, () => {
+    const soon = () => {
       clearTimeout(debounce);
       debounce = setTimeout(check, 150);
-    });
+    };
+    const itemsWatcher = watch(join(store.dir, "items"), { recursive: true }, soon);
+    const controlWatcher = watch(store.dir, (_event, file) => file === ".watch-control.json" && soon());
     const poll = setInterval(check, 5_000); // belt and braces: fs events can be missed on network drives
     const timer = timeoutMs ? setTimeout(() => finish([]), timeoutMs) : undefined;
-    function finish(found: Item[]) {
-      fsWatcher.close();
+    function finish(found: Item[] | "stopped") {
+      itemsWatcher.close();
+      controlWatcher.close();
       clearInterval(poll);
       clearTimeout(timer);
       clearTimeout(debounce);
@@ -42,11 +51,19 @@ export async function waitForStartNow(store: AhemStore, by: string, timeoutMs = 
 
   process.off("SIGINT", stop);
   process.off("SIGTERM", stop);
-  if (!items.length) {
+  if (result === "stopped") return stopped(store);
+  if (!result.length) {
     await store.setWatcher(null);
     return [];
   }
-  return claimWatch(store, by, items);
+  return claimWatch(store, by, result);
+}
+
+/** The stop request is used up: presence and the request are cleared so the next /ahemui:watch starts fresh. */
+async function stopped(store: AhemStore): Promise<"stopped"> {
+  await store.setWatcher(null);
+  await store.setWatchControl(null);
+  return "stopped";
 }
 
 /** Flip presence to "working" so the overlay says Claude is busy rather than gone. */

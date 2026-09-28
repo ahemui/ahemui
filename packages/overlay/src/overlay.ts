@@ -616,7 +616,9 @@ class Overlay {
   private stale = false;
 
   private toastQueued() {
-    if (this.watcher?.state === "waiting") this.toast("⚡ Claude is starting on it", 3000);
+    if (this.watcher?.stopping) this.toast("Queued, but Claude is stopping its watch. Run /ahemui:watch again to have it picked up.", 6000);
+    else if (this.watcher?.paused) this.toast("Queued. Claude is paused and starts on it when you resume.", 5000);
+    else if (this.watcher?.state === "waiting") this.toast("⚡ Claude is starting on it", 3000);
     else if (this.watcher?.state === "working") this.toast("Added to the queue: Claude picks it up after the current item", 4000);
     else this.toast("Queued, but no Claude session is watching yet. Run /ahemui:watch in Claude Code to start it.", 6000);
   }
@@ -634,17 +636,25 @@ class Overlay {
     }
   }
 
+  /** Claude can't start this right away: it's busy, paused, or stopping. */
+  private queueing(): boolean {
+    const w = this.watcher;
+    return !!w && (w.state === "working" || !!w.paused || !!w.stopping);
+  }
+
   private startLabel(): string {
-    return this.watcher?.state === "working" ? "Add to queue" : "⚡ Start";
+    return this.queueing() ? "Add to queue" : "⚡ Start";
   }
 
   /** The primary action says what will actually happen: start now, or join the queue behind Claude's current item. */
   private renderActions() {
-    const busy = this.watcher?.state === "working";
+    const busy = this.queueing();
     const start = this.$(".start");
-    start.textContent = busy ? "Add to queue" : "⚡ Start now";
+    start.textContent = busy ? (this.watcher?.paused ? "Add to queue (paused)" : "Add to queue") : "⚡ Start now";
     start.title = busy
-      ? "Claude is working on another item; this one goes next in line (Enter)"
+      ? this.watcher?.paused
+        ? "Claude is paused; this starts when you resume (Enter)"
+        : "Claude is working on another item; this one goes next in line (Enter)"
       : this.watcher
         ? "Claude starts on it right away (Enter)"
         : "Queue it for Claude to start as soon as a session runs /ahemui:watch (Enter)";
@@ -659,18 +669,21 @@ class Overlay {
     const active = this.items.filter((i) => i.location === "items");
     const n = (s: Status) => active.filter((i) => i.status === s).length;
     const asks = active.filter((i) => i.needs_reply).length;
-    // Only what needs attention; done counts, project and Claude's state live in the panel header.
-    const counts = [
-      n("open") ? `<b>${ICON.open}</b>${n("open")}` : "",
-      n("in-progress") ? `<b>${ICON["in-progress"]}</b>${n("in-progress")}` : "",
-      n("review") ? `<b class="rv">${ICON.review}</b>${n("review")}` : "",
-      asks ? `<b class="ask">?</b>${asks}` : "",
-    ].filter(Boolean);
-    this.$(".counts").innerHTML = counts.length ? counts.join("&nbsp; ") : `<span class="none">☰</span>`;
+    // One menu button: the number of unfinished items, tinted when something waits on the person.
+    const unfinished = n("open") + n("in-progress") + n("review");
+    const tone = asks ? "ask" : n("review") ? "rv" : "";
+    const counts = this.$(".counts");
+    counts.innerHTML = `<span class="menu">☰</span>${unfinished ? `<span class="badge ${tone}">${unfinished}</span>` : ""}`;
+    counts.title =
+      `Backlog: ${n("open")} open, ${n("in-progress")} in progress, ${n("review")} to review` +
+      (asks ? `, ${asks} question${asks === 1 ? "" : "s"} for you` : "") +
+      (n("done") ? ` · ${n("done")} done` : "");
     const dot = this.$(".dot");
     dot.classList.toggle("ok", this.connected);
-    dot.classList.toggle("watching", this.watcher?.state === "waiting");
-    dot.classList.toggle("working", this.watcher?.state === "working");
+    const w = this.watcher;
+    dot.classList.toggle("watching", w?.state === "waiting" && !w.paused);
+    dot.classList.toggle("working", w?.state === "working" && !w.paused);
+    dot.classList.toggle("paused", !!w?.paused);
     dot.classList.toggle("stale", this.stale);
     this.$(".state").title = this.statusLines().join("\n");
     if (this.$(".panel").style.display === "block") this.renderPanel();
@@ -683,9 +696,49 @@ class Overlay {
     const w = this.watcher;
     return [
       `${h.project ?? "project"}${h.branch ? ` · ${h.branch}` : ""}`,
-      w ? (w.state === "waiting" ? "Claude is watching for Start now" : "Claude is working") : "No Claude session watching (run /ahemui:watch)",
+      !w
+        ? "No Claude session watching (run /ahemui:watch)"
+        : w.stopping
+          ? w.state === "working" ? "Claude stops watching after this item" : "Claude is stopping"
+          : w.paused
+            ? w.state === "working" ? "Claude pauses after this item" : "Claude is paused: Start now items wait"
+            : w.state === "waiting" ? "Claude is watching for Start now" : "Claude is working",
       ...(this.stale ? [`Overlay build ${BUILD} ≠ server build ${h.build}: reload the page${this.host.mode === "ext" ? " and the AhemUI extension" : ""}`] : []),
     ];
+  }
+
+  /** Pause, resume or stop the watching session. Starting one needs Claude Code, so offer the command to copy. */
+  private watchControls(): string {
+    if (!this.health) return "";
+    const w = this.watcher;
+    const b = (action: string, label: string, title: string) => `<button class="btn" data-watch="${action}" title="${title}">${label}</button>`;
+    if (!w) return `<div class="watch-ctl">${b("copy", "Copy /ahemui:watch", "Paste into Claude Code to have Start now picked up straight away")}</div>`;
+    if (w.stopping) return "";
+    return `<div class="watch-ctl">${
+      w.paused
+        ? b("resume", "▶ Resume", "Let Claude pick up Start now items again")
+        : b("pause", "❚❚ Pause", w.state === "working" ? "Finish the current item, then hold new ones until resumed" : "Hold Start now items until resumed")
+    }${b("stop", "■ Stop", w.state === "working" ? "End the watch after the current item" : "End the watch")}</div>`;
+  }
+
+  private async watchAction(action: string) {
+    if (action === "copy") {
+      try {
+        await navigator.clipboard.writeText("/ahemui:watch");
+        this.toast("Copied. Paste it into Claude Code in this project.", 4000);
+      } catch {
+        this.toast("Run /ahemui:watch in Claude Code in this project.", 5000);
+      }
+      return;
+    }
+    try {
+      const { watcher } = await this.host.transport.request<{ watcher: Watcher | null }>("POST", "/api/watch", { action });
+      this.watcher = watcher;
+      this.renderBar();
+      this.toast(action === "pause" ? "Paused: Start now items wait until you resume" : action === "resume" ? "Resumed" : "Claude will stop watching", 3000);
+    } catch (err) {
+      this.toast((err as Error).message, 4000);
+    }
   }
 
   private panelHead(): string {
@@ -694,7 +747,7 @@ class Overlay {
     const mode = (m: MarkerMode, label: string, title: string) =>
       `<button class="${this.markerMode === m ? "on" : ""}" data-mode="${m}" title="${title}">${label}</button>`;
     return `<div class="panel-head">
-        <div class="grow"><div class="proj">${esc(proj)}</div><div class="claude ${w ? "live" : ""}">${esc(claude ?? "")}</div>${stale ? `<div class="stale-note">${esc(stale)}</div>` : ""}</div>
+        <div class="grow"><div class="proj">${esc(proj)}</div><div class="claude ${w && !w.paused ? "live" : ""}">${esc(claude ?? "")}</div>${stale ? `<div class="stale-note">${esc(stale)}</div>` : ""}${this.watchControls()}</div>
         <div class="seg" title="Which markers to show on the page">${mode("all", "All", "Show every marker")}${mode("active", "Open", "Hide finished markers (✓, won't fix)")}${mode("none", "None", "Hide markers")}</div>
       </div>`;
   }
@@ -929,7 +982,14 @@ class Overlay {
     const board = this.health?.base
       ? `<a class="board-link" href="${esc(this.health.base)}/" target="_blank" rel="noopener">Open full board ↗</a>`
       : "";
-    const bindHead = () =>
+    const bindHead = () => {
+      panel.querySelectorAll<HTMLButtonElement>("button[data-watch]").forEach((b) =>
+        b.addEventListener("click", (e) => {
+          e.stopPropagation();
+          b.disabled = true;
+          this.watchAction(b.dataset.watch!);
+        }),
+      );
       panel.querySelectorAll<HTMLButtonElement>(".seg button").forEach((b) =>
         b.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -939,6 +999,7 @@ class Overlay {
           this.renderPanel();
         }),
       );
+    };
     if (!active.length) {
       panel.innerHTML = `${this.panelHead()}<div class="empty">Backlog is empty. Press ✎ AhemUI or Alt+Shift+S to capture.</div>${board}`;
       bindHead();

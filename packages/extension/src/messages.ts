@@ -8,7 +8,7 @@ export interface Server {
   root: string;
   devOrigins: string[];
   maxBytes: number;
-  watcher: { state: "waiting" | "working"; since: string; item?: string; by?: string } | null;
+  watcher: { state: "waiting" | "working"; since: string; item?: string; by?: string; paused?: boolean; stopping?: boolean } | null;
 }
 
 export interface PopupState {

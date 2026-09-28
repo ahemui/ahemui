@@ -6,6 +6,10 @@ export interface Watcher {
   since: string;
   item?: string;
   by?: string;
+  /** Paused from the browser: Start-now items wait until resumed. */
+  paused?: boolean;
+  /** Stop requested from the browser: the watch ends after the current item. */
+  stopping?: boolean;
 }
 
 export interface Health {

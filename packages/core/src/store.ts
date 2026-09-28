@@ -19,6 +19,8 @@ import {
   TrackerSchema,
   type Watcher,
   WatcherSchema,
+  type WatchControl,
+  WatchControlSchema,
 } from "./schema.js";
 import { ulid } from "./ulid.js";
 
@@ -26,6 +28,7 @@ export const AHEMUI_DIR = ".ahemui";
 /** The folder name before the project was renamed from Snap to AhemUI; migrated on first use. */
 const LEGACY_DIR = ".snap";
 const WATCHER_FILE = ".watcher.json";
+const CONTROL_FILE = ".watch-control.json";
 const ITEM_FILE = "item.md";
 type Location = Item["location"];
 
@@ -84,7 +87,7 @@ export class AhemStore {
     const file = join(this.dir, ".gitignore");
     const current = existsSync(file) ? await readFile(file, "utf8") : "";
     const lines = current.split(/\r?\n/).filter(Boolean);
-    const missing = [WATCHER_FILE, "backlog.html"].filter((l) => !lines.includes(l));
+    const missing = [WATCHER_FILE, CONTROL_FILE, "backlog.html"].filter((l) => !lines.includes(l));
     if (missing.length) await writeFile(file, [...lines, ...missing].join("\n") + "\n");
   }
 
@@ -108,8 +111,27 @@ export class AhemStore {
     } catch {
       return null;
     }
-    if (w.state === "waiting") return processAlive(w.pid) ? w : null;
-    return Date.now() - Date.parse(w.since) < 30 * 60_000 ? w : null;
+    const alive = w.state === "waiting" ? processAlive(w.pid) : Date.now() - Date.parse(w.since) < 30 * 60_000;
+    if (!alive) return null;
+    const control = await this.watchControl();
+    return { ...w, paused: control?.mode === "paused" || undefined, stopping: control?.mode === "stop" || undefined };
+  }
+
+  /** The browser's pause or stop request for the watching session, if any. */
+  async watchControl(): Promise<WatchControl | null> {
+    try {
+      return WatchControlSchema.parse(JSON.parse(await readFile(join(this.dir, CONTROL_FILE), "utf8")));
+    } catch {
+      return null;
+    }
+  }
+
+  /** "paused" holds Start-now items until resumed (null); "stop" ends the watch after the current item. */
+  async setWatchControl(mode: WatchControl["mode"] | null, by?: string): Promise<void> {
+    const file = join(this.dir, CONTROL_FILE);
+    if (!mode) return void (await rm(file, { force: true }));
+    await this.ensureGitignore();
+    await writeFile(file, JSON.stringify({ mode, at: new Date().toISOString(), by }));
   }
 
   /** Sets (or with null, removes) the external tracker in .ahemui/config.json. */

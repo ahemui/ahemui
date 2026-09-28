@@ -56,3 +56,34 @@ test("wait returns immediately when start-now items are pending, and times out o
   assert.equal(timed.code, 3);
   assert.equal(await store.watcher(), null);
 });
+
+test("a pause from the browser holds Start now items until resumed", async () => {
+  const { done } = runWait();
+  await until(async () => (await store.watcher())?.state === "waiting");
+  await store.setWatchControl("paused");
+  assert.equal((await store.watcher())?.paused, true);
+  const held = await store.create({ prompt: "wait for resume", start: "now", anchor: {} });
+  await new Promise((r) => setTimeout(r, 600));
+  assert.equal((await store.watcher())?.state, "waiting"); // still holding
+
+  await store.setWatchControl(null);
+  const { code, out } = await done;
+  assert.equal(code, 0);
+  assert.match(out, new RegExp(`^START ${held.id}`, "m"));
+  await store.claim(held.id, "someone");
+});
+
+test("a stop from the browser ends the wait and clears presence", async () => {
+  const { done } = runWait();
+  await until(async () => (await store.watcher())?.state === "waiting");
+  await store.setWatchControl("stop");
+  const { code, out } = await done;
+  assert.equal(code, 4);
+  assert.match(out, /^STOPPED/m);
+  assert.equal(await store.watcher(), null);
+  assert.equal(await store.watchControl(), null);
+
+  // A stop requested while Claude was working is honoured when it re-arms.
+  await store.setWatchControl("stop");
+  assert.equal((await runWait().done).code, 4);
+});
