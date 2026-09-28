@@ -1,6 +1,6 @@
 {
   "name": "ahemui",
-  "version": "0.3.20260928041236",
+  "version": "0.4.0-dev.20260928235831",
   "description": "Visual UI feedback backlog: highlight parts of your running app, queue change requests into .ahemui/, and let Claude work through them — markers in the browser go from queued to done.",
   "author": {
     "name": "Pietari Keurulainen"
@@ -12,5 +12,8 @@
     "vue",
     "vite",
     "screenshots"
-  ]
+  ],
+  "homepage": "https://ahemui.com",
+  "repository": "https://github.com/ahemui/ahemui",
+  "license": "MIT"
 }

@@ -84,6 +84,13 @@ body.modal-open { overflow: hidden; }
 .d-head code { color: var(--muted); }
 .d-head .x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--muted); }
 .drawer h1 { font-size: 18px; margin: 10px 0 2px; }
+.drawer h1.request { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.35; margin-top: 14px; }
+.drawer .chips { margin: 10px 0 14px; }
+.id-copy { border: 0; background: none; padding: 2px 4px; border-radius: 5px; cursor: pointer; }
+.id-copy:hover { background: var(--card); }
+details.tech { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+details.tech summary { cursor: pointer; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+details.tech[open] summary { margin-bottom: 4px; }
 .d-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
 .pill { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; color: #fff; background: var(--open); }
 .pill.s-in-progress { background: var(--doing); } .pill.s-review { background: var(--review); } .pill.s-done { background: var(--done); } .pill.s-wontfix { background: var(--wontfix); } .pill.s-ask { background: var(--ask); color: #111; }

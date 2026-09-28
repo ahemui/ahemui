@@ -305,35 +305,55 @@ function renderDrawer() {
     if (ex.shot) images.push(fig(it, ex.shot, ex.role === "reference" ? `area ${n + 2}: example to match` : `area ${n + 2}: also applies here`));
   }
 
+  // Same order as the popover on the page: status, the request, who/when, what to do, the picture, the
+  // conversation, where it lives; everything technical folded away underneath.
+  const tags = [
+    it.intent === "review" ? "for review" : "",
+    it.start === "now" && it.status === "open" && !asking ? "⚡ start now" : "",
+    it.type ?? "",
+    it.priority && it.priority !== "normal" ? `${it.priority} priority` : "",
+    it.area ?? "",
+    ...(it.labels ?? []).map((l) => `#${l}`),
+  ].filter(Boolean);
+  const technical = [
+    row("Components", a.components?.join(" › ")),
+    row("Page file", p.pageFile, true),
+    row("Story", p.storyTitle ? `${p.storyTitle}${p.storyFile ? ` — ${p.storyFile}` : ""}` : undefined),
+    row("Element", a.text ? `"${a.text}"` : undefined),
+    row("CSS path", a.selector, true),
+    row("Seen in", [p.browser, it.viewport, p.colorScheme && `${p.colorScheme} mode`].filter(Boolean).join(", ")),
+  ].join("");
   drawer.innerHTML = `
     <div class="d-head">
       <span class="pill s-${it.status}${asking ? " s-ask" : ""}">${asking ? "question for you" : LABEL[it.status]}</span>
-      <code>${it.id}</code>
-      <button class="x" title="Close (Esc)">✕</button>
+      <button class="id-copy" data-act="copy" title="Copy id"><code>${it.id.slice(0, 10)}…</code></button>
+      <button class="x" title="Close (Esc)" aria-label="Close">✕</button>
     </div>
-    <h1>${esc(firstLine(it))}</h1>
+    <h1 class="request">${esc(prompt.trim())}</h1>
     <div class="d-sub">${esc(it.author)} · ${new Date(it.created).toLocaleString()}${it.claimed_by && it.status === "in-progress" ? ` · ${esc(it.claimed_by)} is on it` : ""}</div>
+    ${tags.length ? `<div class="chips">${tags.map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>` : ""}
     ${live ? actions(it, asking) : ""}
     ${images.join("")}
-    <section><h3>Request</h3><div class="prose">${esc(prompt)}</div>
-      ${thread.map((t) => `<div class="entry k-${t.kind.toLowerCase()}"><div class="who"><b>${esc(t.who)}</b> · ${esc(t.kind.toLowerCase())}</div><div class="prose">${esc(t.text)}</div></div>`).join("")}
-    </section>
+    ${
+      thread.length
+        ? `<section><h3>Conversation</h3>${thread
+            .map((t) => `<div class="entry k-${t.kind.toLowerCase()}"><div class="who"><b>${esc(t.who)}</b> · ${esc(t.kind.toLowerCase())}</div><div class="prose">${esc(t.text)}</div></div>`)
+            .join("")}</section>`
+        : ""
+    }
     <section><h3>Where</h3><dl>
       ${it.batch ? row("Batch", batchLabel(it)) : ""}
       ${row("Page", pageName(p, it.route) + (p.section ? ` › ${p.section}` : ""))}
+      ${row("Code", a.source, true)}
       ${it.url ? `<dt>URL</dt><dd><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url)}</a>${p.env === "deployed" ? " (deployed)" : ""}</dd>` : ""}
-      ${row("Source", a.source, true)}
-      ${row("Components", a.components?.join(" › "))}
-      ${row("Page file", p.pageFile, true)}
-      ${row("Story", p.storyTitle ? `${p.storyTitle}${p.storyFile ? ` — ${p.storyFile}` : ""}` : undefined)}
-      ${row("Element", a.text ? `"${a.text}"` : undefined)}
-      ${row("CSS path", a.selector, true)}
-      ${row("Seen in", [p.browser, it.viewport, p.colorScheme && `${p.colorScheme} mode`].filter(Boolean).join(", "))}
       ${it.design ? `<dt>Design</dt><dd><a href="${esc(it.design)}" target="_blank" rel="noopener">${esc(it.design)}</a></dd>` : ""}
       ${it.external ? `<dt>Ticket</dt><dd>${it.external.url ? `<a href="${esc(it.external.url)}" target="_blank" rel="noopener">${esc(it.external.key)}</a>` : esc(it.external.key)}${it.external.status ? ` · ${esc(it.external.status)}` : ""}</dd>` : ""}
     </dl></section>
     ${triageSection(it)}
-    ${contextSections(it)}`;
+    <details class="tech"><summary>Technical details</summary>
+      ${technical ? `<section><dl>${technical}</dl></section>` : ""}
+      ${contextSections(it)}
+    </details>`;
 
   for (const [k, v] of drafts) {
     const el = drawer.querySelector<HTMLTextAreaElement>(`[data-keep="${k}"]`);
@@ -367,7 +387,7 @@ function actions(it: Item, asking: boolean | undefined): string {
   } else {
     main = `<div class="acts">${btn("reopen", "Reopen")}</div>`;
   }
-  return `<div class="d-actions">${main}<div class="acts minor">${btn("copy", "Copy id")}${it.url ? `<a class="btn" href="${esc(it.url)}" target="_blank" rel="noopener">Open page ↗</a>` : ""}</div></div>`;
+  return `<div class="d-actions">${main}${it.url ? `<div class="acts minor"><a class="btn" href="${esc(it.url)}" target="_blank" rel="noopener">Open page ↗</a></div>` : ""}</div>`;
 }
 
 function triageSection(it: Item): string {

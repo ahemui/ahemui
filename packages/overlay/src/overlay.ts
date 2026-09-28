@@ -4,7 +4,7 @@ import { stylesOf } from "./design.js";
 import { elementAt, inspectRect, type Inspection, locate } from "./inspect.js";
 import { collectPage, LOCAL_HOST } from "./page.js";
 import { scrub, scrubDeep, sensitiveRects } from "./redact.js";
-import { type Batch, cachedPrefs, cachePrefs, DEFAULT_PREFS, type Prefs } from "./prefs.js";
+import { type Batch, cachedPrefs, cachePrefs, DEFAULT_PREFS, matchesShortcut, type Prefs, shortcutFromEvent, shortcutLabel } from "./prefs.js";
 import { recentSteps, recordSteps } from "./steps.js";
 import { STYLES } from "./styles.js";
 import { type Host, type Item, type ItemType, type Page, type Point, type Rect, type Status, type Styles, TYPES } from "./types.js";
@@ -70,6 +70,7 @@ class Overlay {
   private projectDefaults: Partial<Prefs> = {};
   private panelView: "list" | "settings" = "list";
   private suppressClick = false;
+  private recordingShortcut = false;
   private batches: Batch[] = [];
   /** The batch new captures go into, remembered per project in this browser. */
   private batchId: string | null = null;
@@ -190,7 +191,8 @@ class Overlay {
     addEventListener(
       "keydown",
       (e) => {
-        if (e.altKey && e.shiftKey && e.code === "KeyS") {
+        if (this.recordingShortcut) return; // the settings view is listening for a new shortcut
+        if (matchesShortcut(e, this.prefs.shortcut)) {
           e.preventDefault();
           this.toggle();
         } else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && this.popFor && this.mode === "idle" && !typingIn(e)) {
@@ -265,7 +267,7 @@ class Overlay {
 
   /**
    * The shortcut can arrive twice for one press: the page's own key listener and the extension's browser command
-   * (both Alt+Shift+S). Two toggles cancel out, so ignore a second one right after the first.
+   * (both Alt+Shift+S by default). Two toggles cancel out, so ignore a second one right after the first.
    */
   private lastToggle = 0;
 
@@ -1141,7 +1143,7 @@ class Overlay {
       );
     };
     if (!active.length) {
-      panel.innerHTML = `${this.panelHead()}<div class="empty">Backlog is empty. Press ✎ AhemUI or Alt+Shift+S to capture.</div>${board}`;
+      panel.innerHTML = `${this.panelHead()}<div class="empty">Backlog is empty. Press ✎ AhemUI or ${esc(shortcutLabel(this.prefs.shortcut))} to capture.</div>${board}`;
       bindHead();
       return;
     }
@@ -1499,6 +1501,7 @@ class Overlay {
 
   private applyPrefs() {
     this.$(".root").setAttribute("data-pos", this.prefs.position);
+    this.$(".capture").title = `Capture feedback (${shortcutLabel(this.prefs.shortcut)}). Shift+drag to draw.`;
     this.renderMarkers();
     this.renderBar();
     if (this.$(".panel").style.display === "block") this.renderPanel();
@@ -1532,6 +1535,10 @@ class Overlay {
           ["active", "Open", "Hide finished markers"],
           ["none", "None", "Hide markers"],
         ])}</div>
+        <div class="setting"><span>Shortcut</span><span class="shortcut-set"><kbd class="shortcut-key">${esc(shortcutLabel(p.shortcut))}</kbd><button class="btn shortcut-change" title="Press a new key combination">Change</button>${
+          p.shortcut !== DEFAULT_PREFS.shortcut ? `<button class="shortcut-reset" title="Back to Alt+Shift+S">reset</button>` : ""
+        }</span></div>
+        ${navigator.platform.startsWith("Win") && p.shortcut.startsWith("Alt+Shift") ? `<div class="note">On Windows, Alt+Shift can also switch keyboard layouts. If the shortcut misses, pick one with Ctrl.</div>` : ""}
         <div class="setting"><span>Ask for a batch</span>${seg("batches", [
           ["ask", "When I start", "Name and classify each round of notes when you start capturing"],
           ["off", "Never", "Capture straight away, without a batch"],
@@ -1556,6 +1563,35 @@ class Overlay {
         }),
       ),
     );
+    const change = panel.querySelector<HTMLButtonElement>(".shortcut-change")!;
+    const keyLabel = panel.querySelector<HTMLElement>(".shortcut-key")!;
+    change.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.recordingShortcut = true;
+      keyLabel.textContent = "Press keys…";
+      keyLabel.classList.add("recording");
+      const listen = (ev: KeyboardEvent) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.key === "Escape") return done(null);
+        const next = shortcutFromEvent(ev);
+        if (next) done(next);
+      };
+      const done = (next: string | null) => {
+        removeEventListener("keydown", listen, true);
+        setTimeout(() => (this.recordingShortcut = false), 0);
+        if (next) {
+          this.setPrefs({ shortcut: next });
+          this.toast(`Capture shortcut: ${shortcutLabel(next)}`, 2500);
+        }
+        this.renderPanel();
+      };
+      addEventListener("keydown", listen, true);
+    });
+    panel.querySelector(".shortcut-reset")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.setPrefs({ shortcut: null });
+    });
     const name = panel.querySelector<HTMLInputElement>(".pref-name")!;
     name.addEventListener("keydown", (e) => {
       e.stopPropagation();

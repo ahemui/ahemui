@@ -178,6 +178,11 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 .corners button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .pref-name { width: 170px; font: inherit; font-size: 12px; color: var(--fg); background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 .pref-name:focus { outline: none; border-color: var(--accent); }
+.shortcut-set { display: flex; align-items: center; gap: 6px; }
+.shortcut-key { font: 11px ui-monospace, Consolas, monospace; padding: 2px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; background: var(--bg2); }
+.shortcut-key.recording { border-color: var(--accent); color: var(--fg); }
+.shortcut-change { font-size: 11px; padding: 2px 8px; }
+.shortcut-reset { color: #a78bfa; font-size: 11px; }
 .settings .note { color: var(--muted); font-size: 11px; padding: 0 2px 4px; }
 .settings .note:last-child { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
 .pill { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; line-height: 1.3; color: #fff; }
