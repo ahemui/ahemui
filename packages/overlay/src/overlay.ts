@@ -118,6 +118,7 @@ class Overlay {
         </div>
         <div class="pop"></div>
         <div class="panel"></div>
+        <div class="statuspop"></div>
         <div class="bar" hidden>
           <button class="capture" title="Capture feedback (Alt+Shift+S). Shift+drag to draw.">✎ AhemUI</button>
           <button class="counts" title="Show backlog"></button>
@@ -157,7 +158,7 @@ class Overlay {
   private bindEvents() {
     this.$(".capture").addEventListener("click", () => this.toggle());
     this.$(".counts").addEventListener("click", () => this.togglePanel());
-    this.$(".state").addEventListener("click", () => this.togglePanel());
+    this.$(".state").addEventListener("click", () => this.toggleStatus());
     this.bindDrag();
     this.host.onToggle?.(() => this.toggle());
     // Settings may have changed in another tab or the extension popup.
@@ -174,7 +175,7 @@ class Overlay {
           this.toggle();
         } else if (e.key === "Escape") {
           if (this.mode === "select" && this.draft?.adding) this.cancelAdding();
-          else if (this.popFor || this.$(".panel").style.display === "block") this.closePopups();
+          else if (this.popFor || this.$(".panel").style.display === "block" || this.$(".statuspop").style.display === "block") this.closePopups();
           else if (this.mode !== "idle") this.setMode("idle");
         }
       },
@@ -234,7 +235,7 @@ class Overlay {
 
     this.shadow.addEventListener("mousedown", (e) => {
       const t = e.target as Element;
-      if (!t.closest(".pop, .marker, .panel, .counts, .state")) this.closePopups();
+      if (!t.closest(".pop, .marker, .panel, .statuspop, .counts, .state")) this.closePopups();
     });
     document.addEventListener("mousedown", (e) => {
       if (!e.composedPath().includes(this.hostEl)) this.closePopups();
@@ -610,6 +611,7 @@ class Overlay {
     this.renderMarkers();
     if (this.popFor) this.openPop(this.popFor);
     if (this.$(".panel").style.display === "block" && this.panelView === "list") this.renderPanel();
+    if (this.$(".statuspop").style.display === "block") this.renderStatus();
   }
 
   private warnedBuild = false;
@@ -767,12 +769,11 @@ class Overlay {
   }
 
   private panelHead(): string {
-    const [proj, claude, stale] = this.statusLines();
-    const w = this.watcher;
+    const [proj] = this.statusLines();
     const mode = (m: Prefs["markers"], label: string, title: string) =>
       `<button class="${this.prefs.markers === m ? "on" : ""}" data-mode="${m}" title="${title}">${label}</button>`;
     return `<div class="panel-head">
-        <div class="grow"><div class="proj">${esc(proj)}</div><div class="claude ${w && !w.paused ? "live" : ""}">${esc(claude ?? "")}</div>${stale ? `<div class="stale-note">${esc(stale)}</div>` : ""}${this.watchControls()}</div>
+        <div class="grow"><div class="proj">Backlog</div><div class="claude">${esc(proj)}</div></div>
         <div class="seg" title="Which markers to show on the page">${mode("all", "All", "Show every marker")}${mode("active", "Open", "Hide finished markers (✓, won't fix)")}${mode("none", "None", "Hide markers")}</div>
         <button class="gear" data-settings title="Settings">⚙</button>
       </div>`;
@@ -1016,13 +1017,6 @@ class Overlay {
         this.panelView = "settings";
         this.renderPanel();
       });
-      panel.querySelectorAll<HTMLButtonElement>("button[data-watch]").forEach((b) =>
-        b.addEventListener("click", (e) => {
-          e.stopPropagation();
-          b.disabled = true;
-          this.watchAction(b.dataset.watch!);
-        }),
-      );
       panel.querySelectorAll<HTMLButtonElement>(".seg button").forEach((b) =>
         b.addEventListener("click", (e) => {
           e.stopPropagation();
@@ -1100,6 +1094,43 @@ class Overlay {
     this.panelView = "list";
     this.$(".pop").style.display = "none";
     this.$(".panel").style.display = "none";
+    this.$(".statuspop").style.display = "none";
+  }
+
+  // ——— status popover (the dot): connection and the watching Claude session ———
+
+  private toggleStatus() {
+    const pop = this.$(".statuspop");
+    if (pop.style.display === "block") return this.closePopups();
+    this.closePopups();
+    this.renderStatus();
+    pop.style.display = "block";
+  }
+
+  private renderStatus() {
+    const pop = this.$(".statuspop");
+    const h = this.health;
+    const w = this.watcher;
+    const [proj, claude, stale] = this.statusLines();
+    const dotClass = this.$(".dot").className;
+    pop.innerHTML = `
+      <div class="status-head"><span class="${dotClass}"></span><div class="grow"><div class="proj">${esc(proj)}</div>${
+        claude ? `<div class="claude ${w && !w.paused ? "live" : ""}">${esc(claude)}</div>` : ""
+      }</div></div>
+      ${stale ? `<div class="stale-note">${esc(stale)}</div>` : ""}
+      ${this.watchControls()}
+      <div class="status-meta">${
+        h
+          ? `ahemui serve ${esc(h.base ? `:${h.base.split(":").pop()}` : "")} · ${esc(h.root)}`
+          : esc(this.host.disconnectedHint)
+      }</div>`;
+    pop.querySelectorAll<HTMLButtonElement>("button[data-watch]").forEach((b) =>
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        b.disabled = true;
+        this.watchAction(b.dataset.watch!);
+      }),
+    );
   }
 
   // ——— settings ———

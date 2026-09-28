@@ -38,8 +38,6 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .panel-head { display: flex; align-items: flex-start; gap: 10px; padding: 2px 6px 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
 .panel-head .proj { font-weight: 600; overflow-wrap: anywhere; }
 .panel-head .claude { color: var(--muted); font-size: 11px; }
-.panel-head .claude.live { color: #a78bfa; }
-.panel-head .stale-note { color: #f59e0b; font-size: 11px; margin-top: 2px; }
 .panel-head .grow { flex: 1; min-width: 0; }
 .seg { flex: none; margin-left: auto; display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
 .seg button { font-size: 11px; padding: 2px 8px; border-radius: 999px; color: var(--muted); }
@@ -93,17 +91,30 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 /* Screenshots in the popover fit its width and a sensible height; click opens them full size. */
 .pop img[data-file] { display: block; max-width: 100%; max-height: 200px; width: auto; height: auto; object-fit: contain; margin: 8px 0; border-radius: 6px; border: 1px solid var(--line); cursor: zoom-in; background: var(--bg2); }
 .pop .compare img[data-file] { max-height: 140px; margin: 0; width: 100%; }
-.pop, .panel {
+.pop, .panel, .statuspop {
   position: fixed; width: 320px; max-height: 60vh; overflow: auto; background: var(--bg); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px; pointer-events: auto; box-shadow: 0 12px 40px rgba(0,0,0,.45); display: none;
 }
 .panel { right: 16px; bottom: 60px; width: 360px; }
+.statuspop { right: 16px; bottom: 60px; width: 290px; }
+.status-head { display: flex; align-items: flex-start; gap: 10px; }
+.status-head .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 4px; background: var(--wontfix); }
+.status-head .dot.ok { background: var(--done); }
+.status-head .dot.watching, .status-head .dot.working { background: #a78bfa; }
+.status-head .dot.paused { background: transparent; box-shadow: inset 0 0 0 2px #a78bfa; }
+.status-head .dot.stale { background: #f59e0b; }
+.statuspop .proj { font-weight: 600; overflow-wrap: anywhere; }
+.statuspop .claude { color: var(--muted); font-size: 12px; }
+.statuspop .claude.live { color: #a78bfa; }
+.statuspop .stale-note { color: #f59e0b; font-size: 11px; margin-top: 8px; }
+.statuspop .watch-ctl { margin-top: 10px; }
+.status-meta { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 
 /* toolbar corner (settings or drag) */
-.root[data-pos="bottom-left"] .bar, .root[data-pos="bottom-left"] .panel { right: auto; left: 16px; }
-.root[data-pos="top-right"] .bar, .root[data-pos="top-left"] .bar { bottom: auto; top: 16px; }
-.root[data-pos="top-right"] .panel, .root[data-pos="top-left"] .panel { bottom: auto; top: 60px; }
-.root[data-pos="top-left"] .bar, .root[data-pos="top-left"] .panel { right: auto; left: 16px; }
+.root[data-pos="bottom-left"] :is(.bar, .panel, .statuspop) { right: auto; left: 16px; }
+.root[data-pos^="top"] .bar { bottom: auto; top: 16px; }
+.root[data-pos^="top"] :is(.panel, .statuspop) { bottom: auto; top: 60px; }
+.root[data-pos="top-left"] :is(.bar, .panel, .statuspop) { right: auto; left: 16px; }
 .bar.dragging { cursor: grabbing; opacity: .92; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
 .bar.dragging button { pointer-events: none; }
 
