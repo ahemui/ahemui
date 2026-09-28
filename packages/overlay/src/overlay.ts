@@ -173,6 +173,9 @@ class Overlay {
         if (e.altKey && e.shiftKey && e.code === "KeyS") {
           e.preventDefault();
           this.toggle();
+        } else if ((e.key === "ArrowRight" || e.key === "ArrowLeft") && this.popFor && this.mode === "idle" && !typingIn(e)) {
+          e.preventDefault();
+          this.stepOpen(e.key === "ArrowRight" ? 1 : -1);
         } else if (e.key === "Escape") {
           if (this.mode === "select" && this.draft?.adding) this.cancelAdding();
           else if (this.popFor || this.$(".panel").style.display === "block" || this.$(".statuspop").style.display === "block") this.closePopups();
@@ -865,6 +868,44 @@ class Overlay {
     if (this.popFor) this.placePop();
   }
 
+  /** Unfinished items on this page, top to bottom: what the popover's ‹ › step through. */
+  private openOnPage(): Item[] {
+    const top = (i: Item) => this.markers.get(i.id)?.target?.getBoundingClientRect().top ?? i.rect?.y ?? 0;
+    return this.visibleItems()
+      .filter((i) => i.status !== "done" && i.status !== "wontfix")
+      .sort((a, b) => top(a) - top(b) || a.created.localeCompare(b.created));
+  }
+
+  private popFooter(item: Item): string {
+    const list = this.openOnPage();
+    const at = list.findIndex((i) => i.id === item.id);
+    const others = list.filter((i) => i.id !== item.id).length;
+    const pos = !list.length ? "no open items here" : at >= 0 ? `${at + 1} of ${list.length} open` : `${list.length} open on this page`;
+    const board = this.health?.base
+      ? `<a class="pop-board" href="${esc(this.health.base)}/#${item.id}" target="_blank" rel="noopener" title="Open this item in the board">Board ↗</a>`
+      : "";
+    return `<div class="pop-foot">
+        <span class="pop-nav"><button data-nav="-1" title="Previous open item (←)" ${others ? "" : "disabled"}>‹</button><span class="pos">${pos}</span><button data-nav="1" title="Next open item (→)" ${others ? "" : "disabled"}>›</button></span>
+        ${board}
+      </div>`;
+  }
+
+  /** Moves the popover to the previous or next unfinished item on this page, scrolling it into view. */
+  private stepOpen(dir: number) {
+    const list = this.openOnPage();
+    if (!list.length) return;
+    const at = list.findIndex((i) => i.id === this.popFor);
+    const next = list.at(at < 0 ? (dir > 0 ? 0 : -1) : (at + dir + list.length) % list.length)!;
+    if (next.id === this.popFor) return;
+    const target = this.markers.get(next.id)?.target;
+    const box = target?.getBoundingClientRect();
+    const onScreen = box && box.top >= 0 && box.bottom <= innerHeight;
+    if (target && !onScreen) {
+      target.scrollIntoView({ block: "center", behavior: "smooth" });
+      setTimeout(() => this.openPop(next.id), 350);
+    } else this.openPop(next.id);
+  }
+
   private openPop(id: string) {
     const item = this.items.find((i) => i.id === id);
     const pop = this.$(".pop");
@@ -898,8 +939,8 @@ class Overlay {
     }
 
     pop.innerHTML = `
-      <div><span class="pill ${asking ? "ask" : item.status}">${asking ? "question for you" : LABEL[item.status]}</span>
-        <span class="meta mono">${item.id.slice(0, 14)}</span></div>
+      <div class="pop-top"><span class="pill ${asking ? "ask" : item.status}">${asking ? "question for you" : LABEL[item.status]}</span>
+        <button class="id-copy mono" data-act="copy" title="Copy id">${item.id.slice(0, 14)}</button></div>
       <div class="meta">${esc(item.author)} · ${new Date(item.created).toLocaleString()}${item.claimed_by && item.status === "in-progress" ? ` · ${esc(item.claimed_by)} is on it` : ""}</div>
       <div class="body">${esc(prompt)}</div>
       ${classLine(item) ? `<div class="meta">${esc(classLine(item))}</div>` : ""}
@@ -918,7 +959,7 @@ class Overlay {
       }
       ${thread.length ? `<div class="thread">${thread.map((t) => `<div class="entry ${t.kind.toLowerCase()}"><div class="who">${esc(t.kind)} · ${esc(t.who)}</div>${esc(t.text)}</div>`).join("")}</div>` : ""}
       ${actions}
-      <div class="actions subtle"><button class="btn" data-act="copy">Copy id</button>${this.health?.base ? `<a class="btn" href="${esc(this.health.base)}/#${item.id}" target="_blank" rel="noopener">Open in board ↗</a>` : ""}</div>`;
+      ${this.popFooter(item)}`;
 
     pop.querySelectorAll<HTMLImageElement>("img[data-file]").forEach((img) => {
       if (!img.dataset.file) return img.remove();
@@ -933,6 +974,7 @@ class Overlay {
       });
     });
     pop.querySelectorAll("textarea").forEach((t) => t.addEventListener("keydown", (e) => e.stopPropagation()));
+    pop.querySelectorAll<HTMLButtonElement>("[data-nav]").forEach((b) => b.addEventListener("click", () => this.stepOpen(Number(b.dataset.nav))));
     pop.querySelectorAll<HTMLButtonElement>("[data-act]").forEach((b) =>
       b.addEventListener("click", async () => {
         const act = b.dataset.act!;
@@ -1339,6 +1381,12 @@ function pageLabel(page: Page | null | undefined, route: string | undefined, wit
   const routeName = page?.routeName ? ` (${page.routeName})` : "";
   const section = withSection && page?.section && page.section !== name ? ` › ${page.section}` : "";
   return `${name ? `${name} — ` : ""}${path}${routeName}${section}` || "unknown page";
+}
+
+/** True when the key went to a text field (on the page or inside the overlay), so arrows move the caret instead. */
+function typingIn(e: KeyboardEvent): boolean {
+  const el = e.composedPath()[0] as HTMLElement | undefined;
+  return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
 }
 
 function classLine(it: Item): string {

@@ -91,6 +91,17 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 /* Screenshots in the popover fit its width and a sensible height; click opens them full size. */
 .pop img[data-file] { display: block; max-width: 100%; max-height: 200px; width: auto; height: auto; object-fit: contain; margin: 8px 0; border-radius: 6px; border: 1px solid var(--line); cursor: zoom-in; background: var(--bg2); }
 .pop .compare img[data-file] { max-height: 140px; margin: 0; width: 100%; }
+.pop-top { display: flex; align-items: center; gap: 8px; }
+.id-copy { color: var(--muted); font-size: 11px; padding: 1px 4px; border-radius: 4px; }
+.id-copy:hover { color: var(--fg); background: var(--bg2); }
+.pop-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
+.pop-nav { display: flex; align-items: center; gap: 6px; }
+.pop-nav button { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--line); color: var(--fg); font-size: 15px; line-height: 1; }
+.pop-nav button:hover:not(:disabled) { border-color: var(--accent); }
+.pop-nav button:disabled { opacity: .35; cursor: default; }
+.pop-nav .pos { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.pop-board { color: #a78bfa; font-size: 12px; text-decoration: none; }
+.pop-board:hover { color: var(--fg); }
 .pop, .panel, .statuspop {
   position: fixed; width: 320px; max-height: 60vh; overflow: auto; background: var(--bg); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px; pointer-events: auto; box-shadow: 0 12px 40px rgba(0,0,0,.45); display: none;
@@ -202,7 +213,6 @@ a.btn:hover { border-color: var(--accent); }
 .thread .feedback { color: #fca5a5; }
 textarea.reply { width: 100%; min-height: 56px; margin-top: 8px; background: var(--bg2); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; outline: none; resize: vertical; }
 textarea.reply:focus { border-color: var(--accent); }
-.actions.subtle { margin-top: 4px; opacity: .7; }
 .bubble { width: 360px; }
 .pop { overflow-x: hidden; } /* after the shared overflow rule */
 `;
