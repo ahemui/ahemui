@@ -38,11 +38,13 @@ export async function waitForStartNow(store: AhemStore, by: string, timeoutMs = 
     const itemsWatcher = watch(join(store.dir, "items"), { recursive: true }, soon);
     const controlWatcher = watch(store.dir, (_event, file) => file === ".watch-control.json" && soon());
     const poll = setInterval(check, 5_000); // belt and braces: fs events can be missed on network drives
+    const beat = setInterval(() => store.heartbeat().catch(() => {}), 30_000);
     const timer = timeoutMs ? setTimeout(() => finish([]), timeoutMs) : undefined;
     function finish(found: Item[] | "stopped") {
       itemsWatcher.close();
       controlWatcher.close();
       clearInterval(poll);
+      clearInterval(beat);
       clearTimeout(timer);
       clearTimeout(debounce);
       resolve(found);

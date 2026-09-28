@@ -231,6 +231,8 @@ export const WatcherSchema = z.object({
   state: z.enum(["waiting", "working"]),
   pid: z.number().int(),
   since: z.string(),
+  /** Refreshed every 30 s by a waiting `ahemui wait`; a waiting watcher without a recent beat is gone. */
+  beat: z.string().optional(),
   item: z.string().optional(),
   by: z.string().optional(),
   /** Set by the browser (from .watch-control.json when read): hold Start-now items until resumed. */

@@ -98,11 +98,24 @@ export class AhemStore {
 
   // ——— watcher presence (a Claude session running /ahemui:watch) ———
 
-  async setWatcher(w: Omit<Watcher, "since"> | null): Promise<void> {
+  async setWatcher(w: Omit<Watcher, "since" | "beat"> | null): Promise<void> {
     const file = join(this.dir, WATCHER_FILE);
     if (!w) return void (await rm(file, { force: true }));
     await this.ensureGitignore();
-    await writeFile(file, JSON.stringify({ ...w, since: new Date().toISOString() }));
+    const now = new Date().toISOString();
+    await writeFile(file, JSON.stringify({ ...w, since: now, beat: now }));
+  }
+
+  /** Called every 30 s by the waiting process, so a crashed or killed watcher stops showing as "watching". */
+  async heartbeat(pid = process.pid): Promise<void> {
+    const file = join(this.dir, WATCHER_FILE);
+    try {
+      const w = WatcherSchema.parse(JSON.parse(await readFile(file, "utf8")));
+      if (w.pid !== pid) return; // another session took over
+      await writeFile(file, JSON.stringify({ ...w, beat: new Date().toISOString() }));
+    } catch {
+      /* no watcher file: nothing to refresh */
+    }
   }
 
   /**
@@ -116,7 +129,11 @@ export class AhemStore {
     } catch {
       return null;
     }
-    const alive = w.state === "waiting" ? processAlive(w.pid) : Date.now() - Date.parse(w.since) < 30 * 60_000;
+    const age = (iso?: string) => (iso ? Date.now() - Date.parse(iso) : Infinity);
+    // Waiting: the process must exist and have beaten in the last 90 s. Records from before heartbeats get 6 hours,
+    // which also retires a process id that the OS has since handed to something else.
+    const waitingAlive = processAlive(w.pid) && (w.beat ? age(w.beat) < 90_000 : age(w.since) < 6 * 3600_000);
+    const alive = w.state === "waiting" ? waitingAlive : age(w.since) < 30 * 60_000;
     if (!alive) return null;
     const control = await this.watchControl();
     return { ...w, paused: control?.mode === "paused" || undefined, stopping: control?.mode === "stop" || undefined };

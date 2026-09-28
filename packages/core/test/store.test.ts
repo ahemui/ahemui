@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
@@ -170,4 +170,18 @@ test("batches: review items never start now and are left out of the action queue
   assert.deepEqual((await store.list({ batch: review.id })).map((i) => i.id), [flagged.id]);
   assert.equal((await store.findBatch("home REVIEW · 28 sep"))?.id, review.id);
   assert.equal((await store.listBatches()).length, 2);
+});
+
+test("watcher heartbeat: a waiting watcher that stopped beating is gone", async () => {
+  await store.setWatcher({ state: "waiting", pid: process.pid, by: "me" });
+  await store.heartbeat();
+  assert.equal((await store.watcher())?.state, "waiting");
+  const file = join(root, ".ahemui/.watcher.json");
+  const w = JSON.parse(await readFile(file, "utf8"));
+  await writeFile(file, JSON.stringify({ ...w, beat: new Date(Date.now() - 5 * 60_000).toISOString() }));
+  assert.equal(await store.watcher(), null);
+  // Legacy records without a beat still count while recent, but not after 6 hours.
+  await writeFile(file, JSON.stringify({ state: "waiting", pid: process.pid, since: new Date(Date.now() - 7 * 3600_000).toISOString() }));
+  assert.equal(await store.watcher(), null);
+  await store.setWatcher(null);
 });
