@@ -57,22 +57,31 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
   position: fixed; width: 340px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
   padding: 10px; pointer-events: auto; box-shadow: 0 12px 40px rgba(0,0,0,.45); display: none;
 }
-.bubble .where { color: var(--muted); font: 11px/1.3 ui-monospace, Consolas, monospace; margin-bottom: 6px; overflow-wrap: anywhere; }
-.bubble .page-line { color: var(--muted); font-size: 11px; margin: -2px 0 6px; overflow-wrap: anywhere; }
+.b-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.bubble .where { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: help; }
+.b-close { flex: none; width: 22px; height: 22px; border-radius: 6px; color: var(--muted); font-size: 12px; }
+.b-close:hover { color: var(--fg); background: var(--bg2); }
+.bubble .page-line { color: #f59e0b; font-size: 11px; margin: -4px 0 6px; }
+.bubble .page-line[hidden] { display: none; }
 .types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .chip { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .chip:hover { color: var(--fg); }
 .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .group { color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin: 8px 6px 2px; }
 .group:first-child { margin-top: 0; }
-.bubble .thumb { display: block; max-width: 100%; max-height: 120px; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 8px; }
+.bubble .thumb { display: block; max-width: 100%; max-height: 96px; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 8px; }
 .bubble textarea {
   width: 100%; min-height: 70px; resize: vertical; background: var(--bg2); color: var(--fg); border: 1px solid var(--line);
   border-radius: 6px; padding: 7px 8px; font: inherit; outline: none;
 }
 .bubble textarea:focus { border-color: var(--accent); }
 .bubble .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
-.bubble .hint { color: var(--muted); font-size: 11px; }
+.bubble .buttons { display: flex; gap: 6px; }
+.b-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
+.bubble .hint { color: var(--muted); font-size: 10.5px; }
+.type-select { font: inherit; font-size: 11px; color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 2px 4px; height: 22px; max-width: 90px; }
+.type-select.on { color: var(--fg); border-color: var(--accent); }
+.type-select option { background: var(--bg); color: var(--fg); }
 .btn { padding: 5px 12px; border-radius: 6px; background: var(--bg2); border: 1px solid var(--line); color: var(--fg); font: inherit; cursor: pointer; }
 .btn.primary { background: var(--accent); border-color: var(--accent); }
 .btn:disabled { opacity: .5; cursor: default; }
@@ -113,24 +122,16 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 .pop-board { color: #a78bfa; font-size: 12px; text-decoration: none; }
 .pop-board:hover { color: var(--fg); }
 /* batch picker and the batch line in the capture box */
-.batchcard { position: fixed; right: 16px; bottom: 60px; width: 320px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 14px; pointer-events: auto; box-shadow: 0 12px 40px rgba(0,0,0,.45); }
-.batchcard[hidden] { display: none; }
-.root[data-pos="bottom-left"] .batchcard, .root[data-pos="top-left"] .batchcard { right: auto; left: 16px; }
-.root[data-pos^="top"] .batchcard { bottom: auto; top: 60px; }
-.bc-title { font-weight: 600; font-size: 14px; margin-bottom: 10px; }
-.bc-intent { width: fit-content; margin-left: 0; }
-.bc-intent button { font-size: 12px; padding: 3px 10px; }
-.bc-help { color: var(--muted); font-size: 11.5px; margin: 6px 0 10px; }
-.bc-label { display: block; color: var(--muted); font-size: 11px; margin-top: 8px; }
-.bc-name { display: block; width: 100%; margin-top: 4px; font: inherit; color: var(--fg); background: var(--bg2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; }
-.bc-name:focus { outline: none; border-color: var(--accent); }
-.bc-recent { margin-top: 10px; display: grid; gap: 4px; }
-.bc-recent button { display: flex; justify-content: space-between; gap: 8px; text-align: left; padding: 5px 8px; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; }
-.bc-recent button:hover, .bc-recent button.on { border-color: var(--accent); }
-.bc-recent button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bc-recent em { font-style: normal; color: var(--muted); font-size: 10.5px; white-space: nowrap; }
-.bc-actions { display: flex; justify-content: space-between; margin-top: 14px; }
 .batch-line { display: flex; align-items: center; gap: 6px; font-size: 11.5px; margin: 0 0 6px; }
+.batch-line.picking { display: block; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+.bp-row { display: flex; align-items: center; gap: 6px; }
+.bp-intent { margin-left: 0; }
+.bp-intent button:disabled { opacity: .4; cursor: default; }
+.bp-target { flex: 1; min-width: 0; font: inherit; font-size: 11px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; height: 24px; }
+.bp-target option { background: var(--bg); }
+.bp-name { display: block; width: 100%; margin-top: 6px; font: inherit; font-size: 12px; color: var(--fg); background: transparent; border: 0; border-bottom: 1px dashed var(--line); padding: 2px 0; }
+.bp-name:focus { outline: none; border-bottom-color: var(--accent); }
+.bp-name[hidden] { display: none; }
 .batch-line[hidden] { display: none; }
 .batch-line .bl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .batch-line .muted { color: var(--muted); }
@@ -219,8 +220,9 @@ a.btn:hover { border-color: var(--accent); }
 .area-chip { font-size: 11px; padding: 2px 4px 2px 8px; border-radius: 999px; background: var(--bg2); border: 1px solid var(--line); }
 .area-chip.reference { border-color: #22c55e; }
 .area-chip button { color: var(--muted); padding: 0 4px; }
-.tools { display: flex; gap: 4px; margin-top: 6px; }
-.tool { font-size: 11px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+.tools { display: flex; align-items: center; gap: 3px; }
+.tool { width: 26px; height: 24px; display: grid; place-items: center; font-size: 12px; border-radius: 6px; border: 1px solid transparent; color: var(--muted); }
+.tool:hover { border-color: var(--line); }
 .tool:hover { color: var(--fg); }
 .tool.on { background: #f59e0b; border-color: #f59e0b; color: #111; }
 .tool.mic.on { background: #ef4444; border-color: #ef4444; color: #fff; }
