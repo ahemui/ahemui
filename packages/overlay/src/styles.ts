@@ -47,6 +47,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .layer.active { pointer-events: auto; }
 .hover, .outline { position: fixed; pointer-events: none; border: 2px solid var(--accent); background: rgba(124,92,255,.08); border-radius: 3px; display: none; }
 .outline { border-style: dashed; }
+.outline.flash { border-style: solid; animation: ahemui-flash 1.6s ease-out; }
+@keyframes ahemui-flash { 0%, 40% { box-shadow: 0 0 0 6px rgba(124,92,255,.35); } 100% { box-shadow: 0 0 0 0 rgba(124,92,255,0); } }
 .sel { position: fixed; pointer-events: none; border: 2px dashed var(--accent); background: rgba(124,92,255,.12); display: none; }
 svg.draw { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
 svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }

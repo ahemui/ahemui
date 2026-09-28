@@ -70,6 +70,8 @@ class Overlay {
   private projectDefaults: Partial<Prefs> = {};
   private panelView: "list" | "settings" = "list";
   private suppressClick = false;
+  /** An item to scroll to and open once its page (and element) shows up; reloadTo is the fallback navigation. */
+  private pendingFocus: { id: string; until: number; reloadTo?: string } | null = null;
   private drag: { start: Point; freehand: boolean; points: Point[] } | null = null;
   private strokes: Point[][] = [];
   private markers = new Map<string, Marker>();
@@ -127,6 +129,15 @@ class Overlay {
         <div class="toast"></div>
       </div>`;
     document.documentElement.appendChild(this.hostEl);
+    try {
+      const id = sessionStorage.getItem(FOCUS_KEY);
+      if (id) {
+        sessionStorage.removeItem(FOCUS_KEY);
+        this.pendingFocus = { id, until: Date.now() + 10_000 };
+      }
+    } catch {
+      /* storage blocked: the page still opens, just without jumping to the item */
+    }
     this.bindEvents();
     this.applyPrefs();
     recordSteps(this.isOwn, (s) => (deployed() ? scrub(s) : s));
@@ -231,10 +242,11 @@ class Overlay {
     setInterval(() => {
       if (currentRoute() !== this.route) {
         this.route = currentRoute();
-        this.closePopups();
+        if (!this.pendingFocus) this.closePopups();
         this.renderMarkers();
       } else this.schedule();
-    }, 500);
+      this.tryPendingFocus();
+    }, 300);
 
     this.shadow.addEventListener("mousedown", (e) => {
       const t = e.target as Element;
@@ -245,7 +257,16 @@ class Overlay {
     });
   }
 
+  /**
+   * The shortcut can arrive twice for one press: the page's own key listener and the extension's browser command
+   * (both Alt+Shift+S). Two toggles cancel out, so ignore a second one right after the first.
+   */
+  private lastToggle = 0;
+
   private toggle() {
+    const now = Date.now();
+    if (now - this.lastToggle < 400) return;
+    this.lastToggle = now;
     if (!this.connected) {
       this.toast(this.host.disconnectedHint, 6000);
       return;
@@ -1145,7 +1166,7 @@ class Overlay {
     panel.querySelectorAll<HTMLElement>(".list-item").forEach((row) =>
       row.addEventListener("click", () => {
         const item = this.items.find((i) => i.id === row.dataset.id)!;
-        if (item.route !== this.route || !sameSite(item.url)) return this.toast(`That item is on ${item.url ?? item.route}`);
+        if (item.route !== this.route || !sameSite(item.url)) return this.goToItem(item);
         const target = this.markers.get(item.id)?.target;
         target?.scrollIntoView({ block: "center", behavior: "smooth" });
         setTimeout(() => this.openPop(item.id), 350);
@@ -1159,6 +1180,68 @@ class Overlay {
     this.$(".pop").style.display = "none";
     this.$(".panel").style.display = "none";
     this.$(".statuspop").style.display = "none";
+  }
+
+  // ——— jumping to an item on another page ———
+
+  /**
+   * Opens the page an item was captured on and highlights it there. Same app: navigate in place (the app's router
+   * picks up the history change), falling back to a normal page load. Another site: open it in a new tab.
+   */
+  private goToItem(item: Item) {
+    if (!sameSite(item.url)) {
+      open(item.url!, "_blank", "noopener");
+      return this.toast(`Opened ${new URL(item.url!).origin} in a new tab`, 3000);
+    }
+    const u = item.url ? new URL(item.url) : null;
+    // Local dev servers count as one site, so keep this tab's origin even if the item was captured on another port.
+    const target = u ? `${location.origin}${u.pathname}${u.search}${u.hash}` : location.origin + (item.route ?? "/");
+    this.closePopups();
+    this.toast(`Going to ${item.route ?? u?.pathname ?? "that page"}…`, 1500);
+    history.pushState(null, "", target);
+    dispatchEvent(new PopStateEvent("popstate", { state: null }));
+    this.pendingFocus = { id: item.id, until: Date.now() + 1500, reloadTo: target };
+  }
+
+  private tryPendingFocus() {
+    const pending = this.pendingFocus;
+    if (!pending) return;
+    const item = this.items.find((i) => i.id === pending.id);
+    if (item && item.route === currentRoute()) {
+      const known = this.markers.get(item.id)?.target;
+      const target = known?.isConnected ? known : locate(item.anchor, this.isOwn);
+      if (target) {
+        this.pendingFocus = null;
+        return this.focusItem(item.id, target);
+      }
+    }
+    if (Date.now() < pending.until) return;
+    this.pendingFocus = null;
+    if (pending.reloadTo) {
+      // The app didn't route on its own (not an SPA, or a router that ignores history events): load the page.
+      try {
+        sessionStorage.setItem(FOCUS_KEY, pending.id);
+      } catch {
+        /* the page still loads */
+      }
+      location.assign(pending.reloadTo);
+    } else if (item) this.toast("Couldn't find that element on this page any more", 4000);
+  }
+
+  /** Scrolls the item's element into view, flashes an outline around it and opens its popover. */
+  private focusItem(id: string, target: Element) {
+    target.scrollIntoView({ block: "center", behavior: "smooth" });
+    setTimeout(() => {
+      const outline = this.$(".outline");
+      this.box(outline, target.getBoundingClientRect());
+      outline.classList.add("flash");
+      setTimeout(() => {
+        outline.classList.remove("flash");
+        outline.style.display = "none";
+      }, 1600);
+      this.renderMarkers();
+      this.openPop(id);
+    }, 450);
   }
 
   // ——— status popover (the dot): connection and the watching Claude session ———
@@ -1437,6 +1520,8 @@ function shortUrl(url: string): string {
     return url;
   }
 }
+
+const FOCUS_KEY = "ahemui:focus";
 
 function classLine(it: Item): string {
   return [
