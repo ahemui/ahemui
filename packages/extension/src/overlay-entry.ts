@@ -82,6 +82,10 @@ const start = () => startOverlay({
     chrome.runtime.onMessage.addListener((msg) => {
       if (msg?.type === "toggle") toggle();
     }),
+  onPrefsChanged: (reload) =>
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg?.type === "prefs-changed") reload();
+    }),
 });
 if (document.readyState === "loading") addEventListener("DOMContentLoaded", start, { once: true });
 else start();

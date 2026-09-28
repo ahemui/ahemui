@@ -160,6 +160,11 @@ class Overlay {
     this.$(".state").addEventListener("click", () => this.togglePanel());
     this.bindDrag();
     this.host.onToggle?.(() => this.toggle());
+    // Settings may have changed in another tab or the extension popup.
+    this.host.onPrefsChanged?.(() => this.loadPrefs());
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && this.connected) this.loadPrefs();
+    });
 
     addEventListener(
       "keydown",

@@ -31,11 +31,23 @@
       .dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7280; flex: none; }
       .dot.ok { background: var(--ok); }
       .warn { color: #f59e0b; font-size: 12px; }
+      #settings { border-top: 1px solid var(--line); }
+      .setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; }
+      .seg { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+      .seg button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 999px; cursor: pointer; }
+      .seg button.on { background: var(--bg2); color: var(--fg); }
+      .corners { display: grid; grid-template-columns: repeat(2, 28px); gap: 3px; }
+      .corners button { height: 22px; border: 1px solid var(--line); border-radius: 5px; background: none; color: var(--muted); font-size: 12px; cursor: pointer; }
+      .corners button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+      #pref-name { width: 160px; font: inherit; font-size: 12px; color: var(--fg); background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+      #pref-name:focus { outline: none; border-color: var(--accent); }
+      #settings .sub { margin-top: 4px; word-break: normal; }
     </style>
   </head>
   <body>
     <header><img src="icons/32.png" alt="" /><b>AhemUI</b><span class="site" id="site"></span></header>
     <main id="app"><section class="muted">Loading…</section></main>
+    <section id="settings"></section>
     <script src="popup.js"></script>
   </body>
 </html>

@@ -116,6 +116,8 @@ export interface Host {
   capture(rect: Rect, strokes: Point[][], masks: Rect[], maxBytes: number, hide: () => Promise<() => void>): Promise<string | undefined>;
   /** Lets the host wire up extra triggers (toolbar icon, keyboard command). */
   onToggle?(toggle: () => void): void;
+  /** Settings were changed elsewhere (the extension popup); reload them. */
+  onPrefsChanged?(reload: () => void): void;
   /** Shown when capture is requested but no server is connected. */
   disconnectedHint: string;
   /** Desktop notification; `tag` de-duplicates across tabs. */

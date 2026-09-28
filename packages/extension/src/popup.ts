@@ -76,8 +76,54 @@ function render(state: PopupState) {
   });
 }
 
+// ——— personal settings (~/.ahemui/prefs.json, shared with the on-page ⚙ view) ———
+
+type Prefs = { position?: string; notifications?: string; enter?: string; markers?: string; name?: string };
+const DEFAULTS: Prefs = { position: "bottom-right", notifications: "desktop", enter: "now", markers: "all" };
+const settings = document.getElementById("settings")!;
+
+async function renderSettings() {
+  let data: { prefs: Prefs; defaults: Prefs } | null;
+  try {
+    data = await send<{ prefs: Prefs; defaults: Prefs } | null>({ type: "get-prefs", tabId });
+  } catch {
+    data = null;
+  }
+  if (!data) {
+    settings.innerHTML = `<h2>Your settings</h2><div class="muted">Start any AhemUI project to change them.</div>`;
+    return;
+  }
+  const p: Prefs = { ...DEFAULTS, ...data.defaults, ...data.prefs };
+  const seg = (key: keyof Prefs, options: [string, string][]) =>
+    `<div class="seg" data-pref="${key}">${options.map(([v, label]) => `<button class="${p[key] === v ? "on" : ""}" data-value="${v}">${label}</button>`).join("")}</div>`;
+  const corner = (v: string, arrow: string) => `<button class="${p.position === v ? "on" : ""}" data-value="${v}" title="${v.replace("-", " ")}">${arrow}</button>`;
+  settings.innerHTML = `
+    <h2>Your settings</h2>
+    <div class="setting"><span>Toolbar corner</span><div class="corners" data-pref="position">${corner("top-left", "↖")}${corner("top-right", "↗")}${corner("bottom-left", "↙")}${corner("bottom-right", "↘")}</div></div>
+    <div class="setting"><span>Notifications</span>${seg("notifications", [["off", "Off"], ["page", "On page"], ["desktop", "Desktop"]])}</div>
+    <div class="setting"><span>Enter key</span>${seg("enter", [["now", "Start now"], ["backlog", "Backlog"]])}</div>
+    <div class="setting"><span>Markers</span>${seg("markers", [["all", "All"], ["active", "Open"], ["none", "None"]])}</div>
+    <div class="setting"><span>Your name</span><input id="pref-name" placeholder="Your git name" maxlength="80" value="${esc(p.name ?? "")}"></div>
+    <div class="sub">Saved in ~/.ahemui/prefs.json for every project on this computer.</div>`;
+  const save = async (patch: Record<string, string | null>) => {
+    try {
+      await send({ type: "set-prefs", tabId, patch });
+      await renderSettings();
+    } catch (err) {
+      settings.insertAdjacentHTML("beforeend", `<div class="warn">${esc((err as Error).message)}</div>`);
+    }
+  };
+  settings.querySelectorAll<HTMLElement>("[data-pref]").forEach((group) =>
+    group.querySelectorAll<HTMLButtonElement>("button").forEach((b) => b.addEventListener("click", () => save({ [group.dataset.pref!]: b.dataset.value! }))),
+  );
+  const name = settings.querySelector<HTMLInputElement>("#pref-name")!;
+  name.addEventListener("change", () => save({ name: name.value.trim() || null }));
+  name.addEventListener("keydown", (e) => e.key === "Enter" && name.blur());
+}
+
 (async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   tabId = tab.id!;
   render(await send<PopupState>({ type: "popup-state", tabId }));
+  renderSettings();
 })();

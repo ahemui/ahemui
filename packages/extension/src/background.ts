@@ -153,8 +153,31 @@ async function handle(msg: any, sender: chrome.runtime.MessageSender): Promise<u
     case "toggle":
       await chrome.tabs.sendMessage(msg.tabId, { type: "toggle" });
       return null;
+    // Personal settings live in ~/.ahemui/prefs.json, which every server on this machine shares.
+    case "get-prefs": {
+      const base = await prefsServer(msg.tabId);
+      if (!base) return null;
+      return (await fetch(`${base}/api/prefs`)).json();
+    }
+    case "set-prefs": {
+      const base = await prefsServer(msg.tabId);
+      if (!base) throw new Error("start an AhemUI project to change settings");
+      const res = await fetch(`${base}/api/prefs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(msg.patch ?? {}) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      for (const id of tabServer.keys()) chrome.tabs.sendMessage(id, { type: "prefs-changed" }).catch(() => {});
+      return data;
+    }
   }
   throw new Error(`unknown message ${msg?.type}`);
+}
+
+/** The server for the tab's site, else any running one: they all read the same prefs file. */
+async function prefsServer(tabId: number | undefined): Promise<string | null> {
+  const tab = tabId !== undefined ? await chrome.tabs.get(tabId).catch(() => undefined) : undefined;
+  const origin = tab?.url && /^https?:/.test(tab.url) ? new URL(tab.url).origin : undefined;
+  const server = (origin ? await resolveServer(origin) : null) ?? (await scan())[0];
+  return server?.base ?? null;
 }
 
 async function serverForTab(tabId: number | undefined, origin: string | undefined): Promise<string> {
