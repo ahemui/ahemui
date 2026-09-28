@@ -33,9 +33,14 @@ If `$ARGUMENTS` is `stop`, or the user asks you to stop watching:
    Tell the user in one line that you're watching and that ⚡ Start now in the browser sends work straight to you.
    Then end your turn. You'll be woken up when the command exits.
 4. **When it exits:**
-   - **Exit code 0.** Each output line is `START <id> <route> — <request>`. For each id in order, call `ahemui_claim`
-     and then `ahemui_get`, and do the item exactly as in `/ahemui:work` step 2: understand it, implement, verify, resolve
-     (to review by default), commit, and update any linked tracker ticket. Keep the user posted with one short line per item.
+   - **Exit code 0.** Each output line is `START <id> <route> — <request>`.
+     - **One line:** call `ahemui_claim` and `ahemui_get`, then do the item as in `/ahemui:work` step 3: understand it,
+       implement, verify, resolve (to review by default), commit, and update any linked tracker ticket.
+     - **Several lines** (a batch: items queued while the watch was paused, or while you were busy): plan them together
+       first, as in `/ahemui:work` step 2. Read them all, group overlapping requests into one change, ask about
+       conflicts, and settle the order. Then work each group or item as in `/ahemui:work` step 3.
+
+     Keep the user posted with one short line per item or group.
    - **Exit code 3** (timeout). Nothing arrived; go straight back to step 3.
    - **Exit code 4** (`STOPPED`). The user stopped watching from the browser. Don't re-arm; say in one line that
      watching has stopped and that `/ahemui:watch` starts it again.

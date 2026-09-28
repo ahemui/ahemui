@@ -26,7 +26,21 @@ person's answer, purple ◎ = ready for their review, green ✓ = approved or do
    - If this isn't a git repo, work the items anyway and skip the commit steps.
 3. Call `ahemui_tracker` once, so you know whether tickets need updating.
 
-## 2. For each item
+## 2. Plan the batch first
+
+When more than one item is waiting (the whole queue, a filter, or a batch released by `/ahemui:watch`), read them all
+with `ahemui_get` before changing any code, and look across them for:
+- **Overlap.** The same source file, component, element or section, or requests that touch the same tokens or styles.
+  Work these together as **one change**, so the second request doesn't undo or fight the first.
+- **Conflicts.** Requests that pull in opposite directions ("make the title bigger" vs "tighten the hero"), or a
+  reference example that another item changes. Don't pick a side: ask on the later item with `ahemui_note`
+  (`question: true`), name the other item's id, and work the rest.
+- **Duplicates.** The same request twice. Work it once and resolve both, noting on the second that it was covered by the first.
+- **Order.** Structural or layout changes before copy and colour tweaks on the same element; bugs before polish.
+
+Say the plan in a few lines before starting: the groups, their order, and anything you're asking about. A lone item needs no plan.
+
+## 3. Work each item or group
 
 If `$ARGUMENTS` names an item id, call `ahemui_claim` on it and then `ahemui_get`. Otherwise call `ahemui_next`, which claims the
 next open item and turns its marker blue. The order is: ⚡ Start-now first, then high priority, then page by page. If `$ARGUMENTS` holds filters
@@ -72,7 +86,11 @@ next open item and turns its marker blue. The order is: ⚡ Start-now first, the
 
 Repeat until `ahemui_next` reports no open items, or just once when a single item was requested.
 
-## 3. Finish
+**Groups from the plan:** call `ahemui_claim` on every item in the group, make one change that satisfies all of them,
+verify it against each request, and resolve each item with its own note (mention the other ids it was done with).
+Commit the group once, with one `AhemUI-Item: <id>` trailer per item and every item folder staged.
+
+## 4. Finish
 
 Summarise in a short table grouped by area (or page): item id (first 10 chars), what changed, and status (in review / asked a
 question / won't fix). Remind the user that ◎ items are waiting for their review on the page. Don't archive here; `/ahemui:archive` does
