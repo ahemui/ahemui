@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, renameSync } from "node:fs";
+import { existsSync, renameSync, rmSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter.js";
@@ -53,6 +53,8 @@ export class AhemStore {
       if (existsSync(join(dir, AHEMUI_DIR, "config.json"))) return new AhemStore(dir);
       if (existsSync(join(dir, LEGACY_DIR, "config.json")) && !existsSync(join(dir, AHEMUI_DIR))) {
         renameSync(join(dir, LEGACY_DIR), join(dir, AHEMUI_DIR));
+        // A watcher recorded by the old Snap CLI watches .snap/, which no longer exists: don't advertise it.
+        rmSync(join(dir, AHEMUI_DIR, WATCHER_FILE), { force: true });
         return new AhemStore(dir);
       }
       const parent = dirname(dir);
