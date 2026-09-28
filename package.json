@@ -11,9 +11,11 @@
     "test": "node --import tsx --test packages/*/test/*.test.ts",
     "ahemui": "node packages/cli/dist/index.js",
     "typecheck": "npm run build -w @ahemui/board && tsc -b packages/core packages/cli && tsc -p packages/vite && tsc -p packages/claude-plugin && tsc -p packages/overlay && tsc -p packages/extension && tsc -p packages/board",
-    "set-version": "node scripts/set-version.mjs"
+    "set-version": "node scripts/set-version.mjs",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.10.0",
     "@types/ws": "^8.5.13",
     "@vitejs/plugin-vue": "^6.0.9",

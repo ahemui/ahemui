@@ -7,3 +7,6 @@ examples/*/.ahemui/done/*
 packages/cli/src/board-assets.generated.ts
 build-id.json
 packages/vite/LICENSE
+test-results/
+playwright-report/
+examples/*/.ahemui/batches/*
