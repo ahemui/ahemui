@@ -938,18 +938,34 @@ class Overlay {
       actions = `<div class="actions">${queue}<button class="btn" data-act="done">Mark done</button><button class="btn" data-act="wontfix">Won't fix</button></div>`;
     }
 
+    // Status and id; the request itself; who and when; where it lives; the picture; the conversation; actions.
+    const also = extras.filter((e) => e.role === "also").length;
+    const where: [string, string][] = [
+      ["Page", esc(whereLabel(item))],
+      ...(src ? [["Code", `<span class="mono">${esc(src)}</span>`] as [string, string]] : []),
+      ...(also || extras.some((e) => e.role === "reference")
+        ? [["Areas", `${also ? `${also + 1} places` : "1 place"}${extras.some((e) => e.role === "reference") ? " + an example to match" : ""}`] as [string, string]]
+        : []),
+      ...(item.external
+        ? [["Ticket", `${esc(item.external.tracker)} ${item.external.url ? `<a class="ext" href="${esc(item.external.url)}" target="_blank" rel="noopener">${esc(item.external.key)}</a>` : esc(item.external.key)}${item.external.status ? ` · ${esc(item.external.status)}` : ""}`] as [string, string]]
+        : []),
+      ...(item.design ? [["Design", `<a class="ext" href="${esc(item.design)}" target="_blank" rel="noopener">${esc(shortUrl(item.design))}</a>`] as [string, string]] : []),
+      ...(item.url && !sameSite(item.url) ? [["Site", esc(new URL(item.url).origin)] as [string, string]] : []),
+    ];
+    const tags = [
+      item.start === "now" && item.status === "open" ? "⚡ start now" : "",
+      item.type ?? "",
+      item.priority && item.priority !== "normal" ? `${item.priority} priority` : "",
+      item.area ?? "",
+      ...(item.labels ?? []).map((l) => `#${l}`),
+    ].filter(Boolean);
     pop.innerHTML = `
       <div class="pop-top"><span class="pill ${asking ? "ask" : item.status}">${asking ? "question for you" : LABEL[item.status]}</span>
-        <button class="id-copy mono" data-act="copy" title="Copy id">${item.id.slice(0, 14)}</button></div>
-      <div class="meta">${esc(item.author)} · ${new Date(item.created).toLocaleString()}${item.claimed_by && item.status === "in-progress" ? ` · ${esc(item.claimed_by)} is on it` : ""}</div>
-      <div class="body">${esc(prompt)}</div>
-      ${classLine(item) ? `<div class="meta">${esc(classLine(item))}</div>` : ""}
-      ${item.external ? `<div class="meta">${esc(item.external.tracker)}: ${item.external.url ? `<a class="ext" href="${esc(item.external.url)}" target="_blank" rel="noopener">${esc(item.external.key)}</a>` : esc(item.external.key)}${item.external.status ? ` · ${esc(item.external.status)}` : ""}</div>` : ""}
-      <div class="meta">${esc(pageLabel(item.page, item.route))}</div>
-      ${src ? `<div class="meta mono">${esc(src)}</div>` : ""}
-      ${extras.length ? `<div class="meta">${extras.filter((e) => e.role === "also").length ? `+${extras.filter((e) => e.role === "also").length} more area(s) ` : ""}${extras.some((e) => e.role === "reference") ? "· with an example to match" : ""}</div>` : ""}
-      ${item.design ? `<div class="meta"><a class="ext" href="${esc(item.design)}" target="_blank" rel="noopener">design link</a></div>` : ""}
-      ${item.url && !sameSite(item.url) ? `<div class="meta mono">captured on ${esc(new URL(item.url).origin)}</div>` : ""}
+        <button class="id-copy mono" data-act="copy" title="Copy id">${item.id.slice(0, 10)}…</button></div>
+      <div class="request">${esc(prompt.trim())}</div>
+      <div class="byline">${esc(item.author)} · ${esc(shortDate(item.created))}${item.claimed_by && item.status === "in-progress" ? ` · ${esc(item.claimed_by)} is on it` : ""}</div>
+      ${tags.length ? `<div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
+      <dl class="where">${where.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
       ${
         item.status === "review"
           ? `<div class="compare"><figure><img data-file="${esc(item.shot ?? "")}" alt=""><figcaption>before</figcaption></figure><figure>${item.after ? `<img data-file="${esc(item.after)}" alt="">` : `<div class="pending">capturing…</div>`}<figcaption>after</figcaption></figure></div>`
@@ -957,7 +973,13 @@ class Overlay {
             ? `<img class="thumb" data-file="${esc(item.shot)}" alt="">`
             : ""
       }
-      ${thread.length ? `<div class="thread">${thread.map((t) => `<div class="entry ${t.kind.toLowerCase()}"><div class="who">${esc(t.kind)} · ${esc(t.who)}</div>${esc(t.text)}</div>`).join("")}</div>` : ""}
+      ${
+        thread.length
+          ? `<div class="thread">${thread
+              .map((t) => `<div class="entry ${t.kind.toLowerCase()}"><div class="who"><b>${esc(t.who)}</b> · ${esc(KIND[t.kind] ?? t.kind.toLowerCase())}</div><div class="text">${esc(t.text)}</div></div>`)
+              .join("")}</div>`
+          : ""
+      }
       ${actions}
       ${this.popFooter(item)}`;
 
@@ -1387,6 +1409,33 @@ function pageLabel(page: Page | null | undefined, route: string | undefined, wit
 function typingIn(e: KeyboardEvent): boolean {
   const el = e.composedPath()[0] as HTMLElement | undefined;
   return !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+}
+
+const KIND: Record<string, string> = { Note: "note", Question: "asked", Reply: "replied", Feedback: "sent back", Approved: "approved" };
+
+/** Route, then a short page name, then the section: "/pricing · Pricing › Plan cards". Never the page's <h1>. */
+function whereLabel(it: Item): string {
+  const path = it.page?.routePattern ?? it.route ?? "?";
+  const name = it.page?.routeName ?? it.page?.pageComponent?.replace(/(Page|View)$/, "");
+  const section = it.page?.section ? ` › ${it.page.section}` : "";
+  return `${path}${name ? ` · ${name}` : ""}${section}`;
+}
+
+function shortDate(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date().toDateString() === d.toDateString();
+  return today
+    ? `today ${d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}`
+    : d.toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+function shortUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "") + (u.pathname.length > 1 ? "/…" : "");
+  } catch {
+    return url;
+  }
 }
 
 function classLine(it: Item): string {

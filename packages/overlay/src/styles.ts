@@ -89,9 +89,17 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(59,130,246,.25); } }
 
 /* Screenshots in the popover fit its width and a sensible height; click opens them full size. */
-.pop img[data-file] { display: block; max-width: 100%; max-height: 200px; width: auto; height: auto; object-fit: contain; margin: 8px 0; border-radius: 6px; border: 1px solid var(--line); cursor: zoom-in; background: var(--bg2); }
+.pop img[data-file] { display: block; max-width: 100%; max-height: 200px; width: auto; height: auto; object-fit: contain; margin: 10px 0 0; padding: 4px; border-radius: 6px; border: 1px solid var(--line); cursor: zoom-in; background: var(--bg2); }
 .pop .compare img[data-file] { max-height: 140px; margin: 0; width: 100%; }
-.pop-top { display: flex; align-items: center; gap: 8px; }
+.pop-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pop .request { font-size: 14px; line-height: 1.45; font-weight: 500; white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0 4px; }
+.pop .byline { color: var(--muted); font-size: 11px; }
+.pop .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.pop .tag { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: var(--bg2); color: var(--muted); border: 1px solid var(--line); }
+.pop .where { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line); font-size: 11.5px; }
+.pop .where dt { color: var(--muted); }
+.pop .where dd { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.pop .where .mono { font-size: 11px; }
 .id-copy { color: var(--muted); font-size: 11px; padding: 1px 4px; border-radius: 4px; }
 .id-copy:hover { color: var(--fg); background: var(--bg2); }
 .pop-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
@@ -206,11 +214,14 @@ a.btn:hover { border-color: var(--accent); }
 .compare img, .compare .pending { width: 100%; border-radius: 6px; border: 1px solid var(--line); display: block; }
 .compare .pending { height: 60px; display: grid; place-items: center; color: var(--muted); font-size: 11px; }
 .compare figcaption { color: var(--muted); font-size: 10px; text-align: center; margin-top: 2px; }
-.thread { margin: 8px 0; border-left: 2px solid var(--line); padding-left: 8px; display: grid; gap: 6px; }
-.thread .entry { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
-.thread .who { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .03em; }
-.thread .question { color: #fcd34d; }
-.thread .feedback { color: #fca5a5; }
+.thread { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.thread .entry { font-size: 12px; padding-left: 8px; border-left: 2px solid var(--line); }
+.thread .entry .text { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
+.thread .who { color: var(--muted); font-size: 11px; }
+.thread .who b { color: var(--fg); font-weight: 600; }
+.thread .question { border-left-color: #f59e0b; }
+.thread .feedback { border-left-color: #f87171; }
+.thread .approved { border-left-color: var(--done); }
 textarea.reply { width: 100%; min-height: 56px; margin-top: 8px; background: var(--bg2); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; outline: none; resize: vertical; }
 textarea.reply:focus { border-color: var(--accent); }
 .bubble { width: 360px; }
