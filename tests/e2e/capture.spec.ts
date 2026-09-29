@@ -82,3 +82,35 @@ test("a flag-for-review batch never offers Start now", async ({ page }) => {
   await expect(bubble.locator(".submit")).toHaveText("Flag for review");
   await bubble.locator(".b-close").click();
 });
+
+test("capture with the keyboard alone: arrows move the highlight, Enter picks", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("ahemui-overlay .bar .dot.ok")).toBeAttached();
+  await page.keyboard.press("Alt+Shift+S");
+  await page.keyboard.press("Tab");
+  await expect(page.locator("ahemui-overlay .hover")).toBeVisible();
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter");
+  const bubble = page.locator("ahemui-overlay .bubble");
+  await expect(bubble).toBeVisible();
+  await expect(bubble.locator("textarea")).toBeFocused();
+  await bubble.locator(".b-close").click();
+});
+
+test("the capture shortcut can be changed in settings", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("ahemui-overlay .bar .dot.ok")).toBeAttached();
+  await page.locator("ahemui-overlay .counts").click();
+  await page.locator("ahemui-overlay [data-settings]").click();
+  await page.locator("ahemui-overlay .shortcut-change").click();
+  await page.keyboard.press("Control+Shift+KeyY");
+  await expect(page.locator("ahemui-overlay .shortcut-key")).toHaveText("Ctrl+Shift+Y");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Control+Shift+KeyY");
+  await expect(page.locator("ahemui-overlay .layer.active")).toBeAttached();
+  await page.keyboard.press("Escape");
+  // Put it back (settings live in the test's throwaway AHEMUI_HOME, but keep the next test on the default).
+  await page.locator("ahemui-overlay .counts").click();
+  await page.locator("ahemui-overlay [data-settings]").click();
+  await page.locator("ahemui-overlay .shortcut-reset").click();
+});

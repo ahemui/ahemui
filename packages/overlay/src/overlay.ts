@@ -102,7 +102,7 @@ class Overlay {
         <div class="hover"></div>
         <div class="sel"></div>
         <svg class="draw"><path d=""></path></svg>
-        <div class="bubble">
+        <div class="bubble" role="dialog" aria-label="New feedback">
           <div class="b-head"><div class="where"></div><button class="b-close cancel" title="Cancel (Esc)">✕</button></div>
           <div class="page-line"></div>
           <div class="thumb-wrap"><img class="thumb" alt="" hidden><div class="redact-box"></div></div>
@@ -125,17 +125,20 @@ class Overlay {
             <span class="hint"></span>
           </div>
         </div>
-        <div class="pop"></div>
-        <div class="panel"></div>
-        <div class="statuspop"></div>
-        <div class="bar" hidden>
+        <div class="pop" role="dialog" aria-label="Feedback item" tabindex="-1"></div>
+        <div class="panel" role="dialog" aria-label="Backlog" tabindex="-1"></div>
+        <div class="statuspop" role="dialog" aria-label="Claude status" tabindex="-1"></div>
+        <div class="bar" role="toolbar" aria-label="AhemUI" hidden>
           <button class="capture" title="Capture feedback (Alt+Shift+S). Shift+drag to draw.">✎ AhemUI</button>
           <button class="counts" title="Show backlog"></button>
           <button class="state"><span class="dot"></span></button>
         </div>
-        <div class="toast"></div>
+        <div class="toast" role="status" aria-live="polite"></div>
       </div>`;
     document.documentElement.appendChild(this.hostEl);
+    this.shadow.querySelectorAll<HTMLElement>("button[title], select[title]").forEach((b) => {
+      if (!b.getAttribute("aria-label")) b.setAttribute("aria-label", b.title);
+    });
     try {
       const id = sessionStorage.getItem(FOCUS_KEY);
       if (id) {
@@ -192,6 +195,7 @@ class Overlay {
       "keydown",
       (e) => {
         if (this.recordingShortcut) return; // the settings view is listening for a new shortcut
+        if (this.mode === "select" && !this.drag && this.keyPick(e)) return;
         if (matchesShortcut(e, this.prefs.shortcut)) {
           e.preventDefault();
           this.toggle();
@@ -280,6 +284,7 @@ class Overlay {
       return;
     }
     this.setMode(this.mode === "idle" ? "select" : "idle");
+    if (this.mode === "select") this.toast("Click, drag or Shift+drag an area. Keyboard: arrows move, Enter picks, Esc exits.", 3500);
   }
 
   private setMode(mode: Overlay["mode"]) {
@@ -300,9 +305,66 @@ class Overlay {
     if (mode !== "idle") this.closePopups();
   }
 
+  // ——— picking with the keyboard ———
+
+  /** The element the keyboard highlight is on in capture mode (arrows move it, Enter picks it). */
+  private kbTarget: Element | null = null;
+
+  private keyPick(e: KeyboardEvent): boolean {
+    const keys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Tab", "Enter"];
+    if (!keys.includes(e.key) || e.ctrlKey || e.altKey || e.metaKey) return false;
+    if (typingIn(e)) return false;
+    e.preventDefault();
+    e.stopPropagation();
+    const visible = (el: Element | null): el is Element => {
+      if (!el || this.isOwn(el)) return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 2 && r.height > 2;
+    };
+    let t = this.kbTarget?.isConnected ? this.kbTarget : null;
+    if (!t) t = elementAt(innerWidth / 2, innerHeight / 3, this.isOwn) ?? document.body.firstElementChild;
+    else if (e.key === "ArrowUp") t = t.parentElement && t.parentElement !== document.body ? t.parentElement : t;
+    else if (e.key === "ArrowDown") t = [...t.children].find(visible) ?? t;
+    else if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      let n: Element | null = t;
+      do n = e.key === "ArrowRight" ? n.nextElementSibling : n.previousElementSibling;
+      while (n && !visible(n));
+      t = n ?? t;
+    } else if (e.key === "Tab") t = this.nextMeaningful(t, e.shiftKey ? -1 : 1) ?? t;
+    else if (e.key === "Enter" && this.kbTarget) {
+      const b = this.kbTarget.getBoundingClientRect();
+      const rect = clampToViewport({ x: b.left, y: b.top, w: b.width, h: b.height });
+      this.kbTarget = null;
+      if (this.draft?.adding) this.addArea(rect, this.draft.adding);
+      else this.compose(rect);
+      return true;
+    }
+    if (!t) return true;
+    this.kbTarget = t;
+    t.scrollIntoView({ block: "nearest", inline: "nearest" });
+    this.box(this.$(".hover"), t.getBoundingClientRect());
+    return true;
+  }
+
+  /** Tab order for picking: visible elements that are interactive or hold their own text, in document order. */
+  private nextMeaningful(from: Element, dir: 1 | -1): Element | null {
+    const all: Element[] = [];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+    for (let n = walker.nextNode() as Element | null; n; n = walker.nextNode() as Element | null) {
+      if (this.isOwn(n)) continue;
+      const r = n.getBoundingClientRect();
+      if (r.width < 3 || r.height < 3) continue;
+      const own = [...n.childNodes].some((c) => c.nodeType === Node.TEXT_NODE && c.textContent!.trim());
+      if (own || n.matches("a, button, input, select, textarea, img, svg, [role], [tabindex]")) all.push(n);
+    }
+    const i = all.indexOf(from);
+    return all.at(i < 0 ? (dir > 0 ? 0 : -1) : (i + dir + all.length) % all.length) ?? null;
+  }
+
   private onMove(e: MouseEvent) {
     if (this.mode !== "select") return;
     if (!this.drag) {
+      this.kbTarget = null;
       const el = elementAt(e.clientX, e.clientY, this.isOwn);
       this.box(this.$(".hover"), el?.getBoundingClientRect());
       return;
@@ -775,6 +837,8 @@ class Overlay {
     dot.classList.toggle("paused", !!w?.paused);
     dot.classList.toggle("stale", this.stale);
     this.$(".state").title = this.statusLines().join("\n");
+    this.$(".state").setAttribute("aria-label", `Status: ${this.statusLines().join(". ")}`);
+    counts.setAttribute("aria-label", counts.title);
     if (this.$(".panel").style.display === "block") this.renderPanel();
   }
 
@@ -861,7 +925,8 @@ class Overlay {
     for (const item of wanted) {
       let m = this.markers.get(item.id);
       if (!m) {
-        const el = document.createElement("div");
+        const el = document.createElement("button");
+        el.type = "button";
         el.addEventListener("click", (e) => {
           e.stopPropagation();
           this.popFor === item.id ? this.closePopups() : this.openPop(item.id);
@@ -875,6 +940,7 @@ class Overlay {
       n++;
       const asking = item.needs_reply && item.status === "open";
       m.el.className = `marker ${item.status}${asking ? " ask" : ""}`;
+      m.el.setAttribute("aria-label", `${asking ? "Question for you" : LABEL[item.status]}: ${item.body.split("\n")[0].slice(0, 80)}`);
       m.el.textContent = asking
         ? "?"
         : item.status === "done" || item.status === "wontfix" || item.status === "review"
@@ -973,6 +1039,7 @@ class Overlay {
     const typing = pop.querySelector<HTMLTextAreaElement>("textarea");
     if (this.popFor === id && typing?.value.trim()) return;
     this.$(".panel").style.display = "none";
+    const opening = this.popFor !== id;
     this.popFor = id;
     const asking = item.needs_reply && item.status === "open";
     const src = item.anchor.source ?? item.anchor.components?.join(" › ") ?? item.anchor.selector ?? "";
@@ -1108,6 +1175,7 @@ class Overlay {
       }),
     );
     pop.style.display = "block";
+    if (opening) this.focusPopover(pop);
     this.placePop();
   }
 
@@ -1129,6 +1197,7 @@ class Overlay {
     this.closePopups();
     this.renderPanel();
     panel.style.display = "block";
+    this.focusPopover(panel);
   }
 
   private renderPanel() {
@@ -1218,7 +1287,22 @@ class Overlay {
     );
   }
 
+  /** The control that opened a popover, so closing it (Esc) puts focus back there. */
+  private returnFocus: HTMLElement | null = null;
+
+  private focusPopover(el: HTMLElement) {
+    const active = this.shadow.activeElement as HTMLElement | null;
+    if (active && !el.contains(active)) this.returnFocus = active;
+    el.focus({ preventScroll: true });
+  }
+
   private closePopups() {
+    const opened = ["pop", "panel", "statuspop"].some((c) => this.$(`.${c}`).style.display === "block");
+    if (opened && this.returnFocus?.isConnected) {
+      const back = this.returnFocus;
+      this.returnFocus = null;
+      setTimeout(() => back.focus({ preventScroll: true }), 0);
+    }
     this.popFor = null;
     this.panelView = "list";
     this.$(".pop").style.display = "none";
@@ -1448,6 +1532,7 @@ class Overlay {
     this.closePopups();
     this.renderStatus();
     pop.style.display = "block";
+    this.focusPopover(pop);
   }
 
   private renderStatus() {

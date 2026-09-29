@@ -139,6 +139,9 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 .bl-kind { flex: none; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; background: var(--bg2); color: var(--muted); }
 .bl-kind.review, .rv-tag { color: #f59e0b; }
 .rv-tag { font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+/* keyboard focus is always visible inside the overlay; containers take focus without a ring */
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+.pop:focus, .panel:focus, .statuspop:focus { outline: none; }
 .pop, .panel, .statuspop {
   position: fixed; width: 320px; max-height: 60vh; overflow: auto; background: var(--bg); border: 1px solid var(--line);
   border-radius: 10px; padding: 10px; pointer-events: auto; box-shadow: 0 12px 40px rgba(0,0,0,.45); display: none;
