@@ -8,6 +8,7 @@ export interface Prefs {
   batches: "ask" | "off";
   /** Modifiers + KeyboardEvent.code, e.g. "Alt+Shift+KeyS". */
   shortcut: string;
+  theme: "auto" | "dark" | "light";
   name?: string;
 }
 
@@ -20,7 +21,7 @@ export interface Batch {
   created: string;
 }
 
-export const DEFAULT_PREFS: Prefs = { position: "bottom-right", notifications: "desktop", enter: "now", markers: "all", batches: "ask", shortcut: "Alt+Shift+KeyS" };
+export const DEFAULT_PREFS: Prefs = { position: "bottom-right", notifications: "desktop", enter: "now", markers: "all", batches: "ask", shortcut: "Alt+Shift+KeyS", theme: "dark" };
 
 const CACHE_KEY = "ahemui:prefs";
 

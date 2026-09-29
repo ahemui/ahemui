@@ -1597,6 +1597,7 @@ class Overlay {
 
   private applyPrefs() {
     this.$(".root").setAttribute("data-pos", this.prefs.position);
+    this.$(".root").setAttribute("data-theme", this.prefs.theme);
     this.$(".capture").title = `Capture feedback (${shortcutLabel(this.prefs.shortcut)}). Shift+drag to draw.`;
     this.renderMarkers();
     this.renderBar();
@@ -1617,6 +1618,11 @@ class Overlay {
         <div class="settings-head"><button class="back" title="Back to the backlog">‹ Backlog</button><b>Settings</b></div>
         <div class="setting"><span>Toolbar corner</span><div class="corners" data-pref="position">${corner("top-left", "↖")}${corner("top-right", "↗")}${corner("bottom-left", "↙")}${corner("bottom-right", "↘")}</div></div>
         <div class="note">Or drag the toolbar; it snaps to the nearest corner.</div>
+        <div class="setting"><span>Theme</span>${seg("theme", [
+          ["dark", "Dark", "Dark overlay"],
+          ["light", "Light", "Light overlay"],
+          ["auto", "Auto", "Follow the system setting"],
+        ])}</div>
         <div class="setting"><span>Notifications</span>${seg("notifications", [
           ["off", "Off", "No toasts or notifications when Claude finishes or asks"],
           ["page", "On page", "Toasts on this page only"],

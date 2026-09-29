@@ -265,6 +265,8 @@ export const PrefsSchema = z.object({
   /** ask: pick or name a batch when starting to capture; off: never ask. */
   batches: z.enum(["ask", "off"]).optional(),
   /** Capture shortcut as modifiers + KeyboardEvent.code, e.g. "Alt+Shift+KeyS" (the default) or "Ctrl+Shift+Period". */
+  /** Overlay colours: dark (default), light, or follow the system. */
+  theme: z.enum(["auto", "dark", "light"]).optional(),
   shortcut: short(40).regex(/^((Ctrl|Alt|Shift|Meta)\+)+[A-Za-z0-9]+$/).optional(),
   /** Name on items, replies and reviews; defaults to the git user. */
   name: short(80).optional(),

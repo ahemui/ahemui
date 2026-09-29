@@ -15305,6 +15305,8 @@ var PrefsSchema = external_exports.object({
   /** ask: pick or name a batch when starting to capture; off: never ask. */
   batches: external_exports.enum(["ask", "off"]).optional(),
   /** Capture shortcut as modifiers + KeyboardEvent.code, e.g. "Alt+Shift+KeyS" (the default) or "Ctrl+Shift+Period". */
+  /** Overlay colours: dark (default), light, or follow the system. */
+  theme: external_exports.enum(["auto", "dark", "light"]).optional(),
   shortcut: short(40).regex(/^((Ctrl|Alt|Shift|Meta)\+)+[A-Za-z0-9]+$/).optional(),
   /** Name on items, replies and reviews; defaults to the git user. */
   name: short(80).optional()
@@ -16000,7 +16002,7 @@ async function updatePrefs(patch) {
 
 // ../cli/src/server.ts
 var MIME = { webp: "image/webp", png: "image/png", jpg: "image/jpeg" };
-var BUILD = true ? "20260929000115" : "dev";
+var BUILD = true ? "20260929000207" : "dev";
 async function serve(store, opts = {}) {
   const config = await store.config();
   config.devOrigins = [.../* @__PURE__ */ new Set([...config.devOrigins, ...opts.origins ?? []])];
@@ -16495,7 +16497,7 @@ async function main(argv) {
   const [cmd, ...args] = positionals;
   if (o.version) {
     const v = true ? "0.4.0" : "dev";
-    return console.log(`ahemui ${v}${true ? ` (build ${"20260929000115"})` : ""}`);
+    return console.log(`ahemui ${v}${true ? ` (build ${"20260929000207"})` : ""}`);
   }
   if (!cmd || o.help) return console.log(HELP);
   process.env.AHEMUI_AUTHOR ||= defaultAuthor();

@@ -78,8 +78,8 @@ function render(state: PopupState) {
 
 // ——— personal settings (~/.ahemui/prefs.json, shared with the on-page ⚙ view) ———
 
-type Prefs = { position?: string; notifications?: string; enter?: string; markers?: string; batches?: string; name?: string };
-const DEFAULTS: Prefs = { position: "bottom-right", notifications: "desktop", enter: "now", markers: "all", batches: "ask" };
+type Prefs = { position?: string; theme?: string; notifications?: string; enter?: string; markers?: string; batches?: string; name?: string };
+const DEFAULTS: Prefs = { position: "bottom-right", theme: "dark", notifications: "desktop", enter: "now", markers: "all", batches: "ask" };
 const settings = document.getElementById("settings")!;
 
 async function renderSettings() {
@@ -100,6 +100,7 @@ async function renderSettings() {
   settings.innerHTML = `
     <h2>Your settings</h2>
     <div class="setting"><span>Toolbar corner</span><div class="corners" data-pref="position">${corner("top-left", "↖")}${corner("top-right", "↗")}${corner("bottom-left", "↙")}${corner("bottom-right", "↘")}</div></div>
+    <div class="setting"><span>Theme</span>${seg("theme", [["dark", "Dark"], ["light", "Light"], ["auto", "Auto"]])}</div>
     <div class="setting"><span>Notifications</span>${seg("notifications", [["off", "Off"], ["page", "On page"], ["desktop", "Desktop"]])}</div>
     <div class="setting"><span>Enter key</span>${seg("enter", [["now", "Start now"], ["backlog", "Backlog"]])}</div>
     <div class="setting"><span>Markers</span>${seg("markers", [["all", "All"], ["active", "Open"], ["none", "None"]])}</div>
