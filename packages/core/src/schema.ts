@@ -278,7 +278,12 @@ export const ConfigSchema = z.object({
   port: z.number().int().default(4777),
   devOrigins: z.array(z.string()).default(["http://localhost:5173"]),
   screenshot: z
-    .object({ format: z.enum(["webp", "png"]).default("webp"), maxBytes: z.number().int().default(300_000) })
+    .object({
+      format: z.enum(["webp", "png"]).default("webp"),
+      maxBytes: z.number().int().default(300_000),
+      /** Archiving drops screenshots from archived items older than this many days (the item.md stays). Unset: keep. */
+      keepArchivedDays: z.number().int().min(0).optional(),
+    })
     .default({}),
   /** Finished items wait for the requester's approval in the browser before counting as done. */
   review: z.boolean().default(true),

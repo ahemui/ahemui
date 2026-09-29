@@ -195,3 +195,15 @@ test("restore undoes an archive and a resolve", async () => {
   assert.equal(back.location, "items");
   assert.equal(back.status, "open");
 });
+
+test("keepArchivedDays in config drops old archived screenshots when archiving", async () => {
+  const file = join(root, ".ahemui", "config.json");
+  const cfg = JSON.parse(await readFile(file, "utf8"));
+  await writeFile(file, JSON.stringify({ ...cfg, screenshot: { ...cfg.screenshot, keepArchivedDays: 0 } }));
+  const it = await store.create({ prompt: "old one", anchor: {} }, { data: Buffer.from("RIFF0000WEBP"), ext: "webp" });
+  await store.resolve(it.id, { status: "done" });
+  const { shotsDropped } = await store.prune();
+  assert.equal(shotsDropped, 1);
+  assert.equal((await store.get(it.id)).shot, undefined);
+  assert.deepEqual(await store.screenshotBytes(), { items: 0, done: 0 });
+});

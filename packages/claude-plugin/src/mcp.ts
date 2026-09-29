@@ -171,9 +171,13 @@ tool(
   "Archive all done/wontfix items by moving them from .ahemui/items/ to .ahemui/done/. Optionally drop screenshots from archived items older than N days to keep the repo small (item.md is kept).",
   { drop_shots_older_than_days: z.number().int().min(0).optional() },
   async ({ drop_shots_older_than_days }) => {
-    const { moved, shotsDropped } = await store().prune({ dropShotsOlderThanDays: drop_shots_older_than_days });
+    const s = store();
+    const { moved, shotsDropped } = await s.prune({ dropShotsOlderThanDays: drop_shots_older_than_days });
     const lines = [moved.length ? `Archived ${moved.length} item(s) to .ahemui/done/:\n${moved.map(summary).join("\n")}` : "Nothing to archive."];
     if (shotsDropped) lines.push(`Removed ${shotsDropped} old screenshot file(s) from archived items.`);
+    const size = await s.screenshotBytes();
+    const mb = (n: number) => `${(n / 1_048_576).toFixed(1)} MB`;
+    lines.push(`Screenshots in git: ${mb(size.items)} in the backlog, ${mb(size.done)} archived.`);
     return lines.join("\n");
   },
 );
@@ -186,10 +190,15 @@ tool(
     port: z.number().int().optional().describe("Port for ahemui serve (default 4777)"),
     lfs: z.boolean().optional().describe("Track .ahemui screenshots with Git LFS (each machine needs `git lfs install`)"),
     vendor: z.boolean().optional().describe("Vendor the package tarball into .ahemui/vendor/ instead of installing from npm (offline, or no registry access)"),
+    keep_archived_days: z.number().int().min(0).optional().describe("Drop screenshots of archived items older than this many days when archiving (item.md stays)"),
   },
-  async ({ dev_origins, port, lfs, vendor }) => {
+  async ({ dev_origins, port, lfs, vendor, keep_archived_days }) => {
     const root = projectDir();
-    const s = await AhemStore.init(root, { ...(dev_origins && { devOrigins: dev_origins }), ...(port && { port }) });
+    const s = await AhemStore.init(root, {
+      ...(dev_origins && { devOrigins: dev_origins }),
+      ...(port && { port }),
+      ...(keep_archived_days !== undefined && { screenshot: { format: "webp", maxBytes: 300_000, keepArchivedDays: keep_archived_days } }),
+    });
     if (lfs) await s.enableLfs();
     const lines = [`AhemUI initialised in ${s.dir}`, `config: ${JSON.stringify(await s.config())}`];
     const tarball = join(here, "..", "vendor", VENDOR_TARBALL);

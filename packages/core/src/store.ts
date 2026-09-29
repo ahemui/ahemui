@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, renameSync, rmSync } from "node:fs";
-import { cp, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter.js";
 import {
@@ -404,8 +404,9 @@ export class AhemStore {
     const moved: Item[] = [];
     for (const item of finished) moved.push(await this.move(item, "done"));
     let shotsDropped = 0;
-    if (opts.dropShotsOlderThanDays !== undefined) {
-      const cutoff = Date.now() - opts.dropShotsOlderThanDays * 86_400_000;
+    const days = opts.dropShotsOlderThanDays ?? (await this.config()).screenshot.keepArchivedDays;
+    if (days !== undefined) {
+      const cutoff = Date.now() - days * 86_400_000;
       for (const item of await this.list({ includeDone: true })) {
         if (item.location !== "done" || Date.parse(item.created) > cutoff || !this.files(item).length) continue;
         for (const f of this.files(item)) await rm(join(this.itemDir(item.id, "done"), f), { force: true });
@@ -415,6 +416,20 @@ export class AhemStore {
       }
     }
     return { moved, shotsDropped };
+  }
+
+  /** Bytes of screenshots in the backlog and the archive, so skills can say when the repo is getting heavy. */
+  async screenshotBytes(): Promise<{ items: number; done: number }> {
+    const size = { items: 0, done: 0 };
+    for (const loc of ["items", "done"] as const) {
+      for (const id of await this.ids(loc)) {
+        const dir = this.itemDir(id, loc);
+        for (const f of await readdir(dir).catch(() => [] as string[])) {
+          if (/\.(webp|png|jpe?g)$/i.test(f)) size[loc] += (await stat(join(dir, f))).size;
+        }
+      }
+    }
+    return size;
   }
 
   /** Archives one finished (done/wontfix) item: it moves to .ahemui/done/ and its marker leaves the page. */

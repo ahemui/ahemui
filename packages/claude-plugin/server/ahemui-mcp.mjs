@@ -29066,7 +29066,12 @@ var ConfigSchema = external_exports.object({
   version: external_exports.literal(1).default(1),
   port: external_exports.number().int().default(4777),
   devOrigins: external_exports.array(external_exports.string()).default(["http://localhost:5173"]),
-  screenshot: external_exports.object({ format: external_exports.enum(["webp", "png"]).default("webp"), maxBytes: external_exports.number().int().default(3e5) }).default({}),
+  screenshot: external_exports.object({
+    format: external_exports.enum(["webp", "png"]).default("webp"),
+    maxBytes: external_exports.number().int().default(3e5),
+    /** Archiving drops screenshots from archived items older than this many days (the item.md stays). Unset: keep. */
+    keepArchivedDays: external_exports.number().int().min(0).optional()
+  }).default({}),
   /** Finished items wait for the requester's approval in the browser before counting as done. */
   review: external_exports.boolean().default(true),
   tracker: TrackerSchema.optional(),
@@ -29099,7 +29104,7 @@ var NewItemSchema = external_exports.object({
 // ../core/dist/store.js
 import { execFileSync as execFileSync2 } from "node:child_process";
 import { existsSync as existsSync2, renameSync, rmSync } from "node:fs";
-import { cp, mkdir, readdir, readFile, rename, rm, writeFile as writeFile2 } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile as writeFile2 } from "node:fs/promises";
 import { dirname as dirname3, isAbsolute, join as join3, relative as relative3, resolve as resolve2 } from "node:path";
 
 // ../core/dist/frontmatter.js
@@ -29498,8 +29503,9 @@ var AhemStore = class _AhemStore {
     for (const item of finished)
       moved.push(await this.move(item, "done"));
     let shotsDropped = 0;
-    if (opts.dropShotsOlderThanDays !== void 0) {
-      const cutoff = Date.now() - opts.dropShotsOlderThanDays * 864e5;
+    const days = opts.dropShotsOlderThanDays ?? (await this.config()).screenshot.keepArchivedDays;
+    if (days !== void 0) {
+      const cutoff = Date.now() - days * 864e5;
       for (const item of await this.list({ includeDone: true })) {
         if (item.location !== "done" || Date.parse(item.created) > cutoff || !this.files(item).length)
           continue;
@@ -29511,6 +29517,20 @@ var AhemStore = class _AhemStore {
       }
     }
     return { moved, shotsDropped };
+  }
+  /** Bytes of screenshots in the backlog and the archive, so skills can say when the repo is getting heavy. */
+  async screenshotBytes() {
+    const size = { items: 0, done: 0 };
+    for (const loc of ["items", "done"]) {
+      for (const id of await this.ids(loc)) {
+        const dir = this.itemDir(id, loc);
+        for (const f of await readdir(dir).catch(() => [])) {
+          if (/\.(webp|png|jpe?g)$/i.test(f))
+            size[loc] += (await stat(join3(dir, f))).size;
+        }
+      }
+    }
+    return size;
   }
   /** Archives one finished (done/wontfix) item: it moves to .ahemui/done/ and its marker leaves the page. */
   async archive(id) {
@@ -29778,10 +29798,14 @@ tool(
   "Archive all done/wontfix items by moving them from .ahemui/items/ to .ahemui/done/. Optionally drop screenshots from archived items older than N days to keep the repo small (item.md is kept).",
   { drop_shots_older_than_days: external_exports.number().int().min(0).optional() },
   async ({ drop_shots_older_than_days }) => {
-    const { moved, shotsDropped } = await store().prune({ dropShotsOlderThanDays: drop_shots_older_than_days });
+    const s = store();
+    const { moved, shotsDropped } = await s.prune({ dropShotsOlderThanDays: drop_shots_older_than_days });
     const lines = [moved.length ? `Archived ${moved.length} item(s) to .ahemui/done/:
 ${moved.map(summary).join("\n")}` : "Nothing to archive."];
     if (shotsDropped) lines.push(`Removed ${shotsDropped} old screenshot file(s) from archived items.`);
+    const size = await s.screenshotBytes();
+    const mb = (n) => `${(n / 1048576).toFixed(1)} MB`;
+    lines.push(`Screenshots in git: ${mb(size.items)} in the backlog, ${mb(size.done)} archived.`);
     return lines.join("\n");
   }
 );
@@ -29792,11 +29816,16 @@ tool(
     dev_origins: external_exports.array(external_exports.string()).optional().describe('Dev server origins, e.g. ["http://localhost:5173"]'),
     port: external_exports.number().int().optional().describe("Port for ahemui serve (default 4777)"),
     lfs: external_exports.boolean().optional().describe("Track .ahemui screenshots with Git LFS (each machine needs `git lfs install`)"),
-    vendor: external_exports.boolean().optional().describe("Vendor the package tarball into .ahemui/vendor/ instead of installing from npm (offline, or no registry access)")
+    vendor: external_exports.boolean().optional().describe("Vendor the package tarball into .ahemui/vendor/ instead of installing from npm (offline, or no registry access)"),
+    keep_archived_days: external_exports.number().int().min(0).optional().describe("Drop screenshots of archived items older than this many days when archiving (item.md stays)")
   },
-  async ({ dev_origins, port, lfs, vendor }) => {
+  async ({ dev_origins, port, lfs, vendor, keep_archived_days }) => {
     const root = projectDir();
-    const s = await AhemStore.init(root, { ...dev_origins && { devOrigins: dev_origins }, ...port && { port } });
+    const s = await AhemStore.init(root, {
+      ...dev_origins && { devOrigins: dev_origins },
+      ...port && { port },
+      ...keep_archived_days !== void 0 && { screenshot: { format: "webp", maxBytes: 3e5, keepArchivedDays: keep_archived_days } }
+    });
     if (lfs) await s.enableLfs();
     const lines = [`AhemUI initialised in ${s.dir}`, `config: ${JSON.stringify(await s.config())}`];
     const tarball = join4(here, "..", "vendor", VENDOR_TARBALL);

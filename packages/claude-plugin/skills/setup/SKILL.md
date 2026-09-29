@@ -13,8 +13,11 @@ description: Set up AhemUI in the current Vue + Vite project — create .ahemui/
    so this only matters for the browser extension.
 3. **Initialise.** Call `ahemui_init` with `dev_origins` set to that origin. `.ahemui/` must sit at the **git repo root**
    (the directory you're in), even when the Vite app is in a subfolder. The Vite plugin searches upward for it.
-   Screenshots are committed with the items (WebP, capped at 300 KB each). Ask whether the team wants them in
-   **Git LFS** instead; if so, pass `lfs: true`. Pass `vendor: true` only when the machine can't reach the npm registry.
+   Screenshots are committed with the items (WebP, capped at 300 KB each, typically 20–80 KB). Ask the user once how
+   to keep the repo light, and pass the answer:
+   - **Keep everything** (fine for most projects): nothing to pass.
+   - **Drop old screenshots when archiving**: `keep_archived_days: 30` (or their number). The item.md stays; only images go.
+   - **Git LFS**: `lfs: true`. Every machine then needs `git lfs install`. Pass `vendor: true` only when the machine can't reach the npm registry.
 4. **Install** the package from the Vite app's directory with the project's package manager (check for
    `pnpm-lock.yaml`, `yarn.lock` or `bun.lock`). `ahemui_init` prints the exact command: normally
    `npm i -D ahemui@<version>`, matching this plugin's version. For a local plugin build it prints a vendored tarball

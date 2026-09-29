@@ -15315,7 +15315,12 @@ var ConfigSchema = external_exports.object({
   version: external_exports.literal(1).default(1),
   port: external_exports.number().int().default(4777),
   devOrigins: external_exports.array(external_exports.string()).default(["http://localhost:5173"]),
-  screenshot: external_exports.object({ format: external_exports.enum(["webp", "png"]).default("webp"), maxBytes: external_exports.number().int().default(3e5) }).default({}),
+  screenshot: external_exports.object({
+    format: external_exports.enum(["webp", "png"]).default("webp"),
+    maxBytes: external_exports.number().int().default(3e5),
+    /** Archiving drops screenshots from archived items older than this many days (the item.md stays). Unset: keep. */
+    keepArchivedDays: external_exports.number().int().min(0).optional()
+  }).default({}),
   /** Finished items wait for the requester's approval in the browser before counting as done. */
   review: external_exports.boolean().default(true),
   tracker: TrackerSchema.optional(),
@@ -15348,7 +15353,7 @@ var NewItemSchema = external_exports.object({
 // ../core/dist/store.js
 import { execFileSync } from "node:child_process";
 import { existsSync, renameSync, rmSync } from "node:fs";
-import { cp, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 // ../core/dist/frontmatter.js
@@ -15747,8 +15752,9 @@ var AhemStore = class _AhemStore {
     for (const item of finished)
       moved.push(await this.move(item, "done"));
     let shotsDropped = 0;
-    if (opts.dropShotsOlderThanDays !== void 0) {
-      const cutoff = Date.now() - opts.dropShotsOlderThanDays * 864e5;
+    const days = opts.dropShotsOlderThanDays ?? (await this.config()).screenshot.keepArchivedDays;
+    if (days !== void 0) {
+      const cutoff = Date.now() - days * 864e5;
       for (const item of await this.list({ includeDone: true })) {
         if (item.location !== "done" || Date.parse(item.created) > cutoff || !this.files(item).length)
           continue;
@@ -15760,6 +15766,20 @@ var AhemStore = class _AhemStore {
       }
     }
     return { moved, shotsDropped };
+  }
+  /** Bytes of screenshots in the backlog and the archive, so skills can say when the repo is getting heavy. */
+  async screenshotBytes() {
+    const size = { items: 0, done: 0 };
+    for (const loc of ["items", "done"]) {
+      for (const id of await this.ids(loc)) {
+        const dir = this.itemDir(id, loc);
+        for (const f of await readdir(dir).catch(() => [])) {
+          if (/\.(webp|png|jpe?g)$/i.test(f))
+            size[loc] += (await stat(join(dir, f))).size;
+        }
+      }
+    }
+    return size;
   }
   /** Archives one finished (done/wontfix) item: it moves to .ahemui/done/ and its marker leaves the page. */
   async archive(id) {
@@ -16002,7 +16022,7 @@ async function updatePrefs(patch) {
 
 // ../cli/src/server.ts
 var MIME = { webp: "image/webp", png: "image/png", jpg: "image/jpeg" };
-var BUILD = true ? "20260929000207" : "dev";
+var BUILD = true ? "20260929000420" : "dev";
 async function serve(store, opts = {}) {
   const config = await store.config();
   config.devOrigins = [.../* @__PURE__ */ new Set([...config.devOrigins, ...opts.origins ?? []])];
@@ -16497,7 +16517,7 @@ async function main(argv) {
   const [cmd, ...args] = positionals;
   if (o.version) {
     const v = true ? "0.4.0" : "dev";
-    return console.log(`ahemui ${v}${true ? ` (build ${"20260929000207"})` : ""}`);
+    return console.log(`ahemui ${v}${true ? ` (build ${"20260929000420"})` : ""}`);
   }
   if (!cmd || o.help) return console.log(HELP);
   process.env.AHEMUI_AUTHOR ||= defaultAuthor();
