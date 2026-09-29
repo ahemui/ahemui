@@ -7,9 +7,21 @@ Markers on the page follow each request from **queued** (amber) → **in progres
 The backlog is plain files in your repo (`.ahemui/`), so it travels with git: capture a batch of feedback, commit it
 to a branch, and someone else (or another Claude session) can pick it up.
 
-Built for **Vue + Vite** (exact template file:line). React ≤18 and Svelte dev builds give file:line too, and React 19
-gives component names only. Any stack gets screenshots, CSS paths, page metadata, errors and styles. Storybook stories
-map to their story file.
+## What it works with
+
+| | Source file:line | Component chain | Screenshots, CSS path, page, errors, styles | How it gets on the page |
+|---|---|---|---|---|
+| **Vue 3 + Vite** | ✓ exact, from the template | ✓ | ✓ | Vite plugin |
+| **React ≤ 18 + Vite** | ✓ from the dev build | ✓ | ✓ | Vite plugin |
+| **React 19 + Vite** | component name only | ✓ | ✓ | Vite plugin |
+| **Svelte + Vite** | ✓ from the dev build | ✓ | ✓ | Vite plugin |
+| **Anything else** (webpack, Next.js, Rails, a deployed site…) | — | — | ✓ | Browser extension + `npx ahemui serve` |
+
+Storybook stories map to their story file. Nuxt and SvelteKit run on Vite, so they count as Vite. Without Vite,
+Claude finds the code from the selector, text and screenshot instead of a file:line, which works but is slower.
+
+Browsers: the Vite-injected overlay runs in any modern browser, including Claude's built-in one; the extension is for
+Chromium browsers (Chrome, Edge, Vivaldi, Brave, Arc).
 
 ```
  browser page ──(overlay: select / draw / type)──► ahemui serve ──► .ahemui/items/<id>/{item.md, shot.webp}
@@ -34,22 +46,19 @@ map to their story file.
 
 ## Getting started
 
-```bash
-npm install
-npm run build
-```
-
 **1. Install the Claude Code plugin** (from any Claude Code session):
 
 ```
-/plugin marketplace add C:\dev\ahemui
+/plugin marketplace add ahemui/ahemui
 /plugin install ahemui@ahemui
 ```
+
+(Working on AhemUI itself? `npm install && npm run build` here, then `/plugin marketplace add <path to this repo>`.)
 
 **2. Set up a project.** Open your Vue + Vite repo in Claude Code and run `/ahemui:setup`. It:
 
 - creates `.ahemui/`
-- vendors `ahemui` into `.ahemui/vendor/ahemui.tgz` and installs it (so teammates get it via `npm install`)
+- installs `ahemui` from npm as a dev dependency (so teammates get it with `npm install`)
 - adds `ahemui()` after `vue()` in your Vite config
 
 Or by hand:
