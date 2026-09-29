@@ -1,6 +1,6 @@
 {
   "name": "ahemui",
-  "version": "0.4.0-dev.20260929000420",
+  "version": "0.4.0-dev.20260929000523",
   "description": "Visual UI feedback backlog: highlight parts of your running app, queue change requests into .ahemui/, and let Claude work through them — markers in the browser go from queued to done.",
   "author": {
     "name": "Pietari Keurulainen"
