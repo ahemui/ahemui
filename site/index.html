@@ -19,6 +19,7 @@
     <div class="wrap nav-inner">
       <a class="logo" href="#" aria-label="AhemUI home"><img src="favicon.svg" alt="" width="22" height="22"><span>ahem<b>ui</b></span></a>
       <nav aria-label="Primary">
+        <a href="#why">Why</a>
         <a href="#how">How it works</a>
         <a href="#features">Features</a>
         <a href="#trackers">Trackers</a>
@@ -84,6 +85,46 @@
           <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url">claude · acme-web</span></div>
           <pre id="demo-term"></pre>
         </div>
+      </div>
+    </section>
+
+    <!-- ——— why: screenshot-and-explain vs point at it ——— -->
+    <section id="why" class="versus">
+      <div class="wrap">
+        <h2>Stop explaining where things are.</h2>
+        <p class="sub">A screenshot shows Claude what's wrong, not where it lives in your code. So you describe it, Claude searches and guesses, and you go round again. AhemUI hands over the exact file and line with the picture.</p>
+        <div class="vs-grid">
+          <article class="vs-card vs-old">
+            <div class="vs-label">Screenshot and explain</div>
+            <ol class="vs-steps">
+              <li>Take a screenshot, crop it, paste it into Claude.</li>
+              <li>Describe where it is, in words.</li>
+              <li>Claude searches for "Deploy", finds four matches and picks one.</li>
+              <li>Reload, check, explain again when it's the wrong one.</li>
+              <li>Next tweak: start over. Nothing is tracked.</li>
+            </ol>
+            <div class="vs-box">
+              <div class="vs-box-head">What you type</div>
+              <p class="vs-prompt">"See screenshot. On the projects page, in the Mobile app card (the middle one), the Deploy button, not the one in the header, should be full width and say Deploy to production. I think it's in ProjectCard or maybe ProjectsPage?"</p>
+            </div>
+          </article>
+          <article class="vs-card vs-new">
+            <div class="vs-label">Point at it</div>
+            <ol class="vs-steps">
+              <li>Circle the button.</li>
+              <li>Type what should change and press <kbd>Enter</kbd>.</li>
+              <li>Claude opens <code>ProjectCard.vue:14</code> and fixes it. No searching, no guessing.</li>
+              <li>Approve the before and after right on the page.</li>
+            </ol>
+            <div class="vs-box">
+              <div class="vs-box-head">What you type</div>
+              <p class="vs-prompt">"Make this full width and say Deploy to production."</p>
+              <div class="vs-box-head">What Claude gets on its own</div>
+              <div class="vs-chips"><span>ProjectCard.vue:14:5</span><span>/projects › Mobile app</span><span>ProjectsPage › ProjectCard</span><span>var(--brand-600)</span><span>GET /api/deployments → 500</span><span>screenshot</span></div>
+            </div>
+          </article>
+        </div>
+        <p class="vs-sum"><b>A paragraph of directions</b> becomes <b>one sentence</b>, Claude starts in the right file, and every request stays on the list until you've approved it.</p>
       </div>
     </section>
 
