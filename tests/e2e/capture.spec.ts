@@ -129,7 +129,7 @@ test("dismiss an item from the backlog, then undo", async ({ page }) => {
   await expect(strip).toBeVisible(); // asks first; the row keeps its size
   expect((await row.boundingBox())!.height).toBe(before);
   expect((await api(page, `/api/items/${item.id}`)).location).toBe("items");
-  await strip.getByRole("button", { name: "Keep" }).click();
+  await strip.getByRole("button", { name: "Cancel" }).click();
   await expect(strip).toHaveCount(0);
   await row.hover();
   await row.locator(".row-dismiss").click();

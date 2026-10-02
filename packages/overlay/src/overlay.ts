@@ -1268,7 +1268,7 @@ class Overlay {
           <button class="row-dismiss" data-dismiss="${i.id}" title="Dismiss: take it off the backlog" aria-label="Dismiss">✕</button>
           ${
             this.confirmDismiss === i.id
-              ? `<div class="row-confirm" role="group" aria-label="Dismiss this item?"><span>Dismiss this item?</span><button class="btn rc-keep" data-keep="${i.id}">Keep</button><button class="btn rc-go" data-confirm="${i.id}">Dismiss</button></div>`
+              ? `<div class="row-confirm" role="group" aria-label="Dismiss this item?"><span>Dismiss this item?</span><button class="btn rc-keep" data-keep="${i.id}">Cancel</button><button class="btn rc-go" data-confirm="${i.id}">Dismiss</button></div>`
               : ""
           }
         </div>`;
