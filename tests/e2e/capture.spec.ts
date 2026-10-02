@@ -160,3 +160,26 @@ test("board: drag a card from Backlog to Queue; the modal keeps actions in its f
   await expect(modal.locator(".d-foot").getByRole("button", { name: "Move to backlog" })).toBeVisible();
   await expect(modal.locator(".d-body button.btn")).toHaveCount(0); // no action buttons mixed into the content
 });
+
+test("board: move an item into a new review batch from the modal, then make the batch changes", async ({ page }) => {
+  await page.goto("/");
+  const base = await server(page);
+  const item = await api(page, "/api/items", { method: "POST", body: { prompt: "Batch me", route: "/", start: "now", anchor: {} } });
+  created.push(item.id);
+  await page.goto(`${base}/#${item.id}`);
+  const modal = page.locator(".drawer");
+  await modal.locator("[data-batch]").selectOption("new");
+  await modal.locator("[data-new-intent]").selectOption("review");
+  await modal.locator("[data-new-batch]").fill("E2E review batch");
+  await modal.locator("[data-new-batch]").press("Enter");
+  const get = async () => (await (await page.request.get(`${base}/api/items/${item.id}`)).json());
+  await expect.poll(async () => (await get()).intent).toBe("review");
+  expect((await get()).start).toBe("later");
+
+  await page.keyboard.press("Escape");
+  await page.locator(".f-group").selectOption("batch");
+  await page.getByRole("button", { name: "Make these changes" }).first().click();
+  await expect.poll(async () => (await get()).intent).toBeUndefined();
+  const batchId = (await get()).batch;
+  await rm(join("examples", "vue-app", ".ahemui", "batches", `${batchId}.json`), { force: true });
+});

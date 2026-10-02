@@ -260,6 +260,30 @@ export class AhemStore {
     return all.find((b) => b.id.toLowerCase().startsWith(r)) ?? all.find((b) => b.name.toLowerCase() === r) ?? null;
   }
 
+  /**
+   * Moves an item into a batch (or out of any, with null). It takes the batch's intent: into a review batch it
+   * leaves the queue (review only, never Start now); into a changes batch it can be worked again.
+   */
+  async setBatch(id: string, batchRef: string | null): Promise<Item> {
+    const item = await this.get(id);
+    const batch = batchRef ? await this.findBatch(batchRef) : null;
+    if (batchRef && !batch) throw new AhemError(`no batch matching "${batchRef}"`);
+    const next: Item = { ...item, batch: batch?.id, intent: batch?.intent === "review" ? "review" : undefined };
+    if (next.intent === "review" && next.start === "now") next.start = "later";
+    return this.save(next);
+  }
+
+  /** Turns a whole batch into changes to make, or into things for review, and its items with it. */
+  async setBatchIntent(batchRef: string, intent: Intent): Promise<{ batch: Batch; items: Item[] }> {
+    const batch = await this.findBatch(batchRef);
+    if (!batch) throw new AhemError(`no batch matching "${batchRef}"`);
+    const updated = BatchSchema.parse({ ...batch, intent });
+    await writeFile(join(this.dir, "batches", `${batch.id}.json`), JSON.stringify(updated, null, 2) + "\n");
+    const items: Item[] = [];
+    for (const it of await this.list({ batch: batch.id })) items.push(await this.setBatch(it.id, batch.id));
+    return { batch: updated, items };
+  }
+
   async create(input: NewItem, shot?: Shot, extraShots: (Shot | undefined)[] = []): Promise<Item> {
     const { prompt, ...rest } = NewItemSchema.parse(input);
     // Items take their batch's intent; flagged-for-review ones never go straight to Claude.

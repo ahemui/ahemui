@@ -181,6 +181,12 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
   }
 
   // Named rounds of feedback ("Home changes · 28 Sep"), picked in the overlay when someone starts capturing.
+  // Change a batch's kind: { intent: "action" | "review" }. Its items follow.
+  if (parts[1] === "batches" && parts[2] && req.method === "POST") {
+    const body = await readJson(req, 16_000);
+    if (body.intent !== "action" && body.intent !== "review") throw new HttpError(400, "intent must be action or review");
+    return send(res, 200, await store.setBatchIntent(decodeURIComponent(parts[2]), body.intent));
+  }
   if (parts[1] === "batches" && !parts[2]) {
     if (req.method === "GET") return send(res, 200, await store.listBatches());
     if (req.method === "POST") {
@@ -252,6 +258,10 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
     return send(res, 200, await store.restore(id, body.status));
   }
   if (req.method === "POST" && action === "archive") return send(res, 200, await store.archive(id));
+  if (req.method === "POST" && action === "batch") {
+    const body = await readJson(req, 16_000);
+    return send(res, 200, await store.setBatch(id, typeof body.batch === "string" && body.batch ? body.batch : null));
+  }
   if (req.method === "POST" && action === "dismiss") {
     const body = await readJson(req, 16_000);
     return send(res, 200, await store.dismiss(id, body.author ?? defaultAuthor()));

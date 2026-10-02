@@ -235,11 +235,17 @@ function renderBoard() {
     board.innerHTML =
       [...groups]
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, list]) => `<section class="grp"><h2>${esc(k)} <span>${list.length}</span></h2><div class="cards">${list.map(card).join("")}</div></section>`)
+        .map(([k, list]) => `<section class="grp"><h2>${esc(k)} <span>${list.length}</span>${state.groupBy === "batch" && live ? batchActions(list) : ""}</h2><div class="cards">${list.map(card).join("")}</div></section>`)
         .join("") || `<p class="empty big">Nothing matches.</p>`;
   }
   board.querySelectorAll<HTMLElement>(".card").forEach((c) => c.classList.toggle("sel", c.dataset.id === state.selected));
   if (live && state.groupBy === "status") bindDrag(board);
+  board.querySelectorAll<HTMLButtonElement>("[data-batch-act]").forEach((b) =>
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      batchAct(b.dataset.batchAct!, b.dataset.batchId!);
+    }),
+  );
 }
 
 /** What dropping an item on a column does, or null when that move isn't the person's to make. */
@@ -433,6 +439,36 @@ function renderDrawer() {
     el.addEventListener("change", () => act(it.id, "triage"));
     if (el instanceof HTMLInputElement) el.addEventListener("keydown", (e) => e.key === "Enter" && el.blur());
   });
+  // Batch: picking one moves the item (review batches take it off the queue); "New batch…" asks for a name first.
+  const batchSel = drawer.querySelector<HTMLSelectElement>("[data-batch]");
+  const newBox = drawer.querySelector<HTMLElement>(".new-batch");
+  batchSel?.addEventListener("change", async () => {
+    if (batchSel.value === "new") {
+      newBox!.hidden = false;
+      newBox!.querySelector<HTMLInputElement>("input")!.focus();
+      return;
+    }
+    newBox!.hidden = true;
+    await moveToBatch(it.id, batchSel.value || null);
+  });
+  const nameInput = newBox?.querySelector<HTMLInputElement>("[data-new-batch]");
+  const createBatch = async () => {
+    const name = nameInput!.value.trim();
+    if (!name) return;
+    const intent = newBox!.querySelector<HTMLSelectElement>("[data-new-intent]")!.value;
+    try {
+      const batch = await api<Batch>("POST", "/api/batches", { name, intent });
+      state.batches = [batch, ...state.batches];
+      await moveToBatch(it.id, batch.id);
+    } catch (err) {
+      toast((err as Error).message);
+    }
+  };
+  nameInput?.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") createBatch();
+  });
+  nameInput?.addEventListener("change", createBatch);
   drawer.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((b) => b.addEventListener("click", () => lightbox(b.dataset.zoom!)));
 }
 
@@ -525,6 +561,15 @@ function triageSection(it: Item): string {
   return `<section><h3>Classification</h3><div class="triage">
     <label>Type <select data-t="type">${opt(TYPES, it.type)}</select></label>
     <label>Priority <select data-t="priority">${opt(PRIORITIES, it.priority, "normal")}</select></label>
+    <label class="wide">Batch <select data-batch>
+      <option value="">No batch</option>
+      ${state.batches.map((b) => `<option value="${b.id}" ${b.id === it.batch ? "selected" : ""}>${esc(b.name)} (${b.intent === "review" ? "for review" : "changes"})</option>`).join("")}
+      <option value="new">New batch…</option>
+    </select></label>
+    <div class="new-batch wide" hidden>
+      <input data-new-batch placeholder="Batch name" maxlength="120">
+      <select data-new-intent><option value="action">Changes to make</option><option value="review">For review</option></select>
+    </div>
     <label class="wide">Area <input data-t="area" value="${esc(it.area ?? "")}" placeholder="Page › Section"></label>
     <label class="wide">Labels <input data-t="labels" value="${esc((it.labels ?? []).join(", "))}" placeholder="mobile, dark-mode"></label>
     <div class="saved-hint">Saved as you change it</div>
@@ -654,6 +699,53 @@ function firstLine(it: Item): string {
 }
 
 /** "/pricing · Pricing": the route plus a short page name. Not the <h1>, which is often a whole sentence. */
+/** A batch group's header actions: queue every open item of a changes batch, or turn a review batch into changes. */
+function batchActions(list: Item[]): string {
+  const id = list[0]?.batch;
+  const b = id ? state.batches.find((x) => x.id === id) : undefined;
+  if (!b) return "";
+  if (b.intent === "review") {
+    return `<button class="btn grp-act" data-batch-act="to-changes" data-batch-id="${b.id}" title="Make these changes: the batch and its items become actionable">Make these changes</button>`;
+  }
+  const waiting = list.filter((i) => i.status === "open" && !i.needs_reply && i.start !== "now").length;
+  return waiting
+    ? `<button class="btn grp-act" data-batch-act="queue-all" data-batch-id="${b.id}" title="Queue every open item in this batch for Claude">⚡ Queue all ${waiting}</button>`
+    : "";
+}
+
+async function batchAct(action: string, batchId: string) {
+  try {
+    if (action === "to-changes") {
+      const { batch, items } = await api<{ batch: Batch; items: Item[] }>("POST", `/api/batches/${batchId}`, { intent: "action" });
+      state.batches = state.batches.map((b) => (b.id === batch.id ? batch : b));
+      state.items = state.items.map((i) => items.find((u) => u.id === i.id) ?? i);
+      render();
+      toast(`${batch.name} is now changes to make`, async () => {
+        const back = await api<{ batch: Batch; items: Item[] }>("POST", `/api/batches/${batchId}`, { intent: "review" });
+        state.batches = state.batches.map((b) => (b.id === back.batch.id ? back.batch : b));
+        state.items = state.items.map((i) => back.items.find((u) => u.id === i.id) ?? i);
+        render();
+      });
+    } else if (action === "queue-all") {
+      const ids = state.items.filter((i) => i.batch === batchId && i.status === "open" && !i.needs_reply && i.start !== "now").map((i) => i.id);
+      for (const id of ids) {
+        const u = await api<Item>("POST", `/api/items/${id}/start`, { start: "now" });
+        state.items = state.items.map((i) => (i.id === u.id ? u : i));
+      }
+      render();
+      toast(`Queued ${ids.length} for Claude`, async () => {
+        for (const id of ids) {
+          const u = await api<Item>("POST", `/api/items/${id}/start`, { start: "later" });
+          state.items = state.items.map((i) => (i.id === u.id ? u : i));
+        }
+        render();
+      });
+    }
+  } catch (err) {
+    toast((err as Error).message);
+  }
+}
+
 function batchLabel(it: Item): string {
   if (!it.batch) return "No batch";
   const b = state.batches.find((x) => x.id === it.batch);
@@ -699,6 +791,25 @@ function toast(msg: string, undo?: () => Promise<void>) {
   t.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = window.setTimeout(() => t.classList.remove("show"), undo ? 6000 : 2500);
+}
+
+/** Moves an item into a batch (or none), with Undo. */
+async function moveToBatch(id: string, batchId: string | null) {
+  const before = state.items.find((i) => i.id === id);
+  try {
+    const updated = await api<Item>("POST", `/api/items/${id}/batch`, { batch: batchId });
+    state.items = state.items.map((i) => (i.id === id ? updated : i));
+    render();
+    const b = state.batches.find((x) => x.id === batchId);
+    toast(b ? `Moved to ${b.name}${b.intent === "review" ? " (for review)" : ""}` : "Removed from its batch", async () => {
+      const back = await api<Item>("POST", `/api/items/${id}/batch`, { batch: before?.batch ?? null });
+      const restored = before?.start === "now" ? await api<Item>("POST", `/api/items/${id}/start`, { start: "now" }) : back;
+      state.items = state.items.map((i) => (i.id === id ? restored : i));
+      render();
+    });
+  } catch (err) {
+    toast((err as Error).message);
+  }
 }
 
 /** The toast's Undo: back into the backlog, and to the status it had before. */

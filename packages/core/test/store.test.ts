@@ -220,3 +220,17 @@ test("dismiss takes an item off the backlog into the archive, and restore brings
   assert.equal(back.status, "open");
   assert.doesNotMatch(back.body, /Dismissed from the backlog/);
 });
+
+test("moving items between batches follows the batch's kind; a whole batch can switch kind", async () => {
+  const review = await store.createBatch({ name: "Copy review", intent: "review", author: "anna" });
+  const it = await store.create({ prompt: "tighten the hero copy", start: "now", anchor: {} });
+  const moved = await store.setBatch(it.id, review.id);
+  assert.equal(moved.intent, "review");
+  assert.equal(moved.start, "later"); // review items never sit in the Start now queue
+  const { batch, items } = await store.setBatchIntent(review.id, "action");
+  assert.equal(batch.intent, "action");
+  assert.equal(items[0].intent, undefined);
+  const out = await store.setBatch(it.id, null);
+  assert.equal(out.batch, undefined);
+  await assert.rejects(store.setBatch(it.id, "no such batch"));
+});
