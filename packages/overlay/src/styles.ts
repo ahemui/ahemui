@@ -238,6 +238,11 @@ a.btn:hover { border-color: var(--accent); }
 .list-item.elsewhere { opacity: .6; }
 .empty { color: var(--muted); padding: 6px; }
 
+.lightbox { position: fixed; inset: 0; display: grid; place-items: center; padding: 32px; background: rgba(5,6,10,.86); pointer-events: auto; cursor: zoom-out; }
+.lightbox[hidden] { display: none; }
+.lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+.lb-x { position: fixed; top: 14px; right: 16px; width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; font-size: 15px; }
+.pop img[data-file] { cursor: zoom-in; }
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--bg); border: 1px solid var(--line);
   padding: 8px 14px; border-radius: 8px; pointer-events: none; opacity: 0; transition: opacity .2s; max-width: 520px; text-align: center;

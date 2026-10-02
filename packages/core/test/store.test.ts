@@ -218,4 +218,5 @@ test("dismiss takes an item off the backlog into the archive, and restore brings
   const back = await store.restore(it.id, "open");
   assert.equal(back.location, "items");
   assert.equal(back.status, "open");
+  assert.doesNotMatch(back.body, /Dismissed from the backlog/);
 });

@@ -218,7 +218,7 @@ function renderBoard() {
       const list = items.filter(c.test);
       const finishedHere = list.filter((i) => i.location === "items").length;
       const clear = live && c.key === "done" && finishedHere ? `<button class="btn clear" data-quick="prune" data-id="" title="Archive every done and won't-fix item (moves them to .ahemui/done/)">Clear ${finishedHere}</button>` : "";
-      return `<section class="col col-${c.key}"><h2 title="${c.hint}">${c.title} <span>${list.length}</span>${clear}</h2><div class="cards">${list.map(card).join("") || `<p class="empty">${c.hint}</p>`}</div></section>`;
+      return `<section class="col col-${c.key}" data-col="${c.key}"><h2 title="${c.hint}">${c.title} <span>${list.length}</span>${clear}</h2><div class="cards">${list.map(card).join("") || `<p class="empty">${c.hint}</p>`}</div></section>`;
     }).join("");
   } else {
     board.className = "board groups";
@@ -239,6 +239,63 @@ function renderBoard() {
         .join("") || `<p class="empty big">Nothing matches.</p>`;
   }
   board.querySelectorAll<HTMLElement>(".card").forEach((c) => c.classList.toggle("sel", c.dataset.id === state.selected));
+  if (live && state.groupBy === "status") bindDrag(board);
+}
+
+/** What dropping an item on a column does, or null when that move isn't the person's to make. */
+function dropAction(it: Item, col: string): { act: string; label: string } | null {
+  const open = it.status === "open" && !it.needs_reply;
+  const finished = it.status === "done" || it.status === "wontfix";
+  if (col === "queue" && open && it.start !== "now") return { act: "start", label: "Queued for Claude" };
+  if (col === "backlog" && open && it.start === "now") return { act: "later", label: "Moved to the backlog" };
+  if (col === "backlog" && (finished || it.status === "in-progress")) return { act: "reopen", label: "Back in the backlog" };
+  if (col === "done" && !finished) return { act: "done", label: "Marked done" };
+  return null; // In progress and Needs you are set by Claude and by reviews, not by dragging
+}
+
+let dragging: string | null = null;
+
+function bindDrag(board: HTMLElement) {
+  board.querySelectorAll<HTMLElement>(".card[draggable]").forEach((card) => {
+    card.addEventListener("dragstart", (e) => {
+      dragging = card.dataset.id!;
+      e.dataTransfer?.setData("text/plain", dragging);
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+      card.classList.add("dragging");
+      const it = state.items.find((i) => i.id === dragging)!;
+      board.querySelectorAll<HTMLElement>(".col").forEach((col) => col.classList.toggle("can-drop", !!dropAction(it, col.dataset.col!)));
+      board.classList.add("is-dragging");
+    });
+    card.addEventListener("dragend", () => {
+      dragging = null;
+      card.classList.remove("dragging");
+      board.classList.remove("is-dragging");
+      board.querySelectorAll(".col").forEach((col) => col.classList.remove("can-drop", "over"));
+    });
+  });
+  board.querySelectorAll<HTMLElement>(".col").forEach((col) => {
+    col.addEventListener("dragover", (e) => {
+      if (!dragging || !col.classList.contains("can-drop")) return;
+      e.preventDefault();
+      col.classList.add("over");
+    });
+    col.addEventListener("dragleave", (e) => {
+      if (!col.contains(e.relatedTarget as Node)) col.classList.remove("over");
+    });
+    col.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      col.classList.remove("over");
+      const it = state.items.find((i) => i.id === dragging);
+      const move = it && dropAction(it, col.dataset.col!);
+      if (!it || !move) return;
+      const was = { status: it.status, start: it.start };
+      await act(it.id, move.act); // its own toast is replaced by the one below, which offers Undo
+      toast(move.label, async () => {
+        await restore(it.id, was.status);
+        if (was.start && was.status === "open") await api<Item>("POST", `/api/items/${it.id}/start`, { start: was.start }).then((u) => ((state.items = state.items.map((i) => (i.id === u.id ? u : i))), render()));
+      });
+    });
+  });
 }
 
 function card(it: Item): string {
@@ -260,7 +317,7 @@ function card(it: Item): string {
     live && it.status === "open" && !asking && it.start !== "now"
       ? `<button class="quick" data-quick="start" data-id="${it.id}" title="Have Claude work on this now">${state.watcher?.state === "working" ? "Add to queue" : "⚡ Start"}</button>`
       : "";
-  return `<article class="card s-${it.status}${asking ? " s-ask" : ""}" data-id="${it.id}" tabindex="0">
+  return `<article class="card s-${it.status}${asking ? " s-ask" : ""}" data-id="${it.id}" tabindex="0"${live && it.location === "items" ? ' draggable="true"' : ""}>
     ${it.shot ? `<div class="thumb"><img loading="lazy" src="${fileUrl(it, it.shot)}" alt=""></div>` : ""}
     <div class="c-title">${esc(firstLine(it))}</div>
     <div class="c-page">${esc(pageName(it.page, it.route))}${it.page?.section ? ` › ${esc(it.page.section)}` : ""}</div>
@@ -307,16 +364,15 @@ function renderDrawer() {
     if (ex.shot) images.push(fig(it, ex.shot, ex.role === "reference" ? `area ${n + 2}: example to match` : `area ${n + 2}: also applies here`));
   }
 
-  // Same order as the popover on the page: status, the request, who/when, what to do, the picture, the
-  // conversation, where it lives; everything technical folded away underneath.
-  const tags = [
-    it.intent === "review" ? "for review" : "",
-    it.start === "now" && it.status === "open" && !asking ? "⚡ start now" : "",
-    it.type ?? "",
+  // Read top to bottom: what was asked, where it stands (a sentence, not a button), how it's classified, then
+  // the evidence. Every action lives in the footer bar, so nothing in the body looks clickable unless it is.
+  const classes = [
+    it.type,
     it.priority && it.priority !== "normal" ? `${it.priority} priority` : "",
-    it.area ?? "",
+    it.area,
     ...(it.labels ?? []).map((l) => `#${l}`),
-  ].filter(Boolean);
+    it.batch ? `batch: ${batchLabel(it)}` : "",
+  ].filter(Boolean) as string[];
   const technical = [
     row("Components", a.components?.join(" › ")),
     row("Page file", p.pageFile, true),
@@ -325,37 +381,40 @@ function renderDrawer() {
     row("CSS path", a.selector, true),
     row("Seen in", [p.browser, it.viewport, p.colorScheme && `${p.colorScheme} mode`].filter(Boolean).join(", ")),
   ].join("");
+  const st = statusInfo(it, asking);
   drawer.innerHTML = `
     <div class="d-head">
-      <span class="pill s-${it.status}${asking ? " s-ask" : ""}">${asking ? "question for you" : LABEL[it.status]}</span>
       <button class="id-copy" data-act="copy" title="Copy id"><code>${it.id.slice(0, 10)}…</code></button>
+      ${it.url ? `<a class="open-page" href="${esc(it.url)}" target="_blank" rel="noopener">Open page ↗</a>` : ""}
       <button class="x" title="Close (Esc)" aria-label="Close">✕</button>
     </div>
-    <h1 class="request">${esc(prompt.trim())}</h1>
-    <div class="d-sub">${esc(it.author)} · ${new Date(it.created).toLocaleString()}${it.claimed_by && it.status === "in-progress" ? ` · ${esc(it.claimed_by)} is on it` : ""}</div>
-    ${tags.length ? `<div class="chips">${tags.map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>` : ""}
-    ${live ? actions(it, asking) : ""}
-    ${images.join("")}
-    ${
-      thread.length
-        ? `<section><h3>Conversation</h3>${thread
-            .map((t) => `<div class="entry k-${t.kind.toLowerCase()}"><div class="who"><b>${esc(t.who)}</b> · ${esc(t.kind.toLowerCase())}</div><div class="prose">${esc(t.text)}</div></div>`)
-            .join("")}</section>`
-        : ""
-    }
-    <section><h3>Where</h3><dl>
-      ${it.batch ? row("Batch", batchLabel(it)) : ""}
-      ${row("Page", pageName(p, it.route) + (p.section ? ` › ${p.section}` : ""))}
-      ${row("Code", a.source, true)}
-      ${it.url ? `<dt>URL</dt><dd><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url)}</a>${p.env === "deployed" ? " (deployed)" : ""}</dd>` : ""}
-      ${it.design ? `<dt>Design</dt><dd><a href="${esc(it.design)}" target="_blank" rel="noopener">${esc(it.design)}</a></dd>` : ""}
-      ${it.external ? `<dt>Ticket</dt><dd>${it.external.url ? `<a href="${esc(it.external.url)}" target="_blank" rel="noopener">${esc(it.external.key)}</a>` : esc(it.external.key)}${it.external.status ? ` · ${esc(it.external.status)}` : ""}</dd>` : ""}
-    </dl></section>
-    ${triageSection(it)}
-    <details class="tech"><summary>Technical details</summary>
-      ${technical ? `<section><dl>${technical}</dl></section>` : ""}
-      ${contextSections(it)}
-    </details>`;
+    <div class="d-body">
+      <h1 class="request">${esc(prompt.trim())}</h1>
+      <div class="d-status st-${st.tone}"><span class="sdot"></span><b>${st.title}</b><span>${st.text}</span></div>
+      <div class="d-sub">${esc(it.author)} · ${new Date(it.created).toLocaleString()}${classes.length ? ` · ${classes.map(esc).join(" · ")}` : ""}</div>
+      ${live ? answerBox(it, asking) : ""}
+      ${images.join("")}
+      ${
+        thread.length
+          ? `<section><h3>Conversation</h3>${thread
+              .map((t) => `<div class="entry k-${t.kind.toLowerCase()}"><div class="who"><b>${esc(t.who)}</b> · ${esc(t.kind.toLowerCase())}</div><div class="prose">${esc(t.text)}</div></div>`)
+              .join("")}</section>`
+          : ""
+      }
+      <section><h3>Where</h3><dl>
+        ${row("Page", pageName(p, it.route) + (p.section ? ` › ${p.section}` : ""))}
+        ${row("Code", a.source, true)}
+        ${it.url ? `<dt>URL</dt><dd><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url)}</a>${p.env === "deployed" ? " (deployed)" : ""}</dd>` : ""}
+        ${it.design ? `<dt>Design</dt><dd><a href="${esc(it.design)}" target="_blank" rel="noopener">${esc(it.design)}</a></dd>` : ""}
+        ${it.external ? `<dt>Ticket</dt><dd>${it.external.url ? `<a href="${esc(it.external.url)}" target="_blank" rel="noopener">${esc(it.external.key)}</a>` : esc(it.external.key)}${it.external.status ? ` · ${esc(it.external.status)}` : ""}</dd>` : ""}
+      </dl></section>
+      ${triageSection(it)}
+      <details class="tech"><summary>Technical details</summary>
+        ${technical ? `<section><dl>${technical}</dl></section>` : ""}
+        ${contextSections(it)}
+      </details>
+    </div>
+    ${live ? footer(it, asking) : ""}`;
 
   for (const [k, v] of drafts) {
     const el = drawer.querySelector<HTMLTextAreaElement>(`[data-keep="${k}"]`);
@@ -369,32 +428,92 @@ function renderDrawer() {
     }),
   );
   drawer.querySelectorAll("textarea, input").forEach((el) => el.addEventListener("keydown", (e) => e.stopPropagation()));
+  // Classification saves itself: selects on change, text fields when you leave them (or press Enter).
+  drawer.querySelectorAll<HTMLInputElement | HTMLSelectElement>("[data-t]").forEach((el) => {
+    el.addEventListener("change", () => act(it.id, "triage"));
+    if (el instanceof HTMLInputElement) el.addEventListener("keydown", (e) => e.key === "Enter" && el.blur());
+  });
+  drawer.querySelectorAll<HTMLButtonElement>("[data-zoom]").forEach((b) => b.addEventListener("click", () => lightbox(b.dataset.zoom!)));
 }
 
 function fig(it: Item, name: string | undefined, caption: string): string {
   if (!name) return `<figure><div class="pending">no screenshot</div><figcaption>${esc(caption)}</figcaption></figure>`;
-  return `<figure><a href="${fileUrl(it, name)}" target="_blank"><img src="${fileUrl(it, name)}" alt=""></a><figcaption>${esc(caption)}</figcaption></figure>`;
+  return `<figure><button class="zoom" data-zoom="${fileUrl(it, name)}" title="Enlarge"><img src="${fileUrl(it, name)}" alt=""></button><figcaption>${esc(caption)}</figcaption></figure>`;
 }
 
-function actions(it: Item, asking: boolean | undefined): string {
-  const btn = (act: string, label: string, primary = false) => `<button class="btn${primary ? " primary" : ""}" data-act="${act}">${label}</button>`;
-  let main = "";
-  if (asking) {
-    main = `<textarea data-keep="reply" placeholder="Answer Claude's question…"></textarea><div class="acts">${btn("reply", "Reply", true)}</div>`;
-  } else if (it.status === "review") {
-    main = `<div class="acts">${btn("approve", "Looks good ✓", true)}</div>
-      <textarea data-keep="changes" placeholder="Not quite? Say what still needs to change…"></textarea><div class="acts">${btn("changes", "Send back")}</div>`;
-  } else if (it.status === "open") {
-    const queue = it.start === "now" ? btn("later", "Move to backlog") : btn("start", state.watcher?.state === "working" ? "Add to queue" : "⚡ Start now", true);
-    main = `<div class="acts">${queue}${btn("done", "Mark done")}${btn("dismiss", "Dismiss")}</div>`;
-  } else if (it.status === "in-progress") {
-    main = `<div class="acts">${btn("done", "Mark done")}${btn("reopen", "Put back to open")}${btn("dismiss", "Dismiss")}</div>`;
-  } else if (it.location === "items") {
-    main = `<div class="acts">${btn("archive", "Archive")}${btn("reopen", "Reopen")}</div>`;
-  } else {
-    main = `<div class="acts">${btn("reopen", "Reopen")}</div>`;
+/** Where an item stands, in words: a title and one sentence, coloured by tone. */
+function statusInfo(it: Item, asking: boolean | undefined): { title: string; text: string; tone: string } {
+  const archived = it.location === "done" ? " (archived)" : "";
+  if (asking) return { title: "Question for you", text: "Claude asked something before going on. Answer below.", tone: "ask" };
+  switch (it.status) {
+    case "open":
+      return it.start === "now"
+        ? { title: "Queued for Claude", text: state.watcher ? "Claude starts on it next." : "Starts as soon as a Claude session runs /ahemui:watch.", tone: "open" }
+        : { title: "In the backlog", text: "Waits for /ahemui:work, or start it now.", tone: "open" };
+    case "in-progress":
+      return { title: "In progress", text: `${it.claimed_by ? esc(it.claimed_by) : "Claude"} is working on it.`, tone: "doing" };
+    case "review":
+      return { title: "Ready for your review", text: "Compare before and after, then approve it or send it back.", tone: "review" };
+    case "done":
+      return { title: `Done${archived}`, text: "", tone: "done" };
+    default:
+      return { title: `Won't fix${archived}`, text: "", tone: "wontfix" };
   }
-  return `<div class="d-actions">${main}${it.url ? `<div class="acts minor"><a class="btn" href="${esc(it.url)}" target="_blank" rel="noopener">Open page ↗</a></div>` : ""}</div>`;
+}
+
+/** The text the footer's buttons act on: an answer to Claude, or what still needs to change. */
+function answerBox(it: Item, asking: boolean | undefined): string {
+  if (asking) return `<div class="answer"><label>Your answer</label><textarea data-keep="reply" placeholder="Answer Claude's question…"></textarea></div>`;
+  if (it.status === "review") return `<div class="answer"><label>If it's not right yet</label><textarea data-keep="changes" placeholder="Say what still needs to change, then Send back"></textarea></div>`;
+  return "";
+}
+
+/** All actions, in a bar along the bottom: Dismiss apart on the left, then secondary, then the primary one. */
+function footer(it: Item, asking: boolean | undefined): string {
+  const btn = (act: string, label: string, kind = "") => `<button class="btn ${kind}" data-act="${act}">${label}</button>`;
+  const startLabel = state.watcher?.state === "working" ? "Add to queue" : "⚡ Start now";
+  let left = "";
+  let right = "";
+  if (asking) {
+    left = btn("dismiss", "Dismiss", "quiet");
+    right = btn("reply", "Send answer", "primary");
+  } else if (it.status === "review") {
+    left = btn("dismiss", "Dismiss", "quiet");
+    right = btn("changes", "Send back") + btn("approve", "Looks good ✓", "primary");
+  } else if (it.status === "open") {
+    left = btn("dismiss", "Dismiss", "quiet");
+    right = it.start === "now" ? btn("later", "Move to backlog") + btn("done", "Mark done") : btn("done", "Mark done") + btn("start", startLabel, "primary");
+  } else if (it.status === "in-progress") {
+    left = btn("dismiss", "Dismiss", "quiet");
+    right = btn("reopen", "Put back to open") + btn("done", "Mark done", "primary");
+  } else if (it.location === "items") {
+    right = btn("reopen", "Reopen") + btn("archive", "Archive", "primary");
+  } else {
+    right = btn("reopen", "Reopen", "primary");
+  }
+  return `<div class="d-foot"><div>${left}</div><div class="acts">${right}</div></div>`;
+}
+
+/** Full-size screenshot over the page; click anywhere or press Esc to close. */
+function lightbox(src: string) {
+  const box = document.createElement("div");
+  box.className = "lightbox";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-label", "Screenshot");
+  box.innerHTML = `<img src="${esc(src)}" alt=""><button class="lb-x" aria-label="Close">✕</button>`;
+  const close = () => {
+    box.remove();
+    removeEventListener("keydown", onKey, true);
+  };
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      close();
+    }
+  };
+  box.addEventListener("click", close);
+  addEventListener("keydown", onKey, true);
+  document.body.appendChild(box);
 }
 
 function triageSection(it: Item): string {
@@ -408,7 +527,7 @@ function triageSection(it: Item): string {
     <label>Priority <select data-t="priority">${opt(PRIORITIES, it.priority, "normal")}</select></label>
     <label class="wide">Area <input data-t="area" value="${esc(it.area ?? "")}" placeholder="Page › Section"></label>
     <label class="wide">Labels <input data-t="labels" value="${esc((it.labels ?? []).join(", "))}" placeholder="mobile, dark-mode"></label>
-    <div class="acts"><button class="btn" data-act="triage">Save classification</button></div>
+    <div class="saved-hint">Saved as you change it</div>
   </div></section>`;
 }
 
@@ -510,7 +629,7 @@ async function act(id: string, action: string) {
           area: v("area") || null,
           labels: labels.length ? labels : null,
         });
-        toast("Saved");
+        toast("Classification saved");
         break;
       }
     }

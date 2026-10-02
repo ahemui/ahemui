@@ -134,6 +134,7 @@ class Overlay {
           <button class="counts" title="Show backlog"></button>
           <button class="state"><span class="dot"></span></button>
         </div>
+        <div class="lightbox" role="dialog" aria-label="Screenshot" hidden><img alt=""><button class="lb-x" aria-label="Close">✕</button></div>
         <div class="toast" role="status" aria-live="polite"></div>
       </div>`;
     document.documentElement.appendChild(this.hostEl);
@@ -1127,13 +1128,10 @@ class Overlay {
     pop.querySelectorAll<HTMLImageElement>("img[data-file]").forEach((img) => {
       if (!img.dataset.file) return img.remove();
       this.host.transport.fileSrc(item.id, img.dataset.file).then((src) => (img.src = src), () => img.remove());
-      img.title = "Open full size";
-      img.addEventListener("click", () => {
-        // data: URLs (extension mode) can't be opened as a top-level page, so show those in a blank tab's <img>.
-        if (img.src.startsWith("data:")) {
-          const w = open();
-          if (w) w.document.write(`<body style="margin:0;background:#111"><img src="${img.src}" style="max-width:100%">`);
-        } else open(img.src, "_blank", "noopener");
+      img.title = "Enlarge";
+      img.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.lightbox(img.src);
       });
     });
     pop.querySelectorAll("textarea").forEach((t) => t.addEventListener("keydown", (e) => e.stopPropagation()));
@@ -1341,6 +1339,22 @@ class Overlay {
         setTimeout(() => this.openPop(item.id), 350);
       }),
     );
+  }
+
+  /** A screenshot at full size over the page; a click anywhere or Esc closes it. */
+  private lightbox(src: string) {
+    const box = this.$(".lightbox");
+    box.querySelector("img")!.src = src;
+    box.hidden = false;
+    const close = (e?: Event) => {
+      if (e instanceof KeyboardEvent && e.key !== "Escape") return;
+      e?.stopPropagation();
+      box.hidden = true;
+      box.removeEventListener("click", close);
+      removeEventListener("keydown", close, true);
+    };
+    box.addEventListener("click", close);
+    addEventListener("keydown", close, true);
   }
 
   /** The control that opened a popover, so closing it (Esc) puts focus back there. */

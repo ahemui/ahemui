@@ -363,6 +363,9 @@ export class AhemStore {
   async restore(id: string, status?: Status): Promise<Item> {
     let item = await this.get(id);
     if (item.location === "done") item = await this.move(item, "items");
+    // Undoing a dismiss takes its note back out of the thread too.
+    const dismissed = /\n\n### Note — [^\n]*\n\nDismissed from the backlog\.\s*$/;
+    if (dismissed.test(item.body)) item = await this.save({ ...item, body: item.body.replace(dismissed, "") });
     if (!status || status === item.status) return item;
     return this.save({ ...item, status: StatusSchema.parse(status), ...(status === "open" && { claimed_by: null }) });
   }

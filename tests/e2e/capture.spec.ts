@@ -141,3 +141,22 @@ test("dismiss an item from the backlog, then undo", async ({ page }) => {
   // Clean up the archived copy too.
   await rm(join("examples", "vue-app", ".ahemui", "done", item.id), { recursive: true, force: true });
 });
+
+test("board: drag a card from Backlog to Queue; the modal keeps actions in its footer", async ({ page }) => {
+  await page.goto("/");
+  const base = await server(page);
+  const item = await api(page, "/api/items", { method: "POST", body: { prompt: "Drag me to the queue", route: "/", anchor: {} } });
+  created.push(item.id);
+  await page.goto(`${base}/`);
+  const card = page.locator(`.card[data-id="${item.id}"]`);
+  await expect(page.locator(".col-backlog").locator(card)).toBeVisible();
+  await card.dragTo(page.locator(".col-queue .cards"));
+  await expect.poll(async () => (await (await page.request.get(`${base}/api/items/${item.id}`)).json()).start).toBe("now");
+  await expect(page.locator(".col-queue").locator(card)).toBeVisible();
+
+  await card.click();
+  const modal = page.locator(".drawer");
+  await expect(modal.locator(".d-status")).toContainText("Queued for Claude");
+  await expect(modal.locator(".d-foot").getByRole("button", { name: "Move to backlog" })).toBeVisible();
+  await expect(modal.locator(".d-body button.btn")).toHaveCount(0); // no action buttons mixed into the content
+});
