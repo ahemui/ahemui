@@ -81,7 +81,9 @@ export default function ahemui(options: AhemUIOptions = {}): Plugin {
       return [
         // Classic script first in <head>: hooks console/network before the app runs, reads framework internals.
         { tag: "script", attrs: { src: AGENT_PATH }, injectTo: "head-prepend" },
-        { tag: "script", children: `window.__AHEMUI__ = ${JSON.stringify({ server: url })};`, injectTo: "head" },
+        // The attribute lets the extension (which can't read page globals) pick this project's server when several
+        // running projects list the same dev origin.
+        { tag: "script", children: `window.__AHEMUI__ = ${JSON.stringify({ server: url })};document.documentElement.setAttribute("data-ahemui-server", ${JSON.stringify(url)});`, injectTo: "head" },
         { tag: "script", attrs: { src: OVERLAY_PATH, defer: true }, injectTo: "head" },
       ];
     },

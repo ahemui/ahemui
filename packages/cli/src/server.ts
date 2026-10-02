@@ -252,6 +252,10 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
     return send(res, 200, await store.restore(id, body.status));
   }
   if (req.method === "POST" && action === "archive") return send(res, 200, await store.archive(id));
+  if (req.method === "POST" && action === "dismiss") {
+    const body = await readJson(req, 16_000);
+    return send(res, 200, await store.dismiss(id, body.author ?? defaultAuthor()));
+  }
   if (req.method === "POST" && action === "triage") {
     const body = await readJson(req, 16_000);
     const pick = (k: string) => (body[k] === undefined ? undefined : body[k]);

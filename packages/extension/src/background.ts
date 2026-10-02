@@ -37,13 +37,20 @@ function scan(): Promise<Server[]> {
   return servers;
 }
 
-/** The project a site's feedback goes to: the explicit choice, else a server whose config lists the origin. */
-async function resolveServer(origin: string): Promise<Server | null> {
+/** Server the page itself was built with (the Vite plugin marks <html data-ahemui-server>), per tab. */
+const tabHints = new Map<number, string>();
+
+/**
+ * The project a site's feedback goes to: the explicit choice; else the server the page was served with (when several
+ * running projects list the same origin, e.g. two apps that both use localhost:5173); else one that lists the origin.
+ */
+async function resolveServer(origin: string, hint?: string | null): Promise<Server | null> {
   const choice = (await getProjects())[origin];
   if (choice === "none") return null;
   const servers = await scan();
   if (choice) return servers.find((s) => s.root === choice) ?? null;
-  return servers.find((s) => s.devOrigins.includes(origin)) ?? null;
+  const hinted = hint ? servers.find((s) => s.base.replace("localhost", "127.0.0.1") === hint.replace("localhost", "127.0.0.1")) : undefined;
+  return hinted ?? servers.find((s) => s.devOrigins.includes(origin)) ?? null;
 }
 
 // ——— live updates: one WebSocket per server, fanned out to subscribed tabs ———
@@ -72,7 +79,10 @@ function notifyTabs(base: string, msg: unknown) {
   }
 }
 
-chrome.tabs.onRemoved.addListener((tabId) => tabServer.delete(tabId));
+chrome.tabs.onRemoved.addListener((tabId) => {
+  tabServer.delete(tabId);
+  tabHints.delete(tabId);
+});
 
 // ——— messages from content scripts and the popup ———
 
@@ -93,7 +103,8 @@ async function handle(msg: any, sender: chrome.runtime.MessageSender): Promise<u
   switch (msg?.type) {
     case "subscribe": {
       if (tabId === undefined || !origin) throw new Error("not a tab");
-      const server = await resolveServer(origin);
+      if (typeof msg.hint === "string") tabHints.set(tabId, msg.hint);
+      const server = await resolveServer(origin, tabHints.get(tabId));
       if (!server) {
         tabServer.delete(tabId);
         return { health: null };
@@ -203,7 +214,7 @@ async function popupState(tabId: number): Promise<PopupState> {
     origin,
     servers,
     choice: (await getProjects())[origin] ?? null,
-    active: await resolveServer(origin),
+    active: await resolveServer(origin, tabHints.get(tabId)),
     builtIn,
     enabled: builtIn || (await getSites()).includes(origin),
   };

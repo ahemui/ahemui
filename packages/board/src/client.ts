@@ -379,9 +379,9 @@ function actions(it: Item, asking: boolean | undefined): string {
       <textarea data-keep="changes" placeholder="Not quite? Say what still needs to change…"></textarea><div class="acts">${btn("changes", "Send back")}</div>`;
   } else if (it.status === "open") {
     const queue = it.start === "now" ? btn("later", "Move to backlog") : btn("start", state.watcher?.state === "working" ? "Add to queue" : "⚡ Start now", true);
-    main = `<div class="acts">${queue}${btn("done", "Mark done")}${btn("wontfix", "Won't fix")}</div>`;
+    main = `<div class="acts">${queue}${btn("done", "Mark done")}${btn("dismiss", "Dismiss")}</div>`;
   } else if (it.status === "in-progress") {
-    main = `<div class="acts">${btn("done", "Mark done")}${btn("reopen", "Put back to open")}</div>`;
+    main = `<div class="acts">${btn("done", "Mark done")}${btn("reopen", "Put back to open")}${btn("dismiss", "Dismiss")}</div>`;
   } else if (it.location === "items") {
     main = `<div class="acts">${btn("archive", "Archive")}${btn("reopen", "Reopen")}</div>`;
   } else {
@@ -470,6 +470,12 @@ async function act(id: string, action: string) {
       case "reopen":
         updated = await api<Item>("POST", `/api/items/${id}/reopen`, {});
         break;
+      case "dismiss": {
+        const was = it.status;
+        updated = await api<Item>("POST", `/api/items/${id}/dismiss`, {});
+        toast("Dismissed", () => restore(id, was));
+        break;
+      }
       case "archive":
         updated = await api<Item>("POST", `/api/items/${id}/archive`, {});
         toast("Archived", () => restore(id));

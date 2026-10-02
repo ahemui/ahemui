@@ -850,7 +850,7 @@ class Overlay {
     return [
       `${h.project ?? "project"}${h.branch ? ` · ${h.branch}` : ""}`,
       !w
-        ? "No Claude session watching (run /ahemui:watch)"
+        ? "No Claude session watching"
         : w.stopping
           ? w.state === "working" ? "Claude stops watching after this item" : "Claude is stopping"
           : w.paused
@@ -865,7 +865,8 @@ class Overlay {
     if (!this.health) return "";
     const w = this.watcher;
     const b = (action: string, label: string, title: string) => `<button class="btn" data-watch="${action}" title="${title}">${label}</button>`;
-    if (!w) return `<div class="watch-ctl">${b("copy", "Copy /ahemui:watch", "Paste into Claude Code to have Start now picked up straight away")}</div>`;
+    if (!w)
+      return `<div class="cmd-copy" title="Run this in Claude Code so Start now is picked up straight away"><code>/ahemui:watch</code><button data-watch="copy" aria-label="Copy /ahemui:watch" title="Copy">${COPY_ICON}</button></div>`;
     if (w.stopping) return "";
     return `<div class="watch-ctl">${
       w.paused
@@ -1048,7 +1049,7 @@ class Overlay {
 
     let actions: string;
     if (asking) {
-      actions = `<textarea class="reply" placeholder="Your answer…"></textarea><div class="actions"><button class="btn primary" data-act="reply">Reply</button></div>`;
+      actions = `<textarea class="reply" placeholder="Your answer…"></textarea><div class="actions"><button class="btn primary" data-act="reply">Reply</button><button class="btn" data-act="dismiss">Dismiss</button></div>`;
     } else if (item.status === "review") {
       actions = `<div class="actions"><button class="btn primary" data-act="approve">Looks good ✓</button><button class="btn" data-act="changes-open">Not quite…</button></div>
         <div class="changes" hidden><textarea class="reply" placeholder="What still needs to change?"></textarea><div class="actions"><button class="btn primary" data-act="changes">Send back</button></div></div>`;
@@ -1061,7 +1062,7 @@ class Overlay {
           : item.start === "now"
             ? `<button class="btn" data-act="later" title="Take it out of the queue; it waits for /ahemui:work">Move to backlog</button>`
             : `<button class="btn primary" data-act="start">${this.startLabel()}</button>`;
-      actions = `<div class="actions">${queue}<button class="btn" data-act="done">Mark done</button><button class="btn" data-act="wontfix">Won't fix</button></div>`;
+      actions = `<div class="actions">${queue}<button class="btn" data-act="done">Mark done</button><button class="btn" data-act="dismiss" title="Take it off the backlog without doing it (Undo is offered)">Dismiss</button></div>`;
     }
 
     // Status and id; the request itself; who and when; where it lives; the picture; the conversation; actions.
@@ -1155,6 +1156,11 @@ class Overlay {
             this.toast(act === "approve" ? "Approved ✓" : "Sent back to Claude");
           } else if (act === "reopen") {
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/reopen`, {});
+          } else if (act === "dismiss") {
+            const was = item.status;
+            updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/dismiss`, { author: this.prefs.name || undefined });
+            this.closePopups();
+            this.toast("Dismissed", 6000, () => this.restoreItem(item.id, was));
           } else if (act === "archive") {
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/archive`, {});
             this.closePopups();
@@ -1246,6 +1252,7 @@ class Overlay {
           <span class="pill ${i.needs_reply ? "ask" : i.status}">${i.needs_reply ? "?" : ICON[i.status]}</span>
           <span class="grow"><div>${esc(i.body.split("\n")[0].slice(0, 90))}</div><div class="route">${i.intent === "review" ? `<span class="rv-tag">for review</span> ` : ""}${esc(classLine(i) || i.page?.section || "")}${i.anchor.source ? ` <span class="mono">${esc(i.anchor.source)}</span>` : ""}</div></span>
           ${rowAction(i)}
+          <button class="row-dismiss" data-dismiss="${i.id}" title="Dismiss: take it off the backlog" aria-label="Dismiss">✕</button>
         </div>`;
     const finished = active.filter((i) => i.status === "done" || i.status === "wontfix").length;
     const clear = finished
@@ -1269,6 +1276,21 @@ class Overlay {
         this.toast((err as Error).message, 4000);
       }
     });
+    panel.querySelectorAll<HTMLButtonElement>("button[data-dismiss]").forEach((b) =>
+      b.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const id = b.dataset.dismiss!;
+        const was = this.items.find((i) => i.id === id)?.status;
+        try {
+          const updated = await this.host.transport.request<Item>("POST", `/api/items/${id}/dismiss`, { author: this.prefs.name || undefined });
+          this.items = this.items.map((i) => (i.id === id ? updated : i));
+          this.renderAll();
+          this.toast("Dismissed", 6000, () => this.restoreItem(id, was));
+        } catch (err) {
+          this.toast((err as Error).message, 4000);
+        }
+      }),
+    );
     panel.querySelectorAll<HTMLButtonElement>("button[data-start]").forEach((b) =>
       b.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1863,6 +1885,8 @@ function shortUrl(url: string): string {
 }
 
 const FOCUS_KEY = "ahemui:focus";
+
+const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>`;
 
 function classLine(it: Item): string {
   return [

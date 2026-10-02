@@ -132,6 +132,13 @@ tool(
   async ({ id, ...patch }) => summary(await store().triage(id, patch)),
 );
 
+tool(
+  "ahemui_dismiss",
+  "Take an AhemUI item off the backlog without doing it (e.g. the user says it's obsolete or a duplicate): marks it won't fix with a note and archives it, so its marker leaves the page. Only when the user asks.",
+  idArg,
+  async ({ id }) => summary(await store().dismiss(id, claimant())),
+);
+
 tool("ahemui_claim", "Mark a AhemUI item in-progress for this session.", { ...idArg, force: z.boolean().optional() }, async ({ id, force }) =>
   summary(await store().claim(id, claimant(), force)),
 );

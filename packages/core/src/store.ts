@@ -348,6 +348,17 @@ export class AhemStore {
     return this.save({ ...item, start });
   }
 
+  /**
+   * Takes an item off the backlog without doing it: won't fix, with a note, straight into the archive. Its marker
+   * leaves the page; the item.md stays in git, and restore() brings it back.
+   */
+  async dismiss(id: string, author?: string): Promise<Item> {
+    const item = await this.get(id);
+    if (item.location === "done") return item;
+    const resolved = await this.resolve(item.id, { status: "wontfix", note: "Dismissed from the backlog.", author });
+    return this.move(resolved, "done");
+  }
+
   /** Undo for archive and resolve: back into the backlog if archived, and back to `status` if given. */
   async restore(id: string, status?: Status): Promise<Item> {
     let item = await this.get(id);

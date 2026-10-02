@@ -44,6 +44,10 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .bar .dot.working { background: var(--accent-text); animation: ahemui-pulse 1.4s infinite; }
 .bar .dot.paused { background: transparent; box-shadow: inset 0 0 0 2px var(--accent-text); }
 .watch-ctl { display: flex; gap: 6px; margin-top: 6px; }
+.cmd-copy { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding: 5px 6px 5px 10px; background: var(--bg2); border: 1px solid var(--line); border-radius: 7px; }
+.cmd-copy code { font: 12px ui-monospace, Consolas, monospace; color: var(--fg); }
+.cmd-copy button { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 5px; color: var(--muted); }
+.cmd-copy button:hover { color: var(--fg); background: var(--bg); }
 .watch-ctl .btn { font-size: 11px; padding: 2px 9px; }
 .bar .dot.stale { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.3); animation: none; }
 @keyframes ahemui-pulse { 50% { box-shadow: 0 0 0 5px rgba(167,139,250,.3); } }
@@ -218,6 +222,10 @@ a.ext { color: var(--accent-text); }
 .board-link:hover { color: var(--fg); }
 a.btn, a.btn:visited { color: var(--fg); text-decoration: none; display: inline-block; }
 a.btn:hover { border-color: var(--accent); }
+.row-dismiss { flex: none; align-self: center; width: 22px; height: 22px; border-radius: 5px; color: var(--muted); font-size: 11px; opacity: 0; }
+.list-item:hover .row-dismiss, .row-dismiss:focus-visible { opacity: 1; }
+.row-dismiss:hover { color: var(--fg); background: var(--bg2); }
+@media (hover: none) { .row-dismiss { opacity: .6; } }
 .list-item .row-start { flex: none; align-self: center; padding: 3px 10px; font-size: 11px; background: var(--accent); border-color: var(--accent); }
 .list-item .queued { flex: none; align-self: center; font-size: 11px; color: var(--warn-text); white-space: nowrap; }
 .list-item .route { color: var(--muted); font-size: 11px; }

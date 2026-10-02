@@ -42,7 +42,8 @@ class ExtensionTransport implements Transport {
 
   private async subscribe() {
     try {
-      const { health, items } = await send<{ health: Health | null; items?: Item[] }>({ type: "subscribe" });
+      const hint = document.documentElement.getAttribute("data-ahemui-server");
+      const { health, items } = await send<{ health: Health | null; items?: Item[] }>({ type: "subscribe", hint });
       this.onState(health);
       if (items) this.onItems(items);
     } catch {

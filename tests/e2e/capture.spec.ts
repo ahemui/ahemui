@@ -114,3 +114,20 @@ test("the capture shortcut can be changed in settings", async ({ page }) => {
   await page.locator("ahemui-overlay [data-settings]").click();
   await page.locator("ahemui-overlay .shortcut-reset").click();
 });
+
+test("dismiss an item from the backlog, then undo", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("ahemui-overlay .bar .dot.ok")).toBeAttached();
+  const item = await api(page, "/api/items", { method: "POST", body: { prompt: "Throwaway idea", route: "/", anchor: { text: "Ship interfaces faster" } } });
+  created.push(item.id);
+  await page.locator("ahemui-overlay .counts").click();
+  const row = page.locator(`ahemui-overlay .list-item[data-id="${item.id}"]`);
+  await row.hover();
+  await row.locator(".row-dismiss").click();
+  await expect(row).toHaveCount(0);
+  expect((await api(page, `/api/items/${item.id}`)).location).toBe("done");
+  await page.locator("ahemui-overlay .toast-undo").click();
+  await expect.poll(async () => (await api(page, `/api/items/${item.id}`)).location).toBe("items");
+  // Clean up the archived copy too.
+  await rm(join("examples", "vue-app", ".ahemui", "done", item.id), { recursive: true, force: true });
+});

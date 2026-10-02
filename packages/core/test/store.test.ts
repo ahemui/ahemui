@@ -207,3 +207,15 @@ test("keepArchivedDays in config drops old archived screenshots when archiving",
   assert.equal((await store.get(it.id)).shot, undefined);
   assert.deepEqual(await store.screenshotBytes(), { items: 0, done: 0 });
 });
+
+test("dismiss takes an item off the backlog into the archive, and restore brings it back", async () => {
+  const it = await store.create({ prompt: "obsolete idea", start: "now", anchor: {} });
+  const gone = await store.dismiss(it.id, "me");
+  assert.equal(gone.status, "wontfix");
+  assert.equal(gone.location, "done");
+  assert.match(gone.body, /Dismissed from the backlog/);
+  assert.equal((await store.list()).some((i) => i.id === it.id), false);
+  const back = await store.restore(it.id, "open");
+  assert.equal(back.location, "items");
+  assert.equal(back.status, "open");
+});
