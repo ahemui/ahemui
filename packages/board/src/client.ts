@@ -3,6 +3,7 @@
 //  - static: `.ahemui/backlog.html`, a read-only snapshot with the data embedded and images referenced relatively
 import type { Batch } from "../../overlay/src/prefs.js";
 import type { Item, Page, Status } from "../../overlay/src/types.js";
+import { armDanger } from "../../overlay/src/confirm.js";
 import { CSS } from "./styles.js";
 
 interface Watcher {
@@ -360,7 +361,12 @@ function renderDrawer() {
     if (el) el.value = v;
   }
   drawer.querySelector(".x")!.addEventListener("click", () => select(null));
-  drawer.querySelectorAll<HTMLButtonElement>("[data-act]").forEach((b) => b.addEventListener("click", () => act(it.id, b.dataset.act!)));
+  drawer.querySelectorAll<HTMLButtonElement>("[data-act]").forEach((b) =>
+    b.addEventListener("click", () => {
+      if (b.dataset.act === "dismiss" && !armDanger(b, "Really dismiss?")) return;
+      act(it.id, b.dataset.act!);
+    }),
+  );
   drawer.querySelectorAll("textarea, input").forEach((el) => el.addEventListener("keydown", (e) => e.stopPropagation()));
 }
 

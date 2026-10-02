@@ -1,4 +1,5 @@
 import { checkA11y } from "./a11y.js";
+import { armDanger } from "./confirm.js";
 import type { Health, Watcher } from "./api.js";
 import { stylesOf } from "./design.js";
 import { elementAt, inspectRect, type Inspection, locate } from "./inspect.js";
@@ -1129,6 +1130,7 @@ class Overlay {
     pop.querySelectorAll<HTMLButtonElement>("[data-act]").forEach((b) =>
       b.addEventListener("click", async () => {
         const act = b.dataset.act!;
+        if (act === "dismiss" && !armDanger(b, "Really dismiss?")) return;
         const text = pop.querySelector<HTMLTextAreaElement>(act === "changes" ? ".changes textarea" : "textarea.reply")?.value.trim() ?? "";
         try {
           let updated: Item | undefined;
@@ -1279,6 +1281,7 @@ class Overlay {
     panel.querySelectorAll<HTMLButtonElement>("button[data-dismiss]").forEach((b) =>
       b.addEventListener("click", async (e) => {
         e.stopPropagation();
+        if (!armDanger(b, "Dismiss?")) return; // first click arms it; the second, within 3 s, dismisses
         const id = b.dataset.dismiss!;
         const was = this.items.find((i) => i.id === id)?.status;
         try {
@@ -1885,6 +1888,7 @@ function shortUrl(url: string): string {
 }
 
 const FOCUS_KEY = "ahemui:focus";
+
 
 const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>`;
 

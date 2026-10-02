@@ -99,6 +99,7 @@ details.tech[open] summary { margin-bottom: 4px; }
 .acts.minor .btn { font-size: 12px; padding: 3px 10px; }
 .btn { border: 1px solid var(--line); background: var(--card); border-radius: 7px; padding: 5px 12px; cursor: pointer; text-decoration: none; color: var(--fg); }
 .btn:hover { border-color: var(--accent); }
+.btn.armed { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 600; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 textarea { width: 100%; min-height: 64px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; outline: none; }
 textarea:focus, .triage input:focus, .triage select:focus { border-color: var(--accent); }
