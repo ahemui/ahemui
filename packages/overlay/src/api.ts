@@ -83,13 +83,22 @@ export class DirectTransport implements Transport {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+    if (!res.ok) throw new Error(explainError(res.status, data.error));
     return data;
   }
 
   async fileSrc(id: string, name: string): Promise<string> {
     return `${this.base}/api/items/${id}/file/${encodeURIComponent(name)}?v=${Date.now()}`;
   }
+}
+
+/**
+ * A server's own "not found" (as opposed to "no item matching …") means the endpoint doesn't exist: the page's
+ * AhemUI is newer than the dev server's, which happens until the dev server is restarted after an update.
+ */
+export function explainError(status: number, error: string | undefined): string {
+  if (status === 404 && error === "not found") return "This dev server runs an older AhemUI than the page. Restart the dev server, then reload.";
+  return error ?? `HTTP ${status}`;
 }
 
 async function probe(base: string): Promise<Health | null> {

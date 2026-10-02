@@ -1,5 +1,6 @@
 // Service worker: owns every connection to local `ahemui serve` instances, remembers which project each site
 // sends feedback to, takes screenshots, and injects AhemUI into sites you enable (deployed dev, staging, prod).
+import { explainError } from "../../overlay/src/api.js";
 import type { PopupState, Reply, Server } from "./messages.js";
 
 const PORTS = Array.from({ length: 10 }, (_, i) => 4777 + i);
@@ -123,7 +124,7 @@ async function handle(msg: any, sender: chrome.runtime.MessageSender): Promise<u
         body: msg.body === undefined ? undefined : JSON.stringify(msg.body),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(explainError(res.status, data.error));
       return data;
     }
     case "file": {
