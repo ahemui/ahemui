@@ -1,5 +1,5 @@
 import { checkA11y } from "./a11y.js";
-import { armDanger } from "./confirm.js";
+import { armDanger, hasArmed } from "./confirm.js";
 import type { Health, Watcher } from "./api.js";
 import { stylesOf } from "./design.js";
 import { elementAt, inspectRect, type Inspection, locate } from "./inspect.js";
@@ -749,6 +749,17 @@ class Overlay {
     this.renderAll();
   }
 
+  /** The backlog row showing its "Dismiss this item?" strip; it clears itself after a few seconds. */
+  private confirmDismiss: string | null = null;
+  private confirmTimer = 0;
+
+  private askDismiss(id: string | null) {
+    this.confirmDismiss = id;
+    clearTimeout(this.confirmTimer);
+    if (id) this.confirmTimer = window.setTimeout(() => this.askDismiss(null), 5000);
+    if (this.$(".panel").style.display === "block" && this.panelView === "list") this.renderPanel();
+  }
+
   private toastQueued() {
     if (this.watcher?.stopping) this.toast("Queued, but Claude is stopping its watch. Run /ahemui:watch again to have it picked up.", 6000);
     else if (this.watcher?.paused) this.toast("Queued. Claude is paused and starts on it when you resume.", 5000);
@@ -1039,7 +1050,7 @@ class Overlay {
     if (!item) return this.closePopups();
     // Don't wipe a reply or review comment the person is typing when a live update arrives.
     const typing = pop.querySelector<HTMLTextAreaElement>("textarea");
-    if (this.popFor === id && typing?.value.trim()) return;
+    if (this.popFor === id && (typing?.value.trim() || hasArmed(pop))) return;
     this.$(".panel").style.display = "none";
     const opening = this.popFor !== id;
     this.popFor = id;
@@ -1130,7 +1141,7 @@ class Overlay {
     pop.querySelectorAll<HTMLButtonElement>("[data-act]").forEach((b) =>
       b.addEventListener("click", async () => {
         const act = b.dataset.act!;
-        if (act === "dismiss" && !armDanger(b, "Really dismiss?")) return;
+        if (act === "dismiss" && !armDanger(b)) return;
         const text = pop.querySelector<HTMLTextAreaElement>(act === "changes" ? ".changes textarea" : "textarea.reply")?.value.trim() ?? "";
         try {
           let updated: Item | undefined;
@@ -1255,6 +1266,11 @@ class Overlay {
           <span class="grow"><div>${esc(i.body.split("\n")[0].slice(0, 90))}</div><div class="route">${i.intent === "review" ? `<span class="rv-tag">for review</span> ` : ""}${esc(classLine(i) || i.page?.section || "")}${i.anchor.source ? ` <span class="mono">${esc(i.anchor.source)}</span>` : ""}</div></span>
           ${rowAction(i)}
           <button class="row-dismiss" data-dismiss="${i.id}" title="Dismiss: take it off the backlog" aria-label="Dismiss">✕</button>
+          ${
+            this.confirmDismiss === i.id
+              ? `<div class="row-confirm" role="group" aria-label="Dismiss this item?"><span>Dismiss this item?</span><button class="btn rc-keep" data-keep="${i.id}">Keep</button><button class="btn rc-go" data-confirm="${i.id}">Dismiss</button></div>`
+              : ""
+          }
         </div>`;
     const finished = active.filter((i) => i.status === "done" || i.status === "wontfix").length;
     const clear = finished
@@ -1279,21 +1295,35 @@ class Overlay {
       }
     });
     panel.querySelectorAll<HTMLButtonElement>("button[data-dismiss]").forEach((b) =>
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.askDismiss(b.dataset.dismiss!);
+      }),
+    );
+    panel.querySelectorAll<HTMLButtonElement>("button[data-keep]").forEach((b) =>
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.askDismiss(null);
+      }),
+    );
+    panel.querySelectorAll<HTMLButtonElement>("button[data-confirm]").forEach((b) =>
       b.addEventListener("click", async (e) => {
         e.stopPropagation();
-        if (!armDanger(b, "Dismiss?")) return; // first click arms it; the second, within 3 s, dismisses
-        const id = b.dataset.dismiss!;
+        const id = b.dataset.confirm!;
         const was = this.items.find((i) => i.id === id)?.status;
+        this.confirmDismiss = null;
         try {
           const updated = await this.host.transport.request<Item>("POST", `/api/items/${id}/dismiss`, { author: this.prefs.name || undefined });
           this.items = this.items.map((i) => (i.id === id ? updated : i));
           this.renderAll();
           this.toast("Dismissed", 6000, () => this.restoreItem(id, was));
         } catch (err) {
+          this.renderPanel();
           this.toast((err as Error).message, 4000);
         }
       }),
     );
+    panel.querySelector<HTMLButtonElement>(".rc-go")?.focus({ preventScroll: true });
     panel.querySelectorAll<HTMLButtonElement>("button[data-start]").forEach((b) =>
       b.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -1302,7 +1332,8 @@ class Overlay {
       }),
     );
     panel.querySelectorAll<HTMLElement>(".list-item").forEach((row) =>
-      row.addEventListener("click", () => {
+      row.addEventListener("click", (e) => {
+        if ((e.target as Element).closest(".row-confirm")) return;
         const item = this.items.find((i) => i.id === row.dataset.id)!;
         if (item.route !== this.route || !sameSite(item.url)) return this.goToItem(item);
         const target = this.markers.get(item.id)?.target;

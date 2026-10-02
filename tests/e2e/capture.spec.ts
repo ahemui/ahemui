@@ -123,11 +123,17 @@ test("dismiss an item from the backlog, then undo", async ({ page }) => {
   await page.locator("ahemui-overlay .counts").click();
   const row = page.locator(`ahemui-overlay .list-item[data-id="${item.id}"]`);
   await row.hover();
-  const dismiss = row.locator(".row-dismiss");
-  await dismiss.click();
-  await expect(dismiss).toHaveText("Dismiss?"); // armed: nothing happens on the first click
+  const before = (await row.boundingBox())!.height;
+  await row.locator(".row-dismiss").click();
+  const strip = row.locator(".row-confirm");
+  await expect(strip).toBeVisible(); // asks first; the row keeps its size
+  expect((await row.boundingBox())!.height).toBe(before);
   expect((await api(page, `/api/items/${item.id}`)).location).toBe("items");
-  await dismiss.click();
+  await strip.getByRole("button", { name: "Keep" }).click();
+  await expect(strip).toHaveCount(0);
+  await row.hover();
+  await row.locator(".row-dismiss").click();
+  await row.locator(".row-confirm").getByRole("button", { name: "Dismiss" }).click();
   await expect(row).toHaveCount(0);
   expect((await api(page, `/api/items/${item.id}`)).location).toBe("done");
   await page.locator("ahemui-overlay .toast-undo").click();

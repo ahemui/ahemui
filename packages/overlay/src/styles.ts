@@ -225,9 +225,12 @@ a.btn:hover { border-color: var(--accent); }
 .row-dismiss { flex: none; align-self: center; width: 22px; height: 22px; border-radius: 5px; color: var(--muted); font-size: 11px; opacity: 0; }
 .list-item:hover .row-dismiss, .row-dismiss:focus-visible { opacity: 1; }
 .row-dismiss:hover { color: var(--fg); background: var(--bg2); }
-.row-dismiss.armed { opacity: 1; width: auto; padding: 0 8px; }
-button.armed, .btn.armed { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 600; }
-button.armed:hover { background: #b91c1c; color: #fff; }
+.list-item { position: relative; }
+.row-confirm { position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 6px 0 12px; border-radius: 6px; background: var(--bg); box-shadow: inset 0 0 0 1px #dc2626; }
+.row-confirm span { margin-right: auto; font-size: 12px; }
+.row-confirm .btn { font-size: 11px; padding: 3px 10px; }
+.row-confirm .rc-go { background: #dc2626; border-color: #dc2626; color: #fff; }
+.btn.armed { background: #dc2626; border-color: #dc2626; color: #fff; }
 @media (hover: none) { .row-dismiss { opacity: .6; } }
 .list-item .row-start { flex: none; align-self: center; padding: 3px 10px; font-size: 11px; background: var(--accent); border-color: var(--accent); }
 .list-item .queued { flex: none; align-self: center; font-size: 11px; color: var(--warn-text); white-space: nowrap; }

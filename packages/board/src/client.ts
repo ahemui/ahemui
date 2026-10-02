@@ -3,7 +3,7 @@
 //  - static: `.ahemui/backlog.html`, a read-only snapshot with the data embedded and images referenced relatively
 import type { Batch } from "../../overlay/src/prefs.js";
 import type { Item, Page, Status } from "../../overlay/src/types.js";
-import { armDanger } from "../../overlay/src/confirm.js";
+import { armDanger, hasArmed } from "../../overlay/src/confirm.js";
 import { CSS } from "./styles.js";
 
 interface Watcher {
@@ -288,7 +288,8 @@ function renderDrawer() {
   }
   // Keep text someone is typing across live updates.
   const drafts = new Map([...drawer.querySelectorAll<HTMLTextAreaElement | HTMLInputElement>("[data-keep]")].map((el) => [el.dataset.keep!, el.value]));
-  if (drawer.dataset.id === it.id && [...drafts.values()].some((v) => v.trim())) return;
+  // Keep a half-typed reply, or an armed Dismiss, through live updates.
+  if (drawer.dataset.id === it.id && ([...drafts.values()].some((v) => v.trim()) || hasArmed(drawer))) return;
   drawer.dataset.id = it.id;
   drawer.hidden = false;
   scrim.hidden = false;
@@ -363,7 +364,7 @@ function renderDrawer() {
   drawer.querySelector(".x")!.addEventListener("click", () => select(null));
   drawer.querySelectorAll<HTMLButtonElement>("[data-act]").forEach((b) =>
     b.addEventListener("click", () => {
-      if (b.dataset.act === "dismiss" && !armDanger(b, "Really dismiss?")) return;
+      if (b.dataset.act === "dismiss" && !armDanger(b)) return;
       act(it.id, b.dataset.act!);
     }),
   );
