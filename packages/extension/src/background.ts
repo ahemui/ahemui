@@ -81,8 +81,14 @@ function notifyTabs(base: string, msg: unknown) {
 }
 
 chrome.tabs.onRemoved.addListener((tabId) => {
+  const base = tabServer.get(tabId);
   tabServer.delete(tabId);
   tabHints.delete(tabId);
+  // Close a server's socket once no tab uses it any more.
+  if (base && ![...tabServer.values()].includes(base)) {
+    sockets.get(base)?.close();
+    sockets.delete(base);
+  }
 });
 
 // ——— messages from content scripts and the popup ———
@@ -258,8 +264,12 @@ async function setEnabled(origin: string, enabled: boolean, tabId: number) {
 const notificationUrls = new Map<string, string>();
 
 /** Clicking a notification brings the page (or a new tab with it) to the front. */
+// Each notification's URL is only needed until it's clicked or dismissed.
+chrome.notifications.onClosed.addListener((id) => notificationUrls.delete(id));
+
 chrome.notifications.onClicked.addListener(async (id) => {
   const url = notificationUrls.get(id);
+  notificationUrls.delete(id);
   chrome.notifications.clear(id);
   if (!url) return;
   const key = (u: string) => new URL(u).origin + new URL(u).pathname;

@@ -672,6 +672,9 @@ class Overlay {
     const prev = this.seen;
     this.seen = new Map(items.map((i) => [i.id, { status: i.status, needs_reply: i.needs_reply }]));
     for (const it of items) if (it.status === "review" && !this.reviewSince.has(it.id)) this.reviewSince.set(it.id, Date.now());
+    // Forget items that left review or the backlog, so a long session doesn't keep every id it ever saw.
+    for (const id of this.reviewSince.keys()) if (this.seen.get(id)?.status !== "review") this.reviewSince.delete(id);
+    for (const id of this.afterTried) if (!this.seen.has(id)) this.afterTried.delete(id);
     if (!prev) return;
     for (const it of items) {
       const was = prev.get(it.id);
