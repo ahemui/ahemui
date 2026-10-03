@@ -170,7 +170,8 @@ test("board: move an item into a new review batch from the modal, then make the 
   const modal = page.locator(".drawer");
   await modal.locator("[data-batch]").selectOption("new");
   await modal.locator("[data-new-intent]").selectOption("review");
-  await modal.locator("[data-new-batch]").fill("E2E review batch");
+  const batchName = `E2E review batch ${Date.now()}`;
+  await modal.locator("[data-new-batch]").fill(batchName);
   await modal.locator("[data-new-batch]").press("Enter");
   const get = async () => (await (await page.request.get(`${base}/api/items/${item.id}`)).json());
   await expect.poll(async () => (await get()).intent).toBe("review");
@@ -178,7 +179,7 @@ test("board: move an item into a new review batch from the modal, then make the 
 
   await page.keyboard.press("Escape");
   await page.locator(".f-group").selectOption("batch");
-  await page.getByRole("button", { name: "Make these changes" }).first().click();
+  await page.locator(".grp", { hasText: batchName }).getByRole("button", { name: "Make these changes" }).click();
   await expect.poll(async () => (await get()).intent).toBeUndefined();
   const batchId = (await get()).batch;
   await rm(join("examples", "vue-app", ".ahemui", "batches", `${batchId}.json`), { force: true });

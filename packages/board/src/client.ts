@@ -351,8 +351,12 @@ function renderDrawer() {
   }
   // Keep text someone is typing across live updates.
   const drafts = new Map([...drawer.querySelectorAll<HTMLTextAreaElement | HTMLInputElement>("[data-keep]")].map((el) => [el.dataset.keep!, el.value]));
-  // Keep a half-typed reply, or an armed Dismiss, through live updates.
-  if (drawer.dataset.id === it.id && ([...drafts.values()].some((v) => v.trim()) || hasArmed(drawer))) return;
+  // Keep what the person is in the middle of through live updates: a half-typed reply, an armed Dismiss, the
+  // "New batch…" box, or any field that has focus (a re-render would wipe or reset it).
+  const focused = document.activeElement;
+  const editing = !!focused && drawer.contains(focused) && /^(INPUT|TEXTAREA)$/.test(focused.tagName);
+  const naming = !!drawer.querySelector(".new-batch:not([hidden])");
+  if (drawer.dataset.id === it.id && ([...drafts.values()].some((v) => v.trim()) || hasArmed(drawer) || editing || naming)) return;
   drawer.dataset.id = it.id;
   drawer.hidden = false;
   scrim.hidden = false;
@@ -452,15 +456,22 @@ function renderDrawer() {
     await moveToBatch(it.id, batchSel.value || null);
   });
   const nameInput = newBox?.querySelector<HTMLInputElement>("[data-new-batch]");
+  // Enter and leaving the field both submit; only the first one creates the batch.
+  let creating = false;
   const createBatch = async () => {
     const name = nameInput!.value.trim();
-    if (!name) return;
+    if (!name || creating) return;
+    creating = true;
     const intent = newBox!.querySelector<HTMLSelectElement>("[data-new-intent]")!.value;
     try {
       const batch = await api<Batch>("POST", "/api/batches", { name, intent });
       state.batches = [batch, ...state.batches];
+      // Done naming: close the box and leave the field, so the modal can show the move.
+      newBox!.hidden = true;
+      nameInput!.blur();
       await moveToBatch(it.id, batch.id);
     } catch (err) {
+      creating = false;
       toast((err as Error).message);
     }
   };
