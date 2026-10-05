@@ -104,7 +104,7 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 .btn:disabled { opacity: .5; cursor: default; }
 
 .marker {
-  position: fixed; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  position: fixed; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; padding: 0; /* not a button's default padding: it pushes the icon off centre */
   font-size: 11px; font-weight: 700; color: #fff; pointer-events: auto; cursor: pointer;
   border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35); transition: transform .12s;
 }
@@ -115,6 +115,8 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 .marker.wontfix { background: var(--wontfix); }
 .marker.detached { border-style: dashed; }
 .marker svg, .list-item .pill svg { display: block; }
+.marker.labelled { width: auto; border-radius: 11px; padding: 0 8px 0 5px; grid-auto-flow: column; gap: 4px; align-items: center; font-size: 11px; letter-spacing: .02em; white-space: nowrap; }
+.marker.ask.labelled { color: #111; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 6px rgba(59,130,246,.25); } }
 
 /* Screenshots in the popover fit its width and a sensible height; click opens them full size. */

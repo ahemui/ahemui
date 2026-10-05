@@ -15,7 +15,7 @@ import { dictate, voiceSupported } from "./voice.js";
 
 /** Marker and list icons: drawn, so they read at 22px where text glyphs like ◎ blur into a blob. */
 const svg = (d: string, fill = false) =>
-  `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="${fill ? "currentColor" : "none"}" stroke="${fill ? "none" : "currentColor"}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  `<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="${fill ? "currentColor" : "none"}" stroke="${fill ? "none" : "currentColor"}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const GLYPH = {
   done: svg('<path d="M3 8.5l3.2 3.2L13 4.8"/>'),
   wontfix: svg('<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>'),
@@ -1096,9 +1096,13 @@ class Overlay {
       n++;
       const asking = item.needs_reply && item.status === "open";
       const suggested = !!item.suggestion && item.intent === "review" && item.status === "open";
-      m.el.className = `marker ${item.status}${asking ? " ask" : ""}${suggested ? " suggest" : ""}`;
+      // What waits on the person gets a word as well as an icon: it should read at a glance.
+      const word = asking ? "Question" : item.status === "review" ? "Review" : "";
+      m.el.className = `marker ${item.status}${asking ? " ask" : ""}${suggested ? " suggest" : ""}${word ? " labelled" : ""}`;
       m.el.setAttribute("aria-label", `${asking ? "Question for you" : LABEL[item.status]}: ${item.body.split("\n")[0].slice(0, 80)}`);
-      m.el.innerHTML = asking
+      m.el.innerHTML = word
+        ? `${asking ? GLYPH.ask : GLYPH.review}<span>${word}</span>`
+        : asking
         ? GLYPH.ask
         : suggested
           ? GLYPH.suggest
@@ -1146,7 +1150,7 @@ class Overlay {
         continue;
       }
       m.el.style.display = "grid";
-      m.el.style.left = `${clamp(r.right - 11, 4, innerWidth - 26)}px`;
+      m.el.style.left = `${clamp(r.right - 11, 4, innerWidth - (m.el.offsetWidth || 22) - 4)}px`;
       m.el.style.top = `${clamp(r.top - 11, 4, innerHeight - 26)}px`;
     }
     if (this.popFor) this.placePop();
