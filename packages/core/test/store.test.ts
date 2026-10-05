@@ -234,3 +234,34 @@ test("moving items between batches follows the batch's kind; a whole batch can s
   assert.equal(out.batch, undefined);
   await assert.rejects(store.setBatch(it.id, "no such batch"));
 });
+
+test("UX review: a page scan's findings become suggestions in today's review batch, without repeats", async () => {
+  const scan = await store.saveScan(
+    {
+      route: "/pricing",
+      url: "http://localhost:5173/pricing",
+      viewport: "1280x800",
+      scroll: { x: 0, y: 0 },
+      elements: [{ n: 1, kind: "action", tag: "button", text: "Book a demo", selector: "main > button", source: "src/Hero.vue:12:5", rect: { x: 10, y: 20, w: 120, h: 40 } }],
+      checks: [],
+    },
+    { data: Buffer.from("RIFF0000WEBP"), ext: "webp" },
+  );
+  assert.equal((await store.getScan("/pricing")).id, scan.id);
+  const finding = { n: 1, request: "Make Start free trial the only primary button", why: "Two loud buttons split attention", severity: "high" as const, rule: "competing-ctas" };
+  const first = await store.suggest(scan.id, [finding], "claude");
+  assert.equal(first.created.length, 1);
+  const it = first.created[0];
+  assert.equal(it.intent, "review");
+  assert.equal(it.anchor.source, "src/Hero.vue:12:5");
+  assert.equal(it.suggestion?.rule, "competing-ctas");
+  assert.ok(it.shot, "the scan's screenshot comes along");
+  assert.match((await store.findBatch(it.batch!))!.name, /^UX review · /);
+  const again = await store.suggest(scan.id, [finding], "claude");
+  assert.equal(again.created.length, 0);
+  assert.equal(again.skipped, 1);
+  const taken = await store.accept(it.id, "now");
+  assert.equal(taken.intent, undefined);
+  assert.equal(taken.batch, undefined);
+  assert.equal(taken.start, "now");
+});

@@ -181,6 +181,33 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
   }
 
   // Named rounds of feedback ("Home changes · 28 Sep"), picked in the overlay when someone starts capturing.
+  // UX review: the overlay posts a page scan (outline, automatic checks, screenshot); findings become suggestions.
+  if (parts[1] === "scans") {
+    if (req.method === "POST" && !parts[2]) {
+      const body = await readJson(req, config.screenshot.maxBytes * 1.4 + 2_000_000);
+      const shot = typeof body.shot === "string" ? decodeShot(body.shot, config.screenshot.maxBytes * 3) : undefined;
+      const scan = await store.saveScan(body.scan, shot);
+      // The automatic checks' findings are filed straight away; Claude's come later through /ahemui:review.
+      const findings = (scan.checks ?? []).map((c) => ({ n: c.n, selector: c.selector, request: c.help, why: c.why, fix: c.fix, severity: c.severity, rule: c.rule, type: "a11y" as const }));
+      const { created, skipped } = findings.length ? await store.suggest(scan.id, findings, "checks") : { created: [], skipped: 0 };
+      return send(res, 201, { scan: { id: scan.id, route: scan.route, elements: scan.elements.length }, created: created.length, skipped });
+    }
+    if (req.method === "GET" && !parts[2]) return send(res, 200, (await store.listScans()).map(({ elements, checks, ...s }) => ({ ...s, elements: elements.length, checks: checks.length })));
+    if (req.method === "GET" && parts[2] && parts[3] === "shot") {
+      const scan = await store.getScan(decodeURIComponent(parts[2]));
+      const path = store.scanShotPath(scan);
+      if (!path) throw new HttpError(404, "scan has no screenshot");
+      res.writeHead(200, { "Content-Type": MIME[path.split(".").pop()!] ?? "application/octet-stream", "Cache-Control": "no-cache" });
+      return void res.end(await readFile(path));
+    }
+    if (req.method === "GET" && parts[2]) return send(res, 200, await store.getScan(decodeURIComponent(parts[2])));
+  }
+  if (req.method === "POST" && parts[1] === "suggestions") {
+    const body = await readJson(req, 200_000);
+    const by = body.by === "claude" ? "claude" : "checks";
+    const { created, skipped } = await store.suggest(String(body.scan ?? ""), Array.isArray(body.findings) ? body.findings : [], by);
+    return send(res, 201, { created: created.map((i) => i.id), skipped });
+  }
   // Change a batch's kind: { intent: "action" | "review" }. Its items follow.
   if (parts[1] === "batches" && parts[2] && req.method === "POST") {
     const body = await readJson(req, 16_000);
@@ -258,6 +285,10 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
     return send(res, 200, await store.restore(id, body.status));
   }
   if (req.method === "POST" && action === "archive") return send(res, 200, await store.archive(id));
+  if (req.method === "POST" && action === "accept") {
+    const body = await readJson(req, 16_000);
+    return send(res, 200, await store.accept(id, body.start === "now" ? "now" : "later"));
+  }
   if (req.method === "POST" && action === "batch") {
     const body = await readJson(req, 16_000);
     return send(res, 200, await store.setBatch(id, typeof body.batch === "string" && body.batch ? body.batch : null));

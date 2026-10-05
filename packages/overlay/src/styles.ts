@@ -243,6 +243,13 @@ a.btn:hover { border-color: var(--accent); }
 .lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
 .lb-x { position: fixed; top: 14px; right: 16px; width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; font-size: 15px; }
 .pop img[data-file] { cursor: zoom-in; }
+.marker.suggest { background: #0d9488; }
+.pill.suggest { background: #0d9488; color: #fff; }
+.pop .sugg { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--bg2); border-left: 3px solid #0d9488; font-size: 12px; }
+.pop .sugg-by { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+.pop .sugg p { margin: 4px 0 0; line-height: 1.45; }
+.pop .sugg b { color: var(--fg); margin-right: 4px; }
+.panel-foot .review-page { font-size: 12px; padding: 3px 10px; }
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--bg); border: 1px solid var(--line);
   padding: 8px 14px; border-radius: 8px; pointer-events: none; opacity: 0; transition: opacity .2s; max-width: 520px; text-align: center;

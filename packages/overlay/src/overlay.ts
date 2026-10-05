@@ -5,6 +5,7 @@ import { stylesOf } from "./design.js";
 import { elementAt, inspectRect, type Inspection, locate } from "./inspect.js";
 import { collectPage, LOCAL_HOST } from "./page.js";
 import { scrub, scrubDeep, sensitiveRects } from "./redact.js";
+import { outlinePage, runChecks } from "./review.js";
 import { type Batch, cachedPrefs, cachePrefs, DEFAULT_PREFS, matchesShortcut, type Prefs, shortcutFromEvent, shortcutLabel } from "./prefs.js";
 import { recentSteps, recordSteps } from "./steps.js";
 import { STYLES } from "./styles.js";
@@ -746,6 +747,52 @@ class Overlay {
   }
   private stale = false;
 
+  // ——— UX review ———
+
+  /**
+   * "Review this page": outline the page, run the automatic checks, take a screenshot, and send it all to the
+   * server, which files the checks' findings as ✦ suggestions. Claude's judged review reads the same scan.
+   */
+  private async reviewPage() {
+    if (!this.connected) return this.toast(this.host.disconnectedHint, 6000);
+    this.closePopups();
+    this.toast("Reviewing this page…", 15000);
+    const clean = <T>(v: T): T => (deployed() ? scrubDeep(v) : v);
+    try {
+      const outline = outlinePage(this.isOwn, this.host.agent);
+      const checks = await runChecks(outline).catch(() => []);
+      const view = { x: 0, y: 0, w: innerWidth, h: innerHeight };
+      let shot: string | undefined;
+      try {
+        shot = await this.host.capture(view, [], sensitiveRects(view, deployed(), this.isOwn), (this.health?.maxBytes ?? 300_000) * 2, () => this.hide());
+      } catch {
+        /* the outline and checks still help without a picture */
+      }
+      const main = document.querySelector("main") ?? document.body;
+      const page = await collectPage(main, this.host.agent).catch(() => undefined);
+      const res = await this.host.transport.request<{ scan: { id: string }; created: number; skipped: number }>("POST", "/api/scans", {
+        scan: {
+          route: currentRoute(),
+          url: deployed() ? location.origin + location.pathname : location.href,
+          title: document.title.slice(0, 200),
+          viewport: `${innerWidth}x${innerHeight}`,
+          scroll: { x: Math.round(scrollX), y: Math.round(scrollY) },
+          page: clean(page),
+          elements: clean(outline),
+          checks: clean(checks),
+        },
+        shot,
+      });
+      const found = res.created ? `${res.created} issue${res.created === 1 ? "" : "s"} from the automatic checks (✦ on the page)` : "The automatic checks found nothing new";
+      this.toast(`${found}. For Claude's UX review of this page, run /ahemui:review.`, 12000, {
+        label: "Copy command",
+        run: () => navigator.clipboard.writeText(`/ahemui:review ${currentRoute()}`).then(() => this.toast("Copied. Paste it into Claude Code.", 3000)),
+      });
+    } catch (err) {
+      this.toast(`Review failed: ${(err as Error).message}`, 6000);
+    }
+  }
+
   /** Puts an item back where it was before an archive or resolve (the toast's Undo). */
   private async restoreItem(id: string, status?: Status) {
     const updated = await this.host.transport.request<Item>("POST", `/api/items/${id}/restore`, status ? { status } : {});
@@ -956,10 +1003,13 @@ class Overlay {
       }
       n++;
       const asking = item.needs_reply && item.status === "open";
-      m.el.className = `marker ${item.status}${asking ? " ask" : ""}`;
+      const suggested = !!item.suggestion && item.intent === "review" && item.status === "open";
+      m.el.className = `marker ${item.status}${asking ? " ask" : ""}${suggested ? " suggest" : ""}`;
       m.el.setAttribute("aria-label", `${asking ? "Question for you" : LABEL[item.status]}: ${item.body.split("\n")[0].slice(0, 80)}`);
       m.el.textContent = asking
         ? "?"
+        : suggested
+          ? "✦"
         : item.status === "done" || item.status === "wontfix" || item.status === "review"
           ? ICON[item.status]
           : item.start === "now" && item.status === "open"
@@ -1063,8 +1113,12 @@ class Overlay {
     const { prompt, thread } = splitThread(item.body);
     const extras = item.extras ?? [];
 
+    // Flagged for review (a suggestion, or a note in a review batch): someone decides whether it becomes a change.
+    const flagged = item.intent === "review" && item.status === "open" && !asking;
     let actions: string;
-    if (asking) {
+    if (flagged) {
+      actions = `<div class="actions"><button class="btn primary" data-act="accept-now" title="Make it a change and queue it for Claude">Do it</button><button class="btn" data-act="accept-later" title="Make it a change, in the backlog for later">Later</button><button class="btn" data-act="dismiss">Dismiss</button></div>`;
+    } else if (asking) {
       actions = `<textarea class="reply" placeholder="Your answer…"></textarea><div class="actions"><button class="btn primary" data-act="reply">Reply</button><button class="btn" data-act="dismiss">Dismiss</button></div>`;
     } else if (item.status === "review") {
       actions = `<div class="actions"><button class="btn primary" data-act="approve">Looks good ✓</button><button class="btn" data-act="changes-open">Not quite…</button></div>
@@ -1105,9 +1159,14 @@ class Overlay {
       ...(item.labels ?? []).map((l) => `#${l}`),
     ].filter(Boolean);
     pop.innerHTML = `
-      <div class="pop-top"><span class="pill ${asking ? "ask" : item.status}">${asking ? "question for you" : LABEL[item.status]}</span>
+      <div class="pop-top"><span class="pill ${asking ? "ask" : flagged ? "suggest" : item.status}">${asking ? "question for you" : flagged ? (item.suggestion ? `suggestion · ${item.suggestion.severity}` : "for review") : LABEL[item.status]}</span>
         <button class="id-copy mono" data-act="copy" title="Copy id">${item.id.slice(0, 10)}…</button></div>
       <div class="request">${esc(prompt.trim())}</div>
+      ${
+        item.suggestion
+          ? `<div class="sugg"><div class="sugg-by">${item.suggestion.by === "checks" ? "Automatic check" : "Claude's UX review"}${item.suggestion.rule ? ` · ${esc(item.suggestion.rule)}` : ""}</div><p><b>Why</b> ${esc(item.suggestion.why)}</p>${item.suggestion.fix ? `<p><b>Fix</b> ${esc(item.suggestion.fix)}</p>` : ""}</div>`
+          : ""
+      }
       <div class="byline">${esc(item.author)} · ${esc(shortDate(item.created))}${item.claimed_by && item.status === "in-progress" ? ` · ${esc(item.claimed_by)} is on it` : ""}</div>
       ${tags.length ? `<div class="tags">${tags.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>` : ""}
       <dl class="where">${where.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
@@ -1170,6 +1229,15 @@ class Overlay {
             this.toast(act === "approve" ? "Approved ✓" : "Sent back to Claude");
           } else if (act === "reopen") {
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/reopen`, {});
+          } else if (act === "accept-now" || act === "accept-later") {
+            const before = { batch: item.batch ?? null };
+            updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/accept`, { start: act === "accept-now" ? "now" : "later" });
+            this.closePopups();
+            this.toast(act === "accept-now" ? "On Claude's queue" : "In the backlog as a change", 6000, async () => {
+              const back = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/batch`, before);
+              this.items = this.items.map((i) => (i.id === back.id ? back : i));
+              this.renderAll();
+            });
           } else if (act === "dismiss") {
             const was = item.status;
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/dismiss`, { author: this.prefs.name || undefined });
@@ -1228,6 +1296,10 @@ class Overlay {
       ? `<a class="board-link" href="${esc(this.health.base)}/" target="_blank" rel="noopener">Open full board ↗</a>`
       : "";
     const bindHead = () => {
+      panel.querySelector(".review-page")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.reviewPage();
+      });
       panel.querySelector("[data-settings]")?.addEventListener("click", (e) => {
         e.stopPropagation();
         this.panelView = "settings";
@@ -1241,7 +1313,7 @@ class Overlay {
       );
     };
     if (!active.length) {
-      panel.innerHTML = `${this.panelHead()}<div class="empty">Backlog is empty. Press ✎ AhemUI or ${esc(shortcutLabel(this.prefs.shortcut))} to capture.</div>${board}`;
+      panel.innerHTML = `${this.panelHead()}<div class="empty">Backlog is empty. Press ✎ AhemUI or ${esc(shortcutLabel(this.prefs.shortcut))} to capture.</div><div class="panel-foot">${REVIEW_BUTTON}${board}</div>`;
       bindHead();
       return;
     }
@@ -1263,7 +1335,7 @@ class Overlay {
       return `<button class="btn row-start" data-start="${i.id}" title="Have Claude work on this now">${this.startLabel()}</button>`;
     };
     const row = (i: Item) => `<div class="list-item ${i.route === this.route && sameSite(i.url) ? "" : "elsewhere"}" data-id="${i.id}">
-          <span class="pill ${i.needs_reply ? "ask" : i.status}">${i.needs_reply ? "?" : ICON[i.status]}</span>
+          <span class="pill ${i.needs_reply ? "ask" : i.suggestion && i.intent === "review" && i.status === "open" ? "suggest" : i.status}">${i.needs_reply ? "?" : i.suggestion && i.intent === "review" && i.status === "open" ? "✦" : ICON[i.status]}</span>
           <span class="grow"><div>${esc(i.body.split("\n")[0].slice(0, 90))}</div><div class="route">${i.intent === "review" ? `<span class="rv-tag">for review</span> ` : ""}${esc(classLine(i) || i.page?.section || "")}${i.anchor.source ? ` <span class="mono">${esc(i.anchor.source)}</span>` : ""}</div></span>
           ${rowAction(i)}
           <button class="row-dismiss" data-dismiss="${i.id}" title="Dismiss: take it off the backlog" aria-label="Dismiss">✕</button>
@@ -1280,7 +1352,7 @@ class Overlay {
     panel.innerHTML =
       this.panelHead() +
       [...groups].map(([key, items]) => `<div class="group">${esc(groupLabel(key, items))}</div>${items.map(row).join("")}`).join("") +
-      `<div class="panel-foot">${clear}${board}</div>`;
+      `<div class="panel-foot">${REVIEW_BUTTON}${clear}${board}</div>`;
     bindHead();
     panel.querySelector(".clear-finished")?.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -1832,21 +1904,23 @@ class Overlay {
   }
 
   private toastTimer = 0;
-  private toast(msg: string, ms = 1800, undo?: () => Promise<void>) {
+  /** A short message; with a function, an Undo button; with { label, run }, a button of its own. */
+  private toast(msg: string, ms = 1800, action?: (() => Promise<void>) | { label: string; run: () => unknown }) {
     const t = this.$(".toast");
     t.textContent = msg;
-    t.classList.toggle("has-action", !!undo);
-    if (undo) {
+    t.classList.toggle("has-action", !!action);
+    if (action) {
+      const isUndo = typeof action === "function";
       const b = document.createElement("button");
       b.className = "toast-undo";
-      b.textContent = "Undo";
+      b.textContent = isUndo ? "Undo" : action.label;
       b.addEventListener("click", async () => {
         t.classList.remove("show");
         try {
-          await undo();
-          this.toast("Undone");
+          await (isUndo ? action() : action.run());
+          if (isUndo) this.toast("Undone");
         } catch (err) {
-          this.toast(`Couldn't undo: ${(err as Error).message}`, 4000);
+          this.toast(`${isUndo ? "Couldn't undo" : "That didn't work"}: ${(err as Error).message}`, 4000);
         }
       });
       t.append(" ", b);
@@ -1936,6 +2010,8 @@ function shortUrl(url: string): string {
 }
 
 const FOCUS_KEY = "ahemui:focus";
+
+const REVIEW_BUTTON = `<button class="btn review-page" title="Check this page for UX and accessibility issues; Claude can review it in depth with /ahemui:review">✦ Review this page</button>`;
 
 
 const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>`;

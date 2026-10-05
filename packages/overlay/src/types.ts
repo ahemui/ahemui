@@ -78,6 +78,7 @@ export interface Item {
   start?: "now" | "later";
   batch?: string;
   intent?: "action" | "review";
+  suggestion?: { by: "checks" | "claude"; severity: "high" | "medium" | "low"; rule?: string; why: string; fix?: string };
   needs_reply?: boolean;
   type?: ItemType;
   priority?: "high" | "normal" | "low";

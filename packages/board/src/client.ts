@@ -252,6 +252,11 @@ function renderBoard() {
 function dropAction(it: Item, col: string): { act: string; label: string } | null {
   const open = it.status === "open" && !it.needs_reply;
   const finished = it.status === "done" || it.status === "wontfix";
+  // Something flagged for review becomes a change when it's dragged onto the queue or the backlog.
+  if (open && it.intent === "review") {
+    if (col === "queue") return { act: "accept-now", label: "Taken on and queued for Claude" };
+    if (col === "backlog") return { act: "accept-later", label: "Taken on, in the backlog" };
+  }
   if (col === "queue" && open && it.start !== "now") return { act: "start", label: "Queued for Claude" };
   if (col === "backlog" && open && it.start === "now") return { act: "later", label: "Moved to the backlog" };
   if (col === "backlog" && (finished || it.status === "in-progress")) return { act: "reopen", label: "Back in the backlog" };
@@ -308,7 +313,7 @@ function card(it: Item): string {
   const asking = it.status === "open" && it.needs_reply;
   const chips = [
     it.start === "now" && it.status === "open" && !asking ? `<span class="chip now">⚡ queued</span>` : "",
-    it.intent === "review" ? `<span class="chip ask">for review</span>` : "",
+    it.suggestion && it.intent === "review" ? `<span class="chip suggest">✦ ${it.suggestion.by === "checks" ? "check" : "suggestion"} · ${it.suggestion.severity}</span>` : it.intent === "review" ? `<span class="chip ask">for review</span>` : "",
     asking ? `<span class="chip ask">? question for you</span>` : "",
     it.status === "review" ? `<span class="chip review">◎ review</span>` : "",
     it.status === "wontfix" ? `<span class="chip">won't fix</span>` : "",
@@ -402,6 +407,11 @@ function renderDrawer() {
       <h1 class="request">${esc(prompt.trim())}</h1>
       <div class="d-status st-${st.tone}"><span class="sdot"></span><b>${st.title}</b><span>${st.text}</span></div>
       <div class="d-sub">${esc(it.author)} · ${new Date(it.created).toLocaleString()}${classes.length ? ` · ${classes.map(esc).join(" · ")}` : ""}</div>
+      ${
+        it.suggestion
+          ? `<div class="sugg"><p><b>Why</b> ${esc(it.suggestion.why)}</p>${it.suggestion.fix ? `<p><b>Suggested fix</b> ${esc(it.suggestion.fix)}</p>` : ""}${it.suggestion.rule ? `<p class="muted">${esc(it.suggestion.rule)}</p>` : ""}</div>`
+          : ""
+      }
       ${live ? answerBox(it, asking) : ""}
       ${images.join("")}
       ${
@@ -492,6 +502,11 @@ function fig(it: Item, name: string | undefined, caption: string): string {
 function statusInfo(it: Item, asking: boolean | undefined): { title: string; text: string; tone: string } {
   const archived = it.location === "done" ? " (archived)" : "";
   if (asking) return { title: "Question for you", text: "Claude asked something before going on. Answer below.", tone: "ask" };
+  if (it.intent === "review" && it.status === "open") {
+    return it.suggestion
+      ? { title: `Suggestion · ${it.suggestion.severity}`, text: `From ${it.suggestion.by === "checks" ? "the automatic checks" : "Claude's UX review"}. Take it on, or dismiss it.`, tone: "suggest" }
+      : { title: "Flagged for review", text: "Decide whether this becomes a change.", tone: "suggest" };
+  }
   switch (it.status) {
     case "open":
       return it.start === "now"
@@ -521,7 +536,10 @@ function footer(it: Item, asking: boolean | undefined): string {
   const startLabel = state.watcher?.state === "working" ? "Add to queue" : "⚡ Start now";
   let left = "";
   let right = "";
-  if (asking) {
+  if (it.intent === "review" && it.status === "open" && !asking) {
+    left = btn("dismiss", "Dismiss", "quiet");
+    right = btn("accept-later", "Later") + btn("accept-now", "Do it", "primary");
+  } else if (asking) {
     left = btn("dismiss", "Dismiss", "quiet");
     right = btn("reply", "Send answer", "primary");
   } else if (it.status === "review") {
@@ -656,6 +674,17 @@ async function act(id: string, action: string) {
         const was = it.status;
         updated = await api<Item>("POST", `/api/items/${id}/dismiss`, {});
         toast("Dismissed", () => restore(id, was));
+        break;
+      }
+      case "accept-now":
+      case "accept-later": {
+        const before = it.batch ?? null;
+        updated = await api<Item>("POST", `/api/items/${id}/accept`, { start: action === "accept-now" ? "now" : "later" });
+        toast(action === "accept-now" ? "On Claude's queue" : "In the backlog as a change", async () => {
+          const back = await api<Item>("POST", `/api/items/${id}/batch`, { batch: before });
+          state.items = state.items.map((i) => (i.id === back.id ? back : i));
+          render();
+        });
         break;
       }
       case "archive":

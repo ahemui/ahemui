@@ -22,6 +22,11 @@ import {
   StatusSchema,
   type Batch,
   BatchSchema,
+  type Scan,
+  ScanSchema,
+  type Finding,
+  FindingSchema,
+  SuggestionSchema,
   type Intent,
   type WatchControl,
   WatchControlSchema,
@@ -93,7 +98,7 @@ export class AhemStore {
     const file = join(this.dir, ".gitignore");
     const current = existsSync(file) ? await readFile(file, "utf8") : "";
     const lines = current.split(/\r?\n/).filter(Boolean);
-    const missing = [WATCHER_FILE, CONTROL_FILE, "backlog.html"].filter((l) => !lines.includes(l));
+    const missing = [WATCHER_FILE, CONTROL_FILE, "backlog.html", ".scans/"].filter((l) => !lines.includes(l));
     if (missing.length) await writeFile(file, [...lines, ...missing].join("\n") + "\n");
   }
 
@@ -258,6 +263,115 @@ export class AhemStore {
     const all = await this.listBatches();
     const r = ref.trim().toLowerCase();
     return all.find((b) => b.id.toLowerCase().startsWith(r)) ?? all.find((b) => b.name.toLowerCase() === r) ?? null;
+  }
+
+  // ——— UX review: page scans and suggestions ———
+
+  private get scansDir() {
+    return join(this.dir, ".scans");
+  }
+
+  /** Saves a page scan (local only, gitignored) and keeps the newest 20. */
+  async saveScan(input: Omit<Scan, "id" | "created" | "shot">, shot?: Shot): Promise<Scan> {
+    await this.ensureGitignore();
+    await mkdir(this.scansDir, { recursive: true });
+    const id = ulid();
+    const scan = ScanSchema.parse({ ...input, id, created: new Date().toISOString(), shot: shot ? `${id}.${shot.ext}` : undefined });
+    if (shot) await writeFile(join(this.scansDir, scan.shot!), shot.data);
+    await writeFile(join(this.scansDir, `${id}.json`), JSON.stringify(scan));
+    const old = (await readdir(this.scansDir)).filter((f) => f.endsWith(".json")).sort().reverse().slice(20);
+    for (const f of old) {
+      const oldId = f.replace(/\.json$/, "");
+      for (const g of (await readdir(this.scansDir)).filter((x) => x.startsWith(oldId))) await rm(join(this.scansDir, g), { force: true });
+    }
+    return scan;
+  }
+
+  async listScans(): Promise<Scan[]> {
+    if (!existsSync(this.scansDir)) return [];
+    const out: Scan[] = [];
+    for (const f of (await readdir(this.scansDir)).filter((x) => x.endsWith(".json")).sort().reverse()) {
+      try {
+        out.push(ScanSchema.parse(JSON.parse(await readFile(join(this.scansDir, f), "utf8"))));
+      } catch {
+        /* skip a broken scan */
+      }
+    }
+    return out;
+  }
+
+  /** By id prefix, or the newest scan of a route ("/pricing"). */
+  async getScan(ref: string): Promise<Scan> {
+    const all = await this.listScans();
+    const r = ref.trim();
+    const scan = all.find((s) => s.id.toLowerCase().startsWith(r.toLowerCase())) ?? all.find((s) => s.route === r || s.page?.routePattern === r);
+    if (!scan) throw new AhemError(`no page scan matching "${ref}": open the page and press "Review this page" in the AhemUI panel`);
+    return scan;
+  }
+
+  scanShotPath(scan: Scan): string | null {
+    return scan.shot ? join(this.scansDir, scan.shot) : null;
+  }
+
+  /** Today's review batch for checks or for Claude ("UX review · 5 Oct"), created on first use. */
+  async reviewBatch(by: "checks" | "claude"): Promise<Batch> {
+    const day = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    const name = by === "claude" ? `UX review · ${day}` : `Automatic checks · ${day}`;
+    return (await this.findBatch(name)) ?? (await this.createBatch({ name, intent: "review", author: by === "claude" ? "Claude (UX review)" : "AhemUI checks" }));
+  }
+
+  /**
+   * Files findings from a scan as suggestion items in today's review batch, pinned to the elements they're about.
+   * A finding about the same element and rule as an open item is skipped, so re-running a review doesn't pile up.
+   */
+  async suggest(scanRef: string, findings: Finding[], by: "checks" | "claude"): Promise<{ created: Item[]; skipped: number }> {
+    const scan = await this.getScan(scanRef);
+    const batch = await this.reviewBatch(by);
+    const open = await this.list({ status: ["open", "in-progress", "review"] });
+    const shotPath = this.scanShotPath(scan);
+    const shotData = shotPath && existsSync(shotPath) ? await readFile(shotPath) : undefined;
+    const created: Item[] = [];
+    let skipped = 0;
+    for (const raw of findings) {
+      const f = FindingSchema.parse(raw);
+      const el = f.n !== undefined ? scan.elements.find((e) => e.n === f.n) : undefined;
+      const selector = el?.selector ?? f.selector;
+      const ruleKey = (f.rule ?? f.request).toLowerCase();
+      const dup = open.some(
+        (i) => i.anchor.selector === selector && (i.suggestion?.rule ?? i.body.split("\n")[0]).toLowerCase() === ruleKey,
+      );
+      if (dup) {
+        skipped++;
+        continue;
+      }
+      const item = await this.create(
+        {
+          prompt: f.request,
+          author: batch.author,
+          route: scan.route,
+          url: scan.url,
+          viewport: scan.viewport,
+          page: scan.page,
+          type: f.type,
+          start: "later",
+          batch: batch.id,
+          rect: el ? el.rect : undefined,
+          anchor: { selector, source: el?.source, text: el?.text },
+        },
+        shotData ? { data: shotData, ext: scan.shot!.split(".").pop() as Shot["ext"] } : undefined,
+      );
+      const suggestion = SuggestionSchema.parse({ by, severity: f.severity, rule: f.rule, why: f.why, fix: f.fix });
+      const saved = await this.save({ ...item, suggestion });
+      open.push(saved);
+      created.push(saved);
+    }
+    return { created, skipped };
+  }
+
+  /** Takes a suggestion (or any item flagged for review) on as a change: out of its review batch, onto the queue. */
+  async accept(id: string, start: "now" | "later" = "later"): Promise<Item> {
+    const item = await this.get(id);
+    return this.save({ ...item, batch: undefined, intent: undefined, start });
   }
 
   /**

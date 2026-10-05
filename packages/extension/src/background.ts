@@ -123,7 +123,7 @@ async function handle(msg: any, sender: chrome.runtime.MessageSender): Promise<u
     }
     case "api": {
       const base = await serverForTab(tabId, origin);
-      if (typeof msg.path !== "string" || !/^\/api\/(items|watch|prune|prefs|batches)(\/|\?|$)/.test(msg.path)) throw new Error("bad path");
+      if (typeof msg.path !== "string" || !/^\/api\/(items|watch|prune|prefs|batches|scans|suggestions)(\/|\?|$)/.test(msg.path)) throw new Error("bad path");
       const res = await fetch(base + msg.path, {
         method: msg.method,
         headers: { "Content-Type": "application/json" },

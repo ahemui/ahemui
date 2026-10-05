@@ -30,7 +30,7 @@ test("exposes the ahemui tools", async () => {
   const { tools } = await client.listTools();
   assert.deepEqual(
     tools.map((t) => t.name).sort(),
-    ["ahemui_batches", "ahemui_board", "ahemui_claim", "ahemui_dismiss", "ahemui_get", "ahemui_init", "ahemui_link", "ahemui_list", "ahemui_next", "ahemui_note", "ahemui_prune", "ahemui_reopen", "ahemui_resolve", "ahemui_set_tracker", "ahemui_ticket", "ahemui_tracker", "ahemui_triage"],
+    ["ahemui_batches", "ahemui_board", "ahemui_claim", "ahemui_dismiss", "ahemui_get", "ahemui_init", "ahemui_link", "ahemui_list", "ahemui_next", "ahemui_note", "ahemui_prune", "ahemui_reopen", "ahemui_resolve", "ahemui_scan", "ahemui_scans", "ahemui_set_tracker", "ahemui_suggest", "ahemui_ticket", "ahemui_tracker", "ahemui_triage"],
   );
 });
 

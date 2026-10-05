@@ -93,6 +93,12 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .new-batch[hidden] { display: none; }
 .new-batch input { flex: 1; }
 .grp h2 .grp-act { margin-left: auto; margin-right: 8px; font-size: 11px; padding: 2px 10px; text-transform: none; letter-spacing: 0; }
+.chip.suggest { color: #0d9488; border-color: #0d9488; }
+.st-suggest .sdot { background: #0d9488; }
+.sugg { margin: 12px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--bg); border-left: 3px solid #0d9488; }
+.sugg p { margin: 4px 0; }
+.sugg b { margin-right: 6px; }
+.sugg .muted { color: var(--muted); font-size: 12px; }
 .saved-hint { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }
 .answer label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 .d-foot { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--line); background: var(--bg); }

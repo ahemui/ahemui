@@ -10,6 +10,8 @@ export const TypeSchema = z.enum(TYPES);
 export type ItemType = z.infer<typeof TypeSchema>;
 
 export const PRIORITIES = ["high", "normal", "low"] as const;
+/** How much a UX-review finding matters. */
+export const SEVERITIES = ["high", "medium", "low"] as const;
 export const PrioritySchema = z.enum(PRIORITIES);
 export type Priority = z.infer<typeof PrioritySchema>;
 
@@ -183,6 +185,77 @@ export const BatchSchema = z.object({
 });
 export type Batch = z.infer<typeof BatchSchema>;
 
+/** One element of a page scan: what it is, where it is on the page and in the code. `n` is its number in the scan. */
+export const ScanElementSchema = z.object({
+  n: z.number().int(),
+  kind: z.enum(["heading", "action", "field", "media", "text", "landmark"]),
+  tag: short(40),
+  level: z.number().int().optional(), // heading level
+  text: short(160).optional(),
+  source: short(400).optional(),
+  selector: short(600),
+  rect: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }), // document coordinates
+  fontSize: z.number().optional(),
+});
+export type ScanElement = z.infer<typeof ScanElementSchema>;
+
+/** A finding from the automatic checks, before it becomes an item. */
+export const ScanCheckSchema = z.object({
+  rule: short(80),
+  severity: z.enum(SEVERITIES),
+  help: short(300),
+  why: short(800),
+  fix: short(800).optional(),
+  selector: short(600),
+  n: z.number().int().optional(),
+});
+
+/** What a page looked like when someone pressed "Review this page": outline, checks and a screenshot. */
+export const ScanSchema = z.object({
+  id: z.string(),
+  route: short(300),
+  url: short(800),
+  title: short(200).optional(),
+  viewport: short(20),
+  scroll: z.object({ x: z.number(), y: z.number() }),
+  created: z.string(),
+  page: PageSchema.optional(),
+  shot: z.string().optional(),
+  elements: z.array(ScanElementSchema).max(400),
+  checks: z.array(ScanCheckSchema).max(80),
+});
+export type Scan = z.infer<typeof ScanSchema>;
+
+/** One finding to file from a scan: point at an element by its number (or a selector) and say what to change. */
+export const FindingSchema = z.object({
+  n: z.number().int().optional(),
+  selector: short(600).optional(),
+  request: short(500),
+  why: short(800),
+  fix: short(800).optional(),
+  severity: z.enum(SEVERITIES),
+  rule: short(80).optional(),
+  type: TypeSchema.optional(),
+});
+export type Finding = z.infer<typeof FindingSchema>;
+
+/**
+ * A finding from a UX review rather than a person: automatic checks run in the page (axe rules such as contrast
+ * and tap targets) or Claude's judgement over a page scan. Suggestions sit in a review batch until someone takes
+ * them on (Do it / Later) or dismisses them.
+ */
+export const SuggestionSchema = z.object({
+  by: z.enum(["checks", "claude"]),
+  severity: z.enum(SEVERITIES),
+  /** What kind of problem: an axe rule id ("color-contrast") or a short slug ("unclear-cta"). */
+  rule: short(80).optional(),
+  /** Why it matters, in a sentence or two. */
+  why: short(800),
+  /** What to do about it. */
+  fix: short(800).optional(),
+});
+export type Suggestion = z.infer<typeof SuggestionSchema>;
+
 export const ItemMetaSchema = z.object({
   id: z.string(),
   status: StatusSchema,
@@ -216,6 +289,7 @@ export const ItemMetaSchema = z.object({
   resolved_by: z.string().nullable().default(null),
   review: ReviewSchema.optional(),
   external: ExternalSchema.optional(),
+  suggestion: SuggestionSchema.optional(),
 });
 export type ItemMeta = z.infer<typeof ItemMetaSchema>;
 

@@ -184,3 +184,39 @@ test("board: move an item into a new review batch from the modal, then make the 
   const batchId = (await get()).batch;
   await rm(join("examples", "vue-app", ".ahemui", "batches", `${batchId}.json`), { force: true });
 });
+
+test("UX review: Review this page scans it; a suggestion shows as ✦ and Do it makes it a change", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("ahemui-overlay .bar .dot.ok")).toBeAttached();
+  const base = await server(page);
+  const before = (await (await page.request.get(`${base}/api/scans`)).json()).length;
+  await page.locator("ahemui-overlay .counts").click();
+  await page.locator("ahemui-overlay .review-page").click();
+  await expect(page.locator("ahemui-overlay .toast")).toContainText("/ahemui:review", { timeout: 20_000 });
+  const scans = await (await page.request.get(`${base}/api/scans`)).json();
+  expect(scans.length).toBeGreaterThan(before);
+  const scan = await (await page.request.get(`${base}/api/scans/${scans[0].id}`)).json();
+  const hero = scan.elements.find((e: any) => e.kind === "heading" && e.text?.includes("Ship interfaces faster"));
+  expect(hero, "the outline includes the hero heading").toBeTruthy();
+  expect(hero.source).toMatch(/HomePage\.vue:\d+/);
+
+  // What Claude's review does through ahemui_suggest.
+  const res = await (
+    await page.request.post(`${base}/api/suggestions`, {
+      data: { scan: scan.id, by: "claude", findings: [{ n: hero.n, request: `E2E shorten the headline ${Date.now()}`, why: "Too long to scan", severity: "medium", rule: `e2e-${Date.now()}` }] },
+    })
+  ).json();
+  const id = res.created[0];
+  created.push(id);
+  await expect(page.locator("ahemui-overlay .marker.suggest").first()).toBeVisible();
+  // The automatic checks may have flagged things on this page too; open this test's own suggestion from the list.
+  await page.keyboard.press("Escape");
+  await page.locator("ahemui-overlay .counts").click();
+  await page.locator(`ahemui-overlay .list-item[data-id="${id}"]`).click();
+  const pop = page.locator("ahemui-overlay .pop");
+  await expect(pop.locator(".sugg")).toContainText("Too long to scan");
+  await pop.getByRole("button", { name: "Do it" }).click();
+  await expect.poll(async () => (await (await page.request.get(`${base}/api/items/${id}`)).json()).start).toBe("now");
+  const item = await (await page.request.get(`${base}/api/items/${id}`)).json();
+  expect(item.intent).toBeUndefined();
+});

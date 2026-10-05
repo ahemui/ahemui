@@ -41,7 +41,7 @@ Chromium browsers (Chrome, Edge, Vivaldi, Brave, Arc).
 | `packages/vite` | `ahemui`: Vue source attributes + in-process `ahemui serve` + overlay injection. Bundled, with the CLI, into one dependency-free package |
 | `packages/extension` | MV3 extension for Chromium/Vivaldi: project picker, works on deployed sites, real tab screenshots, Alt+Shift+S |
 | `packages/board` | The backlog board page (live at the server's address, or the `.ahemui/backlog.html` snapshot) |
-| `packages/claude-plugin` | Claude Code plugin: MCP server (`ahemui_*` tools) + skills `/ahemui:setup`, `/ahemui:watch`, `/ahemui:board`, `/ahemui:triage`, `/ahemui:work`, `/ahemui:sync`, `/ahemui:status`, `/ahemui:handoff`, `/ahemui:archive` |
+| `packages/claude-plugin` | Claude Code plugin: MCP server (`ahemui_*` tools) + skills `/ahemui:setup`, `/ahemui:watch`, `/ahemui:board`, `/ahemui:triage`, `/ahemui:work`, `/ahemui:review`, `/ahemui:sync`, `/ahemui:status`, `/ahemui:handoff`, `/ahemui:archive` |
 | `examples/vue-app` | Small Vue app wired up for trying it out |
 
 ## Getting started
@@ -129,6 +129,13 @@ and it flags duplicates.
 `route:/pricing`. It goes high priority first, then page by page. For each item, Claude claims it (marker turns blue), reads the
 screenshot and captured context, makes the change, hands it to you for review (◎), and commits the code together with the
 item's status (`AhemUI-Item: <id>` trailer).
+
+**UX review (optional).** In the backlog panel (☰), press **✦ Review this page**. AhemUI outlines the page, runs
+automatic accessibility checks (axe: contrast, names, labels, tap targets…) and takes a screenshot. The checks' findings
+appear right away as teal ✦ markers. For Claude's judged review (hierarchy, copy, forms, states, consistency), run
+`/ahemui:review` (or `/ahemui:review /pricing`) in Claude Code. Every suggestion lands in a "for review" batch and
+never starts on its own: on the page, choose **Do it** (queue it now), **Later** (backlog) or **Dismiss**. On the board,
+"Make these changes" takes on a whole batch.
 
 **Using Jira, Linear, Notion or GitHub Issues?** AhemUI works alongside them. `.ahemui/` stays the capture inbox and
 source of truth (anchors, screenshots, page metadata), and Claude mirrors items into your tracker through the MCP

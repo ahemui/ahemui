@@ -97,6 +97,75 @@ tool(
   },
 );
 
+// ——— UX review ———
+
+tool(
+  "ahemui_scans",
+  "List AhemUI page scans: snapshots someone took with \"Review this page\" in the browser (outline of the page's elements with source locations, automatic-check findings, and a screenshot). Use with /ahemui:review.",
+  {},
+  async () => {
+    const scans = await store().listScans();
+    if (!scans.length) return 'No page scans yet. Ask the user to open the page and press "✦ Review this page" in the AhemUI backlog panel.';
+    return scans
+      .map((s) => `${s.id.slice(0, 10)}  ${s.route}  ${s.title ?? ""}  ${s.elements.length} elements, ${s.checks.length} check findings, ${new Date(s.created).toLocaleString()}`)
+      .join("\n");
+  },
+);
+
+tool(
+  "ahemui_scan",
+  "Read one page scan for a UX review: the screenshot, and a numbered outline of headings, actions, fields, media and text with their source file:line and position. Pass the scan id or a route (newest scan of that route).",
+  { scan: z.string().describe("Scan id prefix, or a route like /pricing") },
+  async ({ scan }) => {
+    const s = store();
+    const sc = await s.getScan(scan);
+    const lines = sc.elements.map((e) => {
+      const where = `${Math.round(e.rect.x)},${Math.round(e.rect.y)} ${Math.round(e.rect.w)}×${Math.round(e.rect.h)}`;
+      const label = e.kind === "heading" ? `h${e.level ?? ""}` : e.kind;
+      return `#${e.n} ${label} <${e.tag}>${e.fontSize ? ` ${e.fontSize}px` : ""} @${where}${e.source ? `  ${e.source}` : ""}${e.text ? `  "${e.text}"` : ""}`;
+    });
+    const checks = sc.checks.map((c) => `- [${c.severity}] ${c.rule}: ${c.help}${c.n !== undefined ? ` (#${c.n})` : ""}`);
+    const text = [
+      `Scan ${sc.id} of ${sc.route} (${sc.title ?? "untitled"}), viewport ${sc.viewport}, scrolled to ${sc.scroll.x},${sc.scroll.y}, ${new Date(sc.created).toLocaleString()}`,
+      sc.page?.pageComponent ? `Page component: ${sc.page.pageComponent}${sc.page.pageFile ? ` (${sc.page.pageFile})` : ""}` : "",
+      "",
+      "Elements (document coordinates; the screenshot shows the viewport at the scroll position):",
+      ...lines,
+      "",
+      checks.length ? `Automatic checks already filed as suggestions:\n${checks.join("\n")}` : "Automatic checks found nothing.",
+    ].filter((l) => l !== undefined).join("\n");
+    const shot = s.scanShotPath(sc);
+    return shot && existsSync(shot) ? [{ type: "text", text }, await imageContent(shot)] : text;
+  },
+);
+
+tool(
+  "ahemui_suggest",
+  "File UX-review findings from a page scan as suggestions: each is pinned to an element (by its #number in ahemui_scan), lands in today's \"UX review\" batch as for-review, and shows on the page as a ✦ marker for the user to take on or dismiss. Findings about the same element and rule as an open item are skipped.",
+  {
+    scan: z.string().describe("Scan id prefix or route"),
+    findings: z
+      .array(
+        z.object({
+          n: z.number().int().optional().describe("Element number from ahemui_scan"),
+          selector: z.string().optional().describe("Only when no element number fits"),
+          request: z.string().max(500).describe("The change, as an instruction: 'Make the Get started button the only primary action in the hero'"),
+          why: z.string().max(800).describe("Why it matters for the user, in a sentence or two"),
+          fix: z.string().max(800).optional().describe("A concrete suggestion"),
+          severity: z.enum(["high", "medium", "low"]),
+          rule: z.string().max(80).optional().describe("Short slug of the problem: competing-ctas, unclear-copy, missing-empty-state…"),
+          type: z.enum(TYPES).optional(),
+        }),
+      )
+      .min(1)
+      .max(12),
+  },
+  async ({ scan, findings }) => {
+    const { created, skipped } = await store().suggest(scan, findings, "claude");
+    return `Filed ${created.length} suggestion(s)${skipped ? `, skipped ${skipped} already in the backlog` : ""}:\n${created.map(summary).join("\n")}`;
+  },
+);
+
 tool("ahemui_get", "Get one AhemUI item in full: request, anchors, highlighted elements, notes, and its screenshot.", idArg, async ({ id }) => {
   const s = store();
   return describe(s, await s.get(id));
