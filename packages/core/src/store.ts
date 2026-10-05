@@ -330,6 +330,16 @@ export class AhemStore {
     const open = await this.list({ status: ["open", "in-progress", "review"] });
     const shotPath = this.scanShotPath(scan);
     const shotData = shotPath && existsSync(shotPath) ? await readFile(shotPath) : undefined;
+    const [vw, vh] = scan.viewport.split("x").map(Number);
+    /** Where an element sits in the scan's screenshot, as fractions; none when it's mostly off screen. */
+    const focusOf = (r: { x: number; y: number; w: number; h: number } | undefined) => {
+      if (!r || !vw || !vh || r.w <= 0 || r.h <= 0) return undefined;
+      const x = r.x - scan.scroll.x;
+      const y = r.y - scan.scroll.y;
+      const seen = Math.max(0, Math.min(x + r.w, vw) - Math.max(x, 0)) * Math.max(0, Math.min(y + r.h, vh) - Math.max(y, 0));
+      if (seen < r.w * r.h * 0.4) return undefined;
+      return { x: x / vw, y: y / vh, w: r.w / vw, h: r.h / vh };
+    };
     const created: Item[] = [];
     let skipped = 0;
     for (const raw of findings) {
@@ -344,6 +354,7 @@ export class AhemStore {
         skipped++;
         continue;
       }
+      const focus = focusOf(el?.rect);
       const item = await this.create(
         {
           prompt: f.request,
@@ -358,10 +369,11 @@ export class AhemStore {
           rect: el ? el.rect : undefined,
           anchor: { selector, source: el?.source, text: el?.text },
         },
-        shotData ? { data: shotData, ext: scan.shot!.split(".").pop() as Shot["ext"] } : undefined,
+        // Only a picture that shows the element: the overlay crops it to the element later (shot_focus).
+        shotData && focus ? { data: shotData, ext: scan.shot!.split(".").pop() as Shot["ext"] } : undefined,
       );
       const suggestion = SuggestionSchema.parse({ by, severity: f.severity, rule: f.rule, why: f.why, fix: f.fix });
-      const saved = await this.save({ ...item, suggestion });
+      const saved = await this.save({ ...item, suggestion, shot_focus: item.shot ? focus : undefined });
       open.push(saved);
       created.push(saved);
     }
@@ -540,6 +552,20 @@ export class AhemStore {
   }
 
   /** Stores the "after" screenshot of the same spot, taken by the overlay once an item is in review. */
+  /** Replaces an item's screenshot (a suggestion's, once cropped to its element). */
+  async setShot(id: string, shot: Shot): Promise<Item> {
+    const item = await this.get(id);
+    // Several open tabs may crop the same suggestion; the first one wins and the rest change nothing.
+    if (item.suggestion && !item.shot_focus) return item;
+    const dir = this.itemDir(item.id, item.location);
+    const name = `shot.${shot.ext}`;
+    if (item.shot && item.shot !== name) await rm(join(dir, item.shot), { force: true });
+    await writeFile(join(dir, name), shot.data);
+    // Re-read: the item may have changed (taken on, moved) while the file was written.
+    const now = await this.get(id);
+    return this.save({ ...now, shot: name, shot_focus: undefined });
+  }
+
   async setAfter(id: string, shot: Shot): Promise<Item> {
     const item = await this.get(id);
     const name = `after.${shot.ext}`;
@@ -648,10 +674,34 @@ export class AhemStore {
   private async write(item: Item): Promise<void> {
     const { body, location, ...meta } = item;
     const file = join(this.itemDir(item.id, location), ITEM_FILE);
-    // Write-then-rename so the watcher never sees a half-written file.
-    const tmp = `${file}.${process.pid}.tmp`;
+    // Write-then-rename so the watcher never sees a half-written file. A temp name per write: two saves of the
+    // same item at once must not share one.
+    const tmp = `${file}.${process.pid}.${++tmpSeq}.tmp`;
     await writeFile(tmp, stringifyFrontmatter(meta, body));
-    await rename(tmp, file);
+    try {
+      await renameRetrying(tmp, file);
+    } catch (err) {
+      await rm(tmp, { force: true });
+      throw err;
+    }
+  }
+}
+
+let tmpSeq = 0;
+
+/**
+ * Windows refuses to replace a file another handle has open (a reader, the watcher, an antivirus scan) with
+ * EPERM/EBUSY/EACCES for a moment. Try again briefly, as graceful-fs does.
+ */
+async function renameRetrying(from: string, to: string): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await rename(from, to);
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (attempt >= 10 || (code !== "EPERM" && code !== "EBUSY" && code !== "EACCES")) throw err;
+      await new Promise((r) => setTimeout(r, 15 * (attempt + 1)));
+    }
   }
 }
 

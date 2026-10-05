@@ -189,12 +189,12 @@ test("UX review: Review this page scans it; a suggestion shows as ✦ and Do it 
   await page.goto("/");
   await expect(page.locator("ahemui-overlay .bar .dot.ok")).toBeAttached();
   const base = await server(page);
-  const before = (await (await page.request.get(`${base}/api/scans`)).json()).length;
+  const newest = (await (await page.request.get(`${base}/api/scans`)).json())[0]?.id;
   await page.locator("ahemui-overlay .counts").click();
   await page.locator("ahemui-overlay .review-page").click();
   await expect(page.locator("ahemui-overlay .toast")).toContainText("/ahemui:review", { timeout: 20_000 });
   const scans = await (await page.request.get(`${base}/api/scans`)).json();
-  expect(scans.length).toBeGreaterThan(before);
+  expect(scans[0].id).not.toBe(newest);
   const scan = await (await page.request.get(`${base}/api/scans/${scans[0].id}`)).json();
   const hero = scan.elements.find((e: any) => e.kind === "heading" && e.text?.includes("Ship interfaces faster"));
   expect(hero, "the outline includes the hero heading").toBeTruthy();
@@ -215,6 +215,8 @@ test("UX review: Review this page scans it; a suggestion shows as ✦ and Do it 
   await page.locator(`ahemui-overlay .list-item[data-id="${id}"]`).click();
   const pop = page.locator("ahemui-overlay .pop");
   await expect(pop.locator(".sugg")).toContainText("Too long to scan");
+  // The overlay crops the page screenshot to the element, then the popover redraws with it.
+  await expect.poll(async () => (await (await page.request.get(`${base}/api/items/${id}`)).json()).shot_focus).toBeUndefined();
   await pop.getByRole("button", { name: "Do it" }).click();
   await expect.poll(async () => (await (await page.request.get(`${base}/api/items/${id}`)).json()).start).toBe("now");
   const item = await (await page.request.get(`${base}/api/items/${id}`)).json();

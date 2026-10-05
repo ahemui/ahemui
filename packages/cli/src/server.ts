@@ -319,6 +319,11 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
     if (body.verdict === "changes" && !body.comment?.trim()) throw new HttpError(400, "say what should change");
     return send(res, 200, await store.review(id, body.author ?? defaultAuthor(), body.verdict, body.comment?.slice(0, 4000)));
   }
+  if (req.method === "POST" && action === "shot") {
+    const body = await readJson(req, maxShot * 1.4 + 16_000);
+    if (!body.shot) throw new HttpError(400, "shot is required");
+    return send(res, 200, await store.setShot(id, decodeShot(body.shot, maxShot)));
+  }
   if (req.method === "POST" && action === "after") {
     const body = await readJson(req, maxShot * 1.4 + 16_000);
     if (!body.shot) throw new HttpError(400, "shot is required");

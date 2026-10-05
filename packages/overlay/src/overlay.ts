@@ -1,5 +1,6 @@
 import { checkA11y } from "./a11y.js";
 import { armDanger, hasArmed } from "./confirm.js";
+import { cropToDataUrl, loadImage } from "./crop.js";
 import type { Health, Watcher } from "./api.js";
 import { stylesOf } from "./design.js";
 import { elementAt, inspectRect, type Inspection, locate } from "./inspect.js";
@@ -12,7 +13,20 @@ import { STYLES } from "./styles.js";
 import { type Host, type Item, type ItemType, type Page, type Point, type Rect, type Status, type Styles, TYPES } from "./types.js";
 import { dictate, voiceSupported } from "./voice.js";
 
-const ICON: Record<Status, string> = { open: "○", "in-progress": "◐", review: "◎", done: "✓", wontfix: "✕" };
+/** Marker and list icons: drawn, so they read at 22px where text glyphs like ◎ blur into a blob. */
+const svg = (d: string, fill = false) =>
+  `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="${fill ? "currentColor" : "none"}" stroke="${fill ? "none" : "currentColor"}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const GLYPH = {
+  done: svg('<path d="M3 8.5l3.2 3.2L13 4.8"/>'),
+  wontfix: svg('<path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/>'),
+  review: svg('<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/>'),
+  now: svg('<path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/>', true),
+  suggest: svg('<path d="M8 1l1.8 5.2L15 8l-5.2 1.8L8 15l-1.8-5.2L1 8l5.2-1.8z"/>', true),
+  ask: svg('<path d="M5.6 5.8a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4"/><circle cx="8" cy="13" r=".6" fill="currentColor"/>'),
+  open: svg('<circle cx="8" cy="8" r="4"/>'),
+  "in-progress": svg('<path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5"/>'),
+};
+
 const LABEL: Record<Status, string> = { open: "open", "in-progress": "in progress", review: "ready for review", done: "done", wontfix: "won't fix" };
 
 /** Starts the overlay once per page, whichever of the extension or the Vite plugin gets there first. */
@@ -84,6 +98,8 @@ class Overlay {
   private route = currentRoute();
   private frame = 0;
   private popFor: string | null = null;
+  /** Sections of the popover someone opened or closed, so a live update doesn't undo it. */
+  private popFolds = new Map<string, boolean>();
   private draft: Draft | null = null;
   private chosenType: ItemType | undefined;
   private stopVoice: (() => void) | null = null;
@@ -159,6 +175,7 @@ class Overlay {
       (items, watcher) => {
         this.notifyChanges(items);
         this.items = items;
+        void this.cropSuggestionShots();
         if (watcher !== undefined) this.watcher = watcher;
         this.renderAll();
       },
@@ -681,16 +698,90 @@ class Overlay {
       const was = prev.get(it.id);
       if (!was) continue;
       const title = it.body.split("\n")[0].slice(0, 120);
-      if (it.status === "review" && was.status !== "review") this.alert("Ready for review", title, `${it.id}:review`);
-      else if (it.needs_reply && !was.needs_reply) this.alert("Claude has a question", lastEntry(it.body, "Question") ?? title, `${it.id}:q`);
-      else if (it.status === "done" && was.status === "in-progress") this.alert("Done", title, `${it.id}:done`);
+      if (it.status === "review" && was.status !== "review") this.alert("review", title, it.id);
+      else if (it.needs_reply && !was.needs_reply) this.alert("ask", lastEntry(it.body, "Question") ?? title, it.id);
+      else if (it.status === "done" && was.status === "in-progress") this.alert("done", title, it.id);
     }
   }
 
-  private alert(title: string, body: string, tag: string) {
+  private cropping = new Set<string>();
+
+  /**
+   * Suggestions are filed with the whole page's screenshot and where their element is in it (shot_focus). Crop each
+   * to its element with some context and a box round it, and save that as the item's screenshot.
+   */
+  private async cropSuggestionShots() {
+    for (const id of this.cropping) if (!this.items.some((i) => i.id === id && i.shot_focus)) this.cropping.delete(id);
+    for (const item of this.items) {
+      const f = item.shot_focus;
+      if (!f || !item.shot || this.cropping.has(item.id)) continue;
+      this.cropping.add(item.id);
+      try {
+        // Through a blob: an image straight from the server's origin would taint the canvas.
+        const src = await this.host.transport.fileSrc(item.id, item.shot);
+        const blobUrl = src.startsWith("http") ? URL.createObjectURL(await (await fetch(src)).blob()) : undefined;
+        const img = await loadImage(blobUrl ?? src).finally(() => blobUrl && setTimeout(() => URL.revokeObjectURL(blobUrl), 0));
+        const W = img.naturalWidth;
+        const H = img.naturalHeight;
+        const el = { x: f.x * W, y: f.y * H, w: f.w * W, h: f.h * H };
+        // Some context round the element: about 5% of the page width, more for tall elements.
+        const padX = Math.max(W * 0.05, el.w * 0.15);
+        const padY = Math.max(W * 0.05, el.h * 0.5);
+        const x = Math.max(0, el.x - padX);
+        const y = Math.max(0, el.y - padY);
+        const rect = { x, y, w: Math.min(W, el.x + el.w + padX) - x, h: Math.min(H, el.y + el.h + padY) - y };
+        const b = { x: Math.max(el.x - 3, 0), y: Math.max(el.y - 3, 0), r: Math.min(el.x + el.w + 3, W), btm: Math.min(el.y + el.h + 3, H) };
+        const box: Point[] = [[b.x, b.y], [b.r, b.y], [b.r, b.btm], [b.x, b.btm], [b.x, b.y]];
+        const shot = await cropToDataUrl(img, 1, rect, [box], this.health?.maxBytes ?? 300_000);
+        await this.host.transport.request("POST", `/api/items/${item.id}/shot`, { shot });
+      } catch {
+        /* keep the whole-page shot; it still shows the element */
+      }
+    }
+  }
+
+  private pendingAlerts: { kind: "review" | "ask" | "done"; text: string; id: string }[] = [];
+  private alertTimer: ReturnType<typeof setTimeout> | undefined;
+  private alertFirst = 0;
+
+  /**
+   * Queues a "ready for review / question / done" alert. When Claude works a batch, items change one after another,
+   * so alerts wait until things have been quiet for a few seconds (at most 30) and go out as one.
+   */
+  private alert(kind: "review" | "ask" | "done", text: string, id: string) {
     if (this.prefs.notifications === "off") return;
-    this.toast(`${title}: ${body}`, 5000);
-    if (this.prefs.notifications === "desktop") this.host.notify?.(`AhemUI — ${title}`, body, tag);
+    this.pendingAlerts = this.pendingAlerts.filter((a) => a.id !== id);
+    this.pendingAlerts.push({ kind, text, id });
+    if (!this.alertFirst) this.alertFirst = Date.now();
+    clearTimeout(this.alertTimer);
+    const wait = Math.max(0, Math.min(ALERT_QUIET, this.alertFirst + ALERT_MAX - Date.now()));
+    this.alertTimer = setTimeout(() => this.flushAlerts(), wait);
+  }
+
+  private flushAlerts() {
+    const all = this.pendingAlerts;
+    this.pendingAlerts = [];
+    this.alertFirst = 0;
+    if (!all.length || this.prefs.notifications === "off") return;
+    const NAMES = { review: "Ready for review", ask: "Claude has a question", done: "Done" };
+    let title: string;
+    let body: string;
+    if (all.length === 1) {
+      title = NAMES[all[0].kind];
+      body = all[0].text;
+    } else {
+      const count = (k: keyof typeof NAMES) => all.filter((a) => a.kind === k).length;
+      const parts = [
+        count("review") && `${count("review")} ready for review`,
+        count("ask") && `${count("ask")} question${count("ask") === 1 ? "" : "s"}`,
+        count("done") && `${count("done")} done`,
+      ].filter(Boolean);
+      title = parts.join(", ");
+      body = all.slice(0, 3).map((a) => `• ${a.text}`).join("\n") + (all.length > 3 ? `\n+ ${all.length - 3} more` : "");
+    }
+    this.toast(all.length === 1 ? `${title}: ${body}` : `${title}: ${all.map((a) => a.text).slice(0, 2).join("; ")}${all.length > 2 ? "…" : ""}`, 5000);
+    // One tag for the whole round: a new notification replaces the last one instead of stacking up.
+    if (this.prefs.notifications === "desktop") this.host.notify?.(`AhemUI — ${title}`, body, all.length === 1 ? `${all[0].id}:${all[0].kind}` : "round");
   }
 
   /**
@@ -722,7 +813,8 @@ class Overlay {
   private renderAll() {
     this.renderBar();
     this.renderMarkers();
-    if (this.popFor) this.openPop(this.popFor);
+    // Redraw the popover only when what it shows changed: a redraw under the pointer swallows a click.
+    if (this.popFor && this.popSignature(this.popFor) !== this.popSig) this.openPop(this.popFor);
     if (this.$(".panel").style.display === "block" && this.panelView === "list") this.renderPanel();
     if (this.$(".statuspop").style.display === "block") this.renderStatus();
   }
@@ -1006,15 +1098,15 @@ class Overlay {
       const suggested = !!item.suggestion && item.intent === "review" && item.status === "open";
       m.el.className = `marker ${item.status}${asking ? " ask" : ""}${suggested ? " suggest" : ""}`;
       m.el.setAttribute("aria-label", `${asking ? "Question for you" : LABEL[item.status]}: ${item.body.split("\n")[0].slice(0, 80)}`);
-      m.el.textContent = asking
-        ? "?"
+      m.el.innerHTML = asking
+        ? GLYPH.ask
         : suggested
-          ? "✦"
-        : item.status === "done" || item.status === "wontfix" || item.status === "review"
-          ? ICON[item.status]
-          : item.start === "now" && item.status === "open"
-            ? "⚡"
-            : String(n);
+          ? GLYPH.suggest
+          : item.status === "done" || item.status === "wontfix" || item.status === "review"
+            ? GLYPH[item.status]
+            : item.start === "now" && item.status === "open"
+              ? GLYPH.now
+              : String(n);
       m.el.title = `${asking ? "Claude has a question" : LABEL[item.status]} — ${item.body.split("\n")[0]}`;
     }
     this.schedule();
@@ -1098,6 +1190,15 @@ class Overlay {
     } else this.openPop(next.id);
   }
 
+  private popSig = "";
+
+  private popSignature(id: string): string {
+    const item = this.items.find((i) => i.id === id);
+    if (!item) return "";
+    const batch = item.batch ? this.batches.find((b) => b.id === item.batch) : undefined;
+    return JSON.stringify([item, batch?.name, batch?.intent, this.startLabel(), this.connected]) + this.popFooter(item);
+  }
+
   private openPop(id: string) {
     const item = this.items.find((i) => i.id === id);
     const pop = this.$(".pop");
@@ -1108,6 +1209,7 @@ class Overlay {
     this.$(".panel").style.display = "none";
     const opening = this.popFor !== id;
     this.popFor = id;
+    this.popSig = this.popSignature(id);
     const asking = item.needs_reply && item.status === "open";
     const src = item.anchor.source ?? item.anchor.components?.join(" › ") ?? item.anchor.selector ?? "";
     const { prompt, thread } = splitThread(item.body);
@@ -1158,13 +1260,21 @@ class Overlay {
       item.area ?? "",
       ...(item.labels ?? []).map((l) => `#${l}`),
     ].filter(Boolean);
+    // Folded sections: what someone chose for this item, else the default.
+    const fold = (key: string, dflt: boolean) => this.popFolds.get(`${item.id}:${key}`) ?? dflt;
+    // A note shows three lines until clicked; the newest question is always shown whole.
+    const entry = (t: { kind: string; who: string; text: string }, n = -1) => {
+      const whole = (asking && n === thread.length - 1) || t.text.length < 160;
+      const open = whole || fold(`note${n}`, false);
+      return `<div class="entry ${t.kind.toLowerCase()}${whole ? "" : " foldable"}${open ? "" : " clamped"}" data-note="${n}"><div class="who"><b>${esc(t.who)}</b> · ${esc(KIND[t.kind] ?? t.kind.toLowerCase())}</div><div class="text">${esc(t.text)}</div></div>`;
+    };
     pop.innerHTML = `
       <div class="pop-top"><span class="pill ${asking ? "ask" : flagged ? "suggest" : item.status}">${asking ? "question for you" : flagged ? (item.suggestion ? `suggestion · ${item.suggestion.severity}` : "for review") : LABEL[item.status]}</span>
         <button class="id-copy mono" data-act="copy" title="Copy id">${item.id.slice(0, 10)}…</button></div>
       <div class="request">${esc(prompt.trim())}</div>
       ${
         item.suggestion
-          ? `<div class="sugg"><div class="sugg-by">${item.suggestion.by === "checks" ? "Automatic check" : "Claude's UX review"}${item.suggestion.rule ? ` · ${esc(item.suggestion.rule)}` : ""}</div><p><b>Why</b> ${esc(item.suggestion.why)}</p>${item.suggestion.fix ? `<p><b>Fix</b> ${esc(item.suggestion.fix)}</p>` : ""}</div>`
+          ? `<details class="sugg" data-fold="sugg"${fold("sugg", flagged) ? " open" : ""}><summary class="sugg-by">${item.suggestion.by === "checks" ? "Automatic check" : "Claude's UX review"}${item.suggestion.rule ? ` · ${esc(item.suggestion.rule)}` : ""}<span class="fold-hint">Why &amp; fix</span></summary><p><b>Why</b> ${esc(item.suggestion.why)}</p>${item.suggestion.fix ? `<p><b>Fix</b> ${esc(item.suggestion.fix)}</p>` : ""}</details>`
           : ""
       }
       <div class="byline">${esc(item.author)} · ${esc(shortDate(item.created))}${item.claimed_by && item.status === "in-progress" ? ` · ${esc(item.claimed_by)} is on it` : ""}</div>
@@ -1179,14 +1289,27 @@ class Overlay {
       }
       ${
         thread.length
-          ? `<div class="thread">${thread
-              .map((t) => `<div class="entry ${t.kind.toLowerCase()}"><div class="who"><b>${esc(t.who)}</b> · ${esc(KIND[t.kind] ?? t.kind.toLowerCase())}</div><div class="text">${esc(t.text)}</div></div>`)
-              .join("")}</div>`
+          ? `<div class="thread">${
+              thread.length > 1
+                ? `<details class="earlier" data-fold="earlier"${fold("earlier", false) ? " open" : ""}><summary>${thread.length - 1} earlier ${thread.length === 2 ? "note" : "notes"}</summary>${thread.slice(0, -1).map(entry).join("")}</details>`
+                : ""
+            }${entry(thread.at(-1)!, thread.length - 1)}</div>`
           : ""
       }
       ${actions}
       ${this.popFooter(item)}`;
 
+    pop.querySelectorAll<HTMLDetailsElement>("details[data-fold]").forEach((d) =>
+      d.addEventListener("toggle", () => this.popFolds.set(`${item.id}:${d.dataset.fold}`, d.open)),
+    );
+    pop.querySelectorAll<HTMLElement>(".entry.foldable").forEach((e) =>
+      e.addEventListener("click", () => {
+        if (getSelection()?.toString()) return; // selecting text, not folding
+        const open = e.classList.toggle("clamped") === false;
+        this.popFolds.set(`${item.id}:note${e.dataset.note}`, open);
+      }),
+    );
+    if (this.popFolds.size > 200) this.popFolds.clear();
     pop.querySelectorAll<HTMLImageElement>("img[data-file]").forEach((img) => {
       if (!img.dataset.file) return img.remove();
       this.host.transport.fileSrc(item.id, img.dataset.file).then((src) => (img.src = src), () => img.remove());
@@ -1335,7 +1458,7 @@ class Overlay {
       return `<button class="btn row-start" data-start="${i.id}" title="Have Claude work on this now">${this.startLabel()}</button>`;
     };
     const row = (i: Item) => `<div class="list-item ${i.route === this.route && sameSite(i.url) ? "" : "elsewhere"}" data-id="${i.id}">
-          <span class="pill ${i.needs_reply ? "ask" : i.suggestion && i.intent === "review" && i.status === "open" ? "suggest" : i.status}">${i.needs_reply ? "?" : i.suggestion && i.intent === "review" && i.status === "open" ? "✦" : ICON[i.status]}</span>
+          <span class="pill ${i.needs_reply ? "ask" : i.suggestion && i.intent === "review" && i.status === "open" ? "suggest" : i.status}">${i.needs_reply ? GLYPH.ask : i.suggestion && i.intent === "review" && i.status === "open" ? GLYPH.suggest : GLYPH[i.status]}</span>
           <span class="grow"><div>${esc(i.body.split("\n")[0].slice(0, 90))}</div><div class="route">${i.intent === "review" ? `<span class="rv-tag">for review</span> ` : ""}${esc(classLine(i) || i.page?.section || "")}${i.anchor.source ? ` <span class="mono">${esc(i.anchor.source)}</span>` : ""}</div></span>
           ${rowAction(i)}
           <button class="row-dismiss" data-dismiss="${i.id}" title="Dismiss: take it off the backlog" aria-label="Dismiss">✕</button>
@@ -2010,6 +2133,8 @@ function shortUrl(url: string): string {
 }
 
 const FOCUS_KEY = "ahemui:focus";
+const ALERT_QUIET = 4000;
+const ALERT_MAX = 30_000;
 
 const REVIEW_BUTTON = `<button class="btn review-page" title="Check this page for UX and accessibility issues; Claude can review it in depth with /ahemui:review">✦ Review this page</button>`;
 

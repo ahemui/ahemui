@@ -285,6 +285,9 @@ export const ItemMetaSchema = z.object({
   redacted: z.boolean().optional(), // sensitive parts of the screenshot were masked
   shot: z.string().optional(), // file name inside the item folder
   after: z.string().optional(), // screenshot of the same spot after the change, for review
+  // A suggestion's shot starts as the whole scan screenshot; this is its element, as fractions of the image. The
+  // overlay crops the shot to it (with a box round the element) and clears it.
+  shot_focus: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).optional(),
   claimed_by: z.string().nullable().default(null),
   resolved_by: z.string().nullable().default(null),
   review: ReviewSchema.optional(),

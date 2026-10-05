@@ -256,6 +256,12 @@ test("UX review: a page scan's findings become suggestions in today's review bat
   assert.equal(it.anchor.source, "src/Hero.vue:12:5");
   assert.equal(it.suggestion?.rule, "competing-ctas");
   assert.ok(it.shot, "the scan's screenshot comes along");
+  assert.deepEqual(it.shot_focus, { x: 10 / 1280, y: 20 / 800, w: 120 / 1280, h: 40 / 800 }, "where the element is, for cropping");
+  const cropped = await store.setShot(it.id, { data: Buffer.from("RIFF1111WEBP"), ext: "webp" });
+  assert.equal(cropped.shot_focus, undefined);
+  // A second tab's crop arriving later changes nothing.
+  await store.setShot(it.id, { data: Buffer.from("RIFF2222WEBP"), ext: "webp" });
+  assert.equal(await readFile(join(root, ".ahemui", "items", it.id, "shot.webp"), "utf8"), "RIFF1111WEBP");
   assert.match((await store.findBatch(it.batch!))!.name, /^UX review · /);
   const again = await store.suggest(scan.id, [finding], "claude");
   assert.equal(again.created.length, 0);
@@ -264,4 +270,10 @@ test("UX review: a page scan's findings become suggestions in today's review bat
   assert.equal(taken.intent, undefined);
   assert.equal(taken.batch, undefined);
   assert.equal(taken.start, "now");
+});
+
+test("saving the same item from several requests at once doesn't trip over itself", async () => {
+  const item = await store.create({ prompt: "Busy item", route: "/", anchor: {} });
+  await Promise.all(Array.from({ length: 12 }, (_, n) => store.triage(item.id, { labels: [`l${n}`] })));
+  assert.ok((await store.get(item.id)).labels?.length);
 });

@@ -29078,6 +29078,9 @@ var ItemMetaSchema = external_exports.object({
   // file name inside the item folder
   after: external_exports.string().optional(),
   // screenshot of the same spot after the change, for review
+  // A suggestion's shot starts as the whole scan screenshot; this is its element, as fractions of the image. The
+  // overlay crops the shot to it (with a box round the element) and clears it.
+  shot_focus: external_exports.object({ x: external_exports.number(), y: external_exports.number(), w: external_exports.number(), h: external_exports.number() }).optional(),
   claimed_by: external_exports.string().nullable().default(null),
   resolved_by: external_exports.string().nullable().default(null),
   review: ReviewSchema.optional(),
@@ -29474,6 +29477,17 @@ var AhemStore = class _AhemStore {
     const open = await this.list({ status: ["open", "in-progress", "review"] });
     const shotPath = this.scanShotPath(scan);
     const shotData = shotPath && existsSync2(shotPath) ? await readFile(shotPath) : void 0;
+    const [vw, vh] = scan.viewport.split("x").map(Number);
+    const focusOf = (r) => {
+      if (!r || !vw || !vh || r.w <= 0 || r.h <= 0)
+        return void 0;
+      const x = r.x - scan.scroll.x;
+      const y = r.y - scan.scroll.y;
+      const seen = Math.max(0, Math.min(x + r.w, vw) - Math.max(x, 0)) * Math.max(0, Math.min(y + r.h, vh) - Math.max(y, 0));
+      if (seen < r.w * r.h * 0.4)
+        return void 0;
+      return { x: x / vw, y: y / vh, w: r.w / vw, h: r.h / vh };
+    };
     const created = [];
     let skipped = 0;
     for (const raw of findings) {
@@ -29486,21 +29500,26 @@ var AhemStore = class _AhemStore {
         skipped++;
         continue;
       }
-      const item = await this.create({
-        prompt: f.request,
-        author: batch.author,
-        route: scan.route,
-        url: scan.url,
-        viewport: scan.viewport,
-        page: scan.page,
-        type: f.type,
-        start: "later",
-        batch: batch.id,
-        rect: el ? el.rect : void 0,
-        anchor: { selector, source: el?.source, text: el?.text }
-      }, shotData ? { data: shotData, ext: scan.shot.split(".").pop() } : void 0);
+      const focus = focusOf(el?.rect);
+      const item = await this.create(
+        {
+          prompt: f.request,
+          author: batch.author,
+          route: scan.route,
+          url: scan.url,
+          viewport: scan.viewport,
+          page: scan.page,
+          type: f.type,
+          start: "later",
+          batch: batch.id,
+          rect: el ? el.rect : void 0,
+          anchor: { selector, source: el?.source, text: el?.text }
+        },
+        // Only a picture that shows the element: the overlay crops it to the element later (shot_focus).
+        shotData && focus ? { data: shotData, ext: scan.shot.split(".").pop() } : void 0
+      );
       const suggestion = SuggestionSchema.parse({ by, severity: f.severity, rule: f.rule, why: f.why, fix: f.fix });
-      const saved = await this.save({ ...item, suggestion });
+      const saved = await this.save({ ...item, suggestion, shot_focus: item.shot ? focus : void 0 });
       open.push(saved);
       created.push(saved);
     }
@@ -29682,6 +29701,19 @@ var AhemStore = class _AhemStore {
     return this.save({ ...item, status: "open", claimed_by: null, review, after: item.after });
   }
   /** Stores the "after" screenshot of the same spot, taken by the overlay once an item is in review. */
+  /** Replaces an item's screenshot (a suggestion's, once cropped to its element). */
+  async setShot(id, shot) {
+    const item = await this.get(id);
+    if (item.suggestion && !item.shot_focus)
+      return item;
+    const dir = this.itemDir(item.id, item.location);
+    const name = `shot.${shot.ext}`;
+    if (item.shot && item.shot !== name)
+      await rm(join3(dir, item.shot), { force: true });
+    await writeFile2(join3(dir, name), shot.data);
+    const now = await this.get(id);
+    return this.save({ ...now, shot: name, shot_focus: void 0 });
+  }
   async setAfter(id, shot) {
     const item = await this.get(id);
     const name = `after.${shot.ext}`;
@@ -29786,11 +29818,29 @@ var AhemStore = class _AhemStore {
   async write(item) {
     const { body, location, ...meta } = item;
     const file = join3(this.itemDir(item.id, location), ITEM_FILE);
-    const tmp = `${file}.${process.pid}.tmp`;
+    const tmp = `${file}.${process.pid}.${++tmpSeq}.tmp`;
     await writeFile2(tmp, stringifyFrontmatter(meta, body));
-    await rename(tmp, file);
+    try {
+      await renameRetrying(tmp, file);
+    } catch (err) {
+      await rm(tmp, { force: true });
+      throw err;
+    }
   }
 };
+var tmpSeq = 0;
+async function renameRetrying(from, to) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await rename(from, to);
+    } catch (err) {
+      const code = err.code;
+      if (attempt >= 10 || code !== "EPERM" && code !== "EBUSY" && code !== "EACCES")
+        throw err;
+      await new Promise((r) => setTimeout(r, 15 * (attempt + 1)));
+    }
+  }
+}
 function matches(it, f) {
   if (f.status && !f.status.includes(it.status))
     return false;
