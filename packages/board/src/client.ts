@@ -325,7 +325,8 @@ function card(it: Item): string {
     it.external ? `<span class="chip ext">${esc(it.external.key)}</span>` : "",
   ].join("");
   const quick =
-    live && it.status === "open" && !asking && it.start !== "now"
+    // Flagged for review never starts from a card: open it (Do it / Later / Dismiss) or drag it onto the queue.
+    live && it.status === "open" && !asking && it.start !== "now" && it.intent !== "review"
       ? `<button class="quick" data-quick="start" data-id="${it.id}" title="Have Claude work on this now">${state.watcher?.state === "working" ? "Add to queue" : "⚡ Start"}</button>`
       : "";
   return `<article class="card s-${it.status}${asking ? " s-ask" : ""}" data-id="${it.id}" tabindex="0"${live && it.location === "items" ? ' draggable="true"' : ""}>

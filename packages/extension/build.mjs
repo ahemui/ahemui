@@ -37,7 +37,7 @@ function icon(size) {
       const inner = Math.hypot(x - c * 1.25, y - c * 0.75) / (size / 2);
       const white = inner < 0.22 || (d > 0.62 && d < 0.74);
       const a = Math.max(0, Math.min(1, (1 - d) * size * 0.5));
-      px.set(white ? [255, 255, 255] : [124, 92, 255], i);
+      px.set(white ? [255, 255, 255] : [232, 105, 79], i);
       px[i + 3] = Math.round(a * 255);
     }
   const raw = Buffer.alloc(size * (size * 4 + 1));

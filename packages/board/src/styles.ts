@@ -1,7 +1,7 @@
 export const CSS = /* css */ `
 :root {
   --bg: #f6f6f9; --panel: #ffffff; --card: #ffffff; --line: #e3e4ec; --fg: #1d2030; --muted: #6b7084;
-  --accent: #6d4aff; --accent-soft: rgba(109,74,255,.12);
+  --accent: #c94e33; --accent-soft: rgba(201,78,51,.12);
   --open: #d97706; --doing: #2563eb; --review: #7c3aed; --done: #16a34a; --wontfix: #6b7280; --ask: #d97706;
   --shadow: 0 1px 2px rgba(20,20,40,.06), 0 4px 16px rgba(20,20,40,.06);
   color-scheme: light;
@@ -9,7 +9,7 @@ export const CSS = /* css */ `
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #111318; --panel: #171a21; --card: #1d2029; --line: #2b2f3a; --fg: #eceef4; --muted: #9398a8;
-    --accent: #8b6dff; --accent-soft: rgba(139,109,255,.16);
+    --accent: #ee7a60; --accent-soft: rgba(238,122,96,.16);
     --open: #f59e0b; --doing: #60a5fa; --review: #a78bfa; --done: #34d399; --wontfix: #9ca3af; --ask: #fbbf24;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.25);
     color-scheme: dark;

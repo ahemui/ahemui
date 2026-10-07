@@ -3,20 +3,20 @@ export const STYLES = /* css */ `
 * { box-sizing: border-box; }
 .root {
   --bg: #16181d; --bg2: #22252c; --fg: #f3f4f6; --muted: #9ca3af; --line: #343842;
-  --accent: #7c5cff; --open: #f59e0b; --doing: #3b82f6; --done: #16a34a; --wontfix: #6b7280;
-  --accent-text: #a78bfa; --warn-text: #f59e0b;
+  --accent: #e8694f; --open: #f59e0b; --doing: #3b82f6; --done: #16a34a; --wontfix: #6b7280;
+  --accent-text: #f4a089; --warn-text: #f59e0b;
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg);
   position: fixed; inset: 0; pointer-events: none; z-index: 2147483647;
 }
 /* Light theme: chosen in settings, or following the system when set to Auto. */
 .root[data-theme="light"] {
   --bg: #ffffff; --bg2: #f3f4f7; --fg: #16181d; --muted: #5f6573; --line: #dcdfe6;
-  --accent: #6a47ff; --accent-text: #5b3df0; --warn-text: #b45309;
+  --accent: #c94e33; --accent-text: #b8462d; --warn-text: #b45309;
 }
 @media (prefers-color-scheme: light) {
   .root[data-theme="auto"] {
     --bg: #ffffff; --bg2: #f3f4f7; --fg: #16181d; --muted: #5f6573; --line: #dcdfe6;
-    --accent: #6a47ff; --accent-text: #5b3df0; --warn-text: #b45309;
+    --accent: #c94e33; --accent-text: #b8462d; --warn-text: #b45309;
   }
 }
 .root[data-theme="light"] :is(.bar, .pop, .panel, .statuspop, .bubble), .root[data-theme="auto"] :is(.bar, .pop, .panel, .statuspop, .bubble) { color-scheme: light dark; }
@@ -40,7 +40,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .bar .state { padding: 5px 9px 5px 6px; display: flex; align-items: center; }
 .bar .dot { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--wontfix); }
 .bar .dot.ok { background: var(--done); }
-.bar .dot.watching { background: var(--accent-text); box-shadow: 0 0 0 3px rgba(167,139,250,.25); }
+.bar .dot.watching { background: var(--accent-text); box-shadow: 0 0 0 3px rgba(244,160,137,.25); }
 .bar .dot.working { background: var(--accent-text); animation: ahemui-pulse 1.4s infinite; }
 .bar .dot.paused { background: transparent; box-shadow: inset 0 0 0 2px var(--accent-text); }
 .watch-ctl { display: flex; gap: 6px; margin-top: 6px; }
@@ -50,8 +50,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .cmd-copy button:hover { color: var(--fg); background: var(--bg); }
 .watch-ctl .btn { font-size: 11px; padding: 2px 9px; }
 .bar .dot.stale { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.3); animation: none; }
-@keyframes ahemui-pulse { 50% { box-shadow: 0 0 0 5px rgba(167,139,250,.3); } }
-@media (prefers-reduced-motion: reduce) { .bar .dot.working { animation: none; box-shadow: 0 0 0 3px rgba(167,139,250,.35); } }
+@keyframes ahemui-pulse { 50% { box-shadow: 0 0 0 5px rgba(244,160,137,.3); } }
+@media (prefers-reduced-motion: reduce) { .bar .dot.working { animation: none; box-shadow: 0 0 0 3px rgba(244,160,137,.35); } }
 .panel-head { display: flex; align-items: flex-start; gap: 10px; padding: 2px 6px 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
 .panel-head .proj { font-weight: 600; overflow-wrap: anywhere; }
 .panel-head .claude { color: var(--muted); font-size: 11px; }
@@ -62,11 +62,11 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 
 .layer { position: fixed; inset: 0; pointer-events: none; cursor: crosshair; }
 .layer.active { pointer-events: auto; }
-.hover, .outline { position: fixed; pointer-events: none; border: 2px solid var(--accent); background: rgba(124,92,255,.08); border-radius: 3px; display: none; }
+.hover, .outline { position: fixed; pointer-events: none; border: 2px solid var(--accent); background: rgba(232,105,79,.08); border-radius: 3px; display: none; }
 .outline { border-style: dashed; }
 .outline.flash { border-style: solid; animation: ahemui-flash 1.6s ease-out; }
-@keyframes ahemui-flash { 0%, 40% { box-shadow: 0 0 0 6px rgba(124,92,255,.35); } 100% { box-shadow: 0 0 0 0 rgba(124,92,255,0); } }
-.sel { position: fixed; pointer-events: none; border: 2px dashed var(--accent); background: rgba(124,92,255,.12); display: none; }
+@keyframes ahemui-flash { 0%, 40% { box-shadow: 0 0 0 6px rgba(232,105,79,.35); } 100% { box-shadow: 0 0 0 0 rgba(232,105,79,0); } }
+.sel { position: fixed; pointer-events: none; border: 2px dashed var(--accent); background: rgba(232,105,79,.12); display: none; }
 svg.draw { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
 svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 
