@@ -6,6 +6,9 @@ import type { Item, Page, Status } from "../../overlay/src/types.js";
 import { armDanger, hasArmed } from "../../overlay/src/confirm.js";
 import { CSS } from "./styles.js";
 
+/** Drawn in the text colour: the ⚡ emoji keeps its own orange, which vanishes on a coral button. */
+const BOLT = `<svg class="bolt" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="currentColor"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>`;
+
 interface Watcher {
   state: "waiting" | "working";
   item?: string;
@@ -327,7 +330,7 @@ function card(it: Item): string {
   const quick =
     // Flagged for review never starts from a card: open it (Do it / Later / Dismiss) or drag it onto the queue.
     live && it.status === "open" && !asking && it.start !== "now" && it.intent !== "review"
-      ? `<button class="quick" data-quick="start" data-id="${it.id}" title="Have Claude work on this now">${state.watcher?.state === "working" ? "Add to queue" : "⚡ Start"}</button>`
+      ? `<button class="quick" data-quick="start" data-id="${it.id}" title="Have Claude work on this now">${state.watcher?.state === "working" ? "Add to queue" : `${BOLT}Start`}</button>`
       : "";
   return `<article class="card s-${it.status}${asking ? " s-ask" : ""}" data-id="${it.id}" tabindex="0"${live && it.location === "items" ? ' draggable="true"' : ""}>
     ${it.shot ? `<div class="thumb"><img loading="lazy" src="${fileUrl(it, it.shot)}" alt=""></div>` : ""}
@@ -534,7 +537,7 @@ function answerBox(it: Item, asking: boolean | undefined): string {
 /** All actions, in a bar along the bottom: Dismiss apart on the left, then secondary, then the primary one. */
 function footer(it: Item, asking: boolean | undefined): string {
   const btn = (act: string, label: string, kind = "") => `<button class="btn ${kind}" data-act="${act}">${label}</button>`;
-  const startLabel = state.watcher?.state === "working" ? "Add to queue" : "⚡ Start now";
+  const startLabel = state.watcher?.state === "working" ? "Add to queue" : `${BOLT}Start now`;
   let left = "";
   let right = "";
   if (it.intent === "review" && it.status === "open" && !asking) {
@@ -750,7 +753,7 @@ function batchActions(list: Item[]): string {
   }
   const waiting = list.filter((i) => i.status === "open" && !i.needs_reply && i.start !== "now").length;
   return waiting
-    ? `<button class="btn grp-act" data-batch-act="queue-all" data-batch-id="${b.id}" title="Queue every open item in this batch for Claude">⚡ Queue all ${waiting}</button>`
+    ? `<button class="btn grp-act" data-batch-act="queue-all" data-batch-id="${b.id}" title="Queue every open item in this batch for Claude">${BOLT}Queue all ${waiting}</button>`
     : "";
 }
 

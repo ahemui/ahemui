@@ -931,7 +931,7 @@ class Overlay {
   }
 
   private startLabel(): string {
-    return this.queueing() ? "Add to queue" : "⚡ Start";
+    return this.queueing() ? "Add to queue" : `${BOLT}Start`;
   }
 
   /** The primary action says what will actually happen: start now, or join the queue behind Claude's current item. */
@@ -945,7 +945,7 @@ class Overlay {
     start.classList.toggle("primary", !backlogFirst);
     submit.classList.toggle("primary", backlogFirst);
     submit.title = `Save for later: waits in the backlog until someone runs /ahemui:work (${laterKey})`;
-    start.textContent = busy ? (this.watcher?.paused ? "Add to queue (paused)" : "Add to queue") : "⚡ Start now";
+    start.innerHTML = busy ? (this.watcher?.paused ? "Add to queue (paused)" : "Add to queue") : `${BOLT}Start now`;
     start.title = busy
       ? this.watcher?.paused
         ? `Claude is paused; this starts when you resume (${nowKey})`
@@ -2138,6 +2138,8 @@ function shortUrl(url: string): string {
 }
 
 const FOCUS_KEY = "ahemui:focus";
+/** Drawn in the text colour: the ⚡ emoji keeps its own orange, which vanishes on a coral button. */
+const BOLT = `<svg class="bolt" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="currentColor"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>`;
 const ALERT_QUIET = 4000;
 const ALERT_MAX = 30_000;
 

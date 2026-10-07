@@ -100,6 +100,7 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 .type-select.on { color: var(--fg); border-color: var(--accent); }
 .type-select option { background: var(--bg); color: var(--fg); }
 .btn { padding: 5px 12px; border-radius: 6px; background: var(--bg2); border: 1px solid var(--line); color: var(--fg); font: inherit; cursor: pointer; }
+.bolt { display: inline-block; vertical-align: -1px; margin-right: 4px; }
 .btn.primary { background: var(--accent); border-color: var(--accent); }
 .btn:disabled { opacity: .5; cursor: default; }
 
