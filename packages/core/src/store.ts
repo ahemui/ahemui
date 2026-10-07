@@ -305,7 +305,7 @@ export class AhemStore {
     const all = await this.listScans();
     const r = ref.trim();
     const scan = all.find((s) => s.id.toLowerCase().startsWith(r.toLowerCase())) ?? all.find((s) => s.route === r || s.page?.routePattern === r);
-    if (!scan) throw new AhemError(`no page scan matching "${ref}": open the page and press "Review this page" in the AhemUI panel`);
+    if (!scan) throw new AhemError(`no page scan matching "${ref}": open the page and press "Review page" in the AhemUI panel`);
     return scan;
   }
 

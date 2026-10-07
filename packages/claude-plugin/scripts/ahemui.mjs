@@ -15704,7 +15704,7 @@ var AhemStore = class _AhemStore {
     const r = ref.trim();
     const scan = all.find((s) => s.id.toLowerCase().startsWith(r.toLowerCase())) ?? all.find((s) => s.route === r || s.page?.routePattern === r);
     if (!scan)
-      throw new AhemError(`no page scan matching "${ref}": open the page and press "Review this page" in the AhemUI panel`);
+      throw new AhemError(`no page scan matching "${ref}": open the page and press "Review page" in the AhemUI panel`);
     return scan;
   }
   scanShotPath(scan) {
@@ -16267,7 +16267,7 @@ async function updatePrefs(patch) {
 
 // ../cli/src/server.ts
 var MIME = { webp: "image/webp", png: "image/png", jpg: "image/jpeg" };
-var BUILD = true ? "20261005141542" : "dev";
+var BUILD = true ? "20261007113729" : "dev";
 async function serve(store, opts = {}) {
   const config = await store.config();
   config.devOrigins = [.../* @__PURE__ */ new Set([...config.devOrigins, ...opts.origins ?? []])];
@@ -16809,7 +16809,7 @@ async function main(argv) {
   const [cmd, ...args] = positionals;
   if (o.version) {
     const v = true ? "0.4.0" : "dev";
-    return console.log(`ahemui ${v}${true ? ` (build ${"20261005141542"})` : ""}`);
+    return console.log(`ahemui ${v}${true ? ` (build ${"20261007113729"})` : ""}`);
   }
   if (!cmd || o.help) return console.log(HELP);
   process.env.AHEMUI_AUTHOR ||= defaultAuthor();

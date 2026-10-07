@@ -221,7 +221,9 @@ a.ext { color: var(--accent-text); }
 .list-item:hover { background: var(--bg2); }
 .list-item .grow { flex: 1; min-width: 0; }
 .panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--line); }
-.panel-foot .clear-finished { font-size: 12px; padding: 3px 10px; }
+.panel-foot .foot-actions { display: flex; gap: 6px; }
+.panel-foot .btn { font-size: 12px; padding: 4px 10px; white-space: nowrap; }
+.panel-foot .board-link { white-space: nowrap; font-size: 12px; }
 .board-link { display: block; text-align: center; margin-left: auto; padding: 4px; color: var(--accent-text); text-decoration: none; font-size: 12px; }
 .board-link:hover { color: var(--fg); }
 a.btn, a.btn:visited { color: var(--fg); text-decoration: none; display: inline-block; }
@@ -260,7 +262,6 @@ a.btn:hover { border-color: var(--accent); }
 .pop .sugg-by { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
 .pop .sugg p { margin: 4px 0 0; line-height: 1.45; }
 .pop .sugg b { color: var(--fg); margin-right: 4px; }
-.panel-foot .review-page { font-size: 12px; padding: 3px 10px; }
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--bg); border: 1px solid var(--line);
   padding: 8px 14px; border-radius: 8px; pointer-events: none; opacity: 0; transition: opacity .2s; max-width: 520px; text-align: center;

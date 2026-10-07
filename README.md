@@ -130,7 +130,7 @@ and it flags duplicates.
 screenshot and captured context, makes the change, hands it to you for review (◎), and commits the code together with the
 item's status (`AhemUI-Item: <id>` trailer).
 
-**UX review (optional).** In the backlog panel (☰), press **✦ Review this page**. AhemUI outlines the page, runs
+**UX review (optional).** In the backlog panel (☰), press **✦ Review page**. AhemUI outlines the page, runs
 automatic accessibility checks (axe: contrast, names, labels, tap targets…) and takes a screenshot. The checks' findings
 appear right away as teal ✦ markers. For Claude's judged review (hierarchy, copy, forms, states, consistency), run
 `/ahemui:review` (or `/ahemui:review /pricing`) in Claude Code. Every suggestion lands in a "for review" batch and

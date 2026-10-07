@@ -1,12 +1,12 @@
 ---
-description: UX review of pages in the app — read the page scans taken with "Review this page" in the AhemUI overlay (screenshot, element outline with source locations, automatic accessibility checks) and file the most important problems as ✦ suggestions pinned to elements, for the user to take on or dismiss. Use when the user asks for a UX review, design review, usability review or "review this page".
+description: UX review of pages in the app — read the page scans taken with "Review page" in the AhemUI overlay (screenshot, element outline with source locations, automatic accessibility checks) and file the most important problems as ✦ suggestions pinned to elements, for the user to take on or dismiss. Use when the user asks for a UX review, design review, usability review or "review this page".
 argument-hint: "[route…] (omit for every page with a recent scan)"
 ---
 
 # UX review
 
 A review needs a **page scan**: in the browser, the user opens the page, opens the AhemUI backlog panel (☰) and presses
-**✦ Review this page**. That sends AhemUI a screenshot of the viewport, a numbered outline of the page's headings,
+**✦ Review page**. That sends AhemUI a screenshot of the viewport, a numbered outline of the page's headings,
 actions, fields, media and text (each with its `file:line` when known), and runs the automatic checks (axe: contrast,
 tap targets, names and labels, alt text…). Their findings are already filed as ✦ suggestions; your job is the part
 that needs judgement.
@@ -15,7 +15,7 @@ that needs judgement.
 
 Call `ahemui_scans`.
 - `$ARGUMENTS` names routes: use the newest scan of each. A route with no scan: ask the user to press
-  **✦ Review this page** there (it takes a second), and continue with the others.
+  **✦ Review page** there (it takes a second), and continue with the others.
 - No arguments: review each route's newest scan from the last day or so.
 - No scans at all: say how to take one and stop.
 

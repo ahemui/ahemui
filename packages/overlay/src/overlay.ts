@@ -1420,7 +1420,7 @@ class Overlay {
     if (this.panelView === "settings") return this.renderSettings();
     const active = this.items.filter((i) => i.location === "items");
     const board = this.health?.base
-      ? `<a class="board-link" href="${esc(this.health.base)}/" target="_blank" rel="noopener">Open full board ↗</a>`
+      ? `<a class="board-link" href="${esc(this.health.base)}/" target="_blank" rel="noopener" title="Open the full board">Board ↗</a>`
       : "";
     const bindHead = () => {
       panel.querySelector(".review-page")?.addEventListener("click", (e) => {
@@ -1440,7 +1440,7 @@ class Overlay {
       );
     };
     if (!active.length) {
-      panel.innerHTML = `${this.panelHead()}<div class="empty">Backlog is empty. Press ✎ AhemUI or ${esc(shortcutLabel(this.prefs.shortcut))} to capture.</div><div class="panel-foot">${REVIEW_BUTTON}${board}</div>`;
+      panel.innerHTML = `${this.panelHead()}<div class="empty">Backlog is empty. Press ✎ AhemUI or ${esc(shortcutLabel(this.prefs.shortcut))} to capture.</div><div class="panel-foot"><span class="foot-actions">${REVIEW_BUTTON}</span>${board}</div>`;
       bindHead();
       return;
     }
@@ -1457,7 +1457,8 @@ class Overlay {
       return name ? `${key} · ${name}` : key;
     };
     const rowAction = (i: Item) => {
-      if (i.status !== "open" || i.needs_reply) return "";
+      // Flagged for review (suggestions too) never starts from here: open it and choose Do it, Later or Dismiss.
+      if (i.status !== "open" || i.needs_reply || i.intent === "review") return "";
       if (i.start === "now") return `<span class="queued" title="Waiting for Claude (runs when /ahemui:watch is active)">⚡ queued</span>`;
       return `<button class="btn row-start" data-start="${i.id}" title="Have Claude work on this now">${this.startLabel()}</button>`;
     };
@@ -1474,12 +1475,12 @@ class Overlay {
         </div>`;
     const finished = active.filter((i) => i.status === "done" || i.status === "wontfix").length;
     const clear = finished
-      ? `<button class="btn clear-finished" title="Archive every done and won't-fix item (moves them to .ahemui/done/)">Clear ${finished} finished</button>`
+      ? `<button class="btn clear-finished" title="Archive every done and won't-fix item (moves them to .ahemui/done/)">Clear ${finished} done</button>`
       : "";
     panel.innerHTML =
       this.panelHead() +
       [...groups].map(([key, items]) => `<div class="group">${esc(groupLabel(key, items))}</div>${items.map(row).join("")}`).join("") +
-      `<div class="panel-foot">${REVIEW_BUTTON}${clear}${board}</div>`;
+      `<div class="panel-foot"><span class="foot-actions">${REVIEW_BUTTON}${clear}</span>${board}</div>`;
     bindHead();
     panel.querySelector(".clear-finished")?.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -2140,7 +2141,7 @@ const FOCUS_KEY = "ahemui:focus";
 const ALERT_QUIET = 4000;
 const ALERT_MAX = 30_000;
 
-const REVIEW_BUTTON = `<button class="btn review-page" title="Check this page for UX and accessibility issues; Claude can review it in depth with /ahemui:review">✦ Review this page</button>`;
+const REVIEW_BUTTON = `<button class="btn review-page" title="Check this page for UX and accessibility issues; Claude can review it in depth with /ahemui:review">✦ Review page</button>`;
 
 
 const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>`;

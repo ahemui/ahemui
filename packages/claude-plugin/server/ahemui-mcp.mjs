@@ -29455,7 +29455,7 @@ var AhemStore = class _AhemStore {
     const r = ref.trim();
     const scan = all.find((s) => s.id.toLowerCase().startsWith(r.toLowerCase())) ?? all.find((s) => s.route === r || s.page?.routePattern === r);
     if (!scan)
-      throw new AhemError(`no page scan matching "${ref}": open the page and press "Review this page" in the AhemUI panel`);
+      throw new AhemError(`no page scan matching "${ref}": open the page and press "Review page" in the AhemUI panel`);
     return scan;
   }
   scanShotPath(scan) {
@@ -29973,11 +29973,11 @@ tool(
 );
 tool(
   "ahemui_scans",
-  `List AhemUI page scans: snapshots someone took with "Review this page" in the browser (outline of the page's elements with source locations, automatic-check findings, and a screenshot). Use with /ahemui:review.`,
+  `List AhemUI page scans: snapshots someone took with "Review page" in the browser (outline of the page's elements with source locations, automatic-check findings, and a screenshot). Use with /ahemui:review.`,
   {},
   async () => {
     const scans = await store().listScans();
-    if (!scans.length) return 'No page scans yet. Ask the user to open the page and press "\u2726 Review this page" in the AhemUI backlog panel.';
+    if (!scans.length) return 'No page scans yet. Ask the user to open the page and press "\u2726 Review page" in the AhemUI backlog panel.';
     return scans.map((s) => `${s.id.slice(0, 10)}  ${s.route}  ${s.title ?? ""}  ${s.elements.length} elements, ${s.checks.length} check findings, ${new Date(s.created).toLocaleString()}`).join("\n");
   }
 );
