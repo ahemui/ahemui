@@ -113,7 +113,7 @@ If nobody is watching, the item is still saved, marked ⚡, and goes first in th
 **See the whole backlog.** No tracker needed:
 - **Live board** at the AhemUI server's address, `http://127.0.0.1:4777/` by default. Also reachable through the
   **Open full board ↗** link in the overlay's panel, `npx ahemui board`, or `/ahemui:board`.
-  - Columns for ⚡ Queue, Backlog, In progress, Needs you (review and questions) and Done.
+  - Columns for ⚡ Queue, Backlog, In progress, In review (results to check and questions) and Done.
   - Search, a type filter, and grouping by page or area.
   - A detail panel with screenshots, before/after, the thread and all captured context.
   - Actions: start, move to backlog, approve, send back, reply, reopen, and edit the classification.

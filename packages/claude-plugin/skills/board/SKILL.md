@@ -1,5 +1,5 @@
 ---
-description: Open the AhemUI backlog as a page — the live board (columns for queue, backlog, in progress, needs you, done; filters; screenshots; review and reply actions) or the read-only .ahemui/backlog.html snapshot. Use when the user asks to see, open or browse the AhemUI backlog/board.
+description: Open the AhemUI backlog as a page — the live board (columns for queue, backlog, in progress, in review, done; filters; screenshots; review and reply actions) or the read-only .ahemui/backlog.html snapshot. Use when the user asks to see, open or browse the AhemUI backlog/board.
 ---
 
 # Open the AhemUI backlog board

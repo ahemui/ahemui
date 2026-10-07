@@ -58,7 +58,7 @@ const COLUMNS: Column[] = [
   { key: "queue", title: "⚡ Queue", hint: "Claude works these as soon as a session runs /ahemui:watch", test: (i) => i.status === "open" && i.start === "now" && !i.needs_reply },
   { key: "backlog", title: "Backlog", hint: "Saved for later: /ahemui:work, or press Start", test: (i) => i.status === "open" && i.start !== "now" && !i.needs_reply },
   { key: "progress", title: "In progress", hint: "Claude is on it", test: (i) => i.status === "in-progress" },
-  { key: "you", title: "Needs you", hint: "Review the result or answer Claude's question", test: (i) => i.status === "review" || (i.status === "open" && !!i.needs_reply) },
+  { key: "you", title: "In review", hint: "Review the result, or answer Claude's question", test: (i) => i.status === "review" || (i.status === "open" && !!i.needs_reply) },
   { key: "done", title: "Done", hint: "Approved, done or won't fix", test: (i) => i.status === "done" || i.status === "wontfix" },
 ];
 
@@ -261,7 +261,7 @@ function dropAction(it: Item, col: string): { act: string; label: string } | nul
   if (col === "backlog" && open && it.start === "now") return { act: "later", label: "Moved to the backlog" };
   if (col === "backlog" && (finished || it.status === "in-progress")) return { act: "reopen", label: "Back in the backlog" };
   if (col === "done" && !finished) return { act: "done", label: "Marked done" };
-  return null; // In progress and Needs you are set by Claude and by reviews, not by dragging
+  return null; // In progress and In review are set by Claude and by reviews, not by dragging
 }
 
 let dragging: string | null = null;
