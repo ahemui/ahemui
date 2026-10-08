@@ -18,7 +18,7 @@ interface Boot {
 
 const ICON =
   "data:image/svg+xml," +
-  encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#e8694f"/><circle cx="16" cy="16" r="8" fill="none" stroke="#fff" stroke-width="3"/><circle cx="20" cy="12" r="3" fill="#fff"/></svg>`);
+  encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><circle cx="16" cy="16" r="15" fill="#ff5a3c"/><circle cx="16" cy="16" r="8" fill="none" stroke="#fff" stroke-width="3"/><circle cx="20" cy="12" r="3" fill="#fff"/></svg>`);
 
 /** The board page: data (static mode) and the bundled script inlined, so it is one self-contained file. */
 export function boardHtml(boot: Boot): string {

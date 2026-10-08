@@ -3,20 +3,20 @@ export const STYLES = /* css */ `
 * { box-sizing: border-box; }
 .root {
   --bg: #16181d; --bg2: #22252c; --fg: #f3f4f6; --muted: #9ca3af; --line: #343842;
-  --accent: #e8694f; --open: #f59e0b; --doing: #3b82f6; --done: #16a34a; --wontfix: #6b7280;
-  --accent-text: #f4a089; --warn-text: #f59e0b;
+  --accent: #f2f2f4; --on-accent: #111317; --mark: #ff5a3c; --open: #f59e0b; --doing: #3b82f6; --done: #16a34a; --wontfix: #6b7280;
+  --accent-text: #d4d4da; --warn-text: #f59e0b;
   font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--fg);
   position: fixed; inset: 0; pointer-events: none; z-index: 2147483647;
 }
 /* Light theme: chosen in settings, or following the system when set to Auto. */
 .root[data-theme="light"] {
   --bg: #ffffff; --bg2: #f3f4f7; --fg: #16181d; --muted: #5f6573; --line: #dcdfe6;
-  --accent: #c94e33; --accent-text: #b8462d; --warn-text: #b45309;
+  --accent: #16181d; --on-accent: #ffffff; --mark: #e5482c; --accent-text: #3a3d47; --warn-text: #b45309;
 }
 @media (prefers-color-scheme: light) {
   .root[data-theme="auto"] {
     --bg: #ffffff; --bg2: #f3f4f7; --fg: #16181d; --muted: #5f6573; --line: #dcdfe6;
-    --accent: #c94e33; --accent-text: #b8462d; --warn-text: #b45309;
+    --accent: #16181d; --on-accent: #ffffff; --mark: #e5482c; --accent-text: #3a3d47; --warn-text: #b45309;
   }
 }
 .root[data-theme="light"] :is(.bar, .pop, .panel, .statuspop, .bubble), .root[data-theme="auto"] :is(.bar, .pop, .panel, .statuspop, .bubble) { color-scheme: light dark; }
@@ -30,7 +30,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .bar[hidden] { display: none; }
 .bar button { padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
 .bar button:hover { background: var(--bg2); }
-.bar .capture.on { background: var(--accent); }
+.bar .capture.on { background: var(--mark); color: #fff; }
 .bar .counts { color: var(--muted); font-variant-numeric: tabular-nums; }
 .bar .counts { display: flex; align-items: center; gap: 6px; }
 .bar .counts .badge { min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--bg2); color: var(--fg); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
@@ -40,7 +40,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .bar .state { padding: 5px 9px 5px 6px; display: flex; align-items: center; }
 .bar .dot { display: block; width: 8px; height: 8px; border-radius: 50%; background: var(--wontfix); }
 .bar .dot.ok { background: var(--done); }
-.bar .dot.watching { background: var(--accent-text); box-shadow: 0 0 0 3px rgba(244,160,137,.25); }
+.bar .dot.watching { background: var(--accent-text); box-shadow: 0 0 0 3px rgba(212,212,218,.25); }
 .bar .dot.working { background: var(--accent-text); animation: ahemui-pulse 1.4s infinite; }
 .bar .dot.paused { background: transparent; box-shadow: inset 0 0 0 2px var(--accent-text); }
 .watch-ctl { display: flex; gap: 6px; margin-top: 6px; }
@@ -50,8 +50,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .cmd-copy button:hover { color: var(--fg); background: var(--bg); }
 .watch-ctl .btn { font-size: 11px; padding: 2px 9px; }
 .bar .dot.stale { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.3); animation: none; }
-@keyframes ahemui-pulse { 50% { box-shadow: 0 0 0 5px rgba(244,160,137,.3); } }
-@media (prefers-reduced-motion: reduce) { .bar .dot.working { animation: none; box-shadow: 0 0 0 3px rgba(244,160,137,.35); } }
+@keyframes ahemui-pulse { 50% { box-shadow: 0 0 0 5px rgba(212,212,218,.3); } }
+@media (prefers-reduced-motion: reduce) { .bar .dot.working { animation: none; box-shadow: 0 0 0 3px rgba(212,212,218,.35); } }
 .panel-head { display: flex; align-items: flex-start; gap: 10px; padding: 2px 6px 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
 .panel-head .proj { font-weight: 600; overflow-wrap: anywhere; }
 .panel-head .claude { color: var(--muted); font-size: 11px; }
@@ -62,11 +62,11 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 
 .layer { position: fixed; inset: 0; pointer-events: none; cursor: crosshair; }
 .layer.active { pointer-events: auto; }
-.hover, .outline { position: fixed; pointer-events: none; border: 2px solid var(--accent); background: rgba(232,105,79,.08); border-radius: 3px; display: none; }
+.hover, .outline { position: fixed; pointer-events: none; border: 2px solid var(--mark); background: rgba(255,90,60,.08); border-radius: 3px; display: none; }
 .outline { border-style: dashed; }
 .outline.flash { border-style: solid; animation: ahemui-flash 1.6s ease-out; }
-@keyframes ahemui-flash { 0%, 40% { box-shadow: 0 0 0 6px rgba(232,105,79,.35); } 100% { box-shadow: 0 0 0 0 rgba(232,105,79,0); } }
-.sel { position: fixed; pointer-events: none; border: 2px dashed var(--accent); background: rgba(232,105,79,.12); display: none; }
+@keyframes ahemui-flash { 0%, 40% { box-shadow: 0 0 0 6px rgba(255,90,60,.35); } 100% { box-shadow: 0 0 0 0 rgba(255,90,60,0); } }
+.sel { position: fixed; pointer-events: none; border: 2px dashed var(--mark); background: rgba(255,90,60,.12); display: none; }
 svg.draw { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; }
 svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -83,7 +83,7 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 .types { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .chip { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 11px; }
 .chip:hover { color: var(--fg); }
-.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .group { color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin: 8px 6px 2px; }
 .group:first-child { margin-top: 0; }
 .bubble .thumb { display: block; max-width: 100%; max-height: 96px; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 8px; }
@@ -101,7 +101,7 @@ svg.draw path { fill: none; stroke: #ff2d55; stroke-width: 3; stroke-linecap: ro
 .type-select option { background: var(--bg); color: var(--fg); }
 .btn { padding: 5px 12px; border-radius: 6px; background: var(--bg2); border: 1px solid var(--line); color: var(--fg); font: inherit; cursor: pointer; }
 .bolt { display: inline-block; vertical-align: -1px; margin-right: 4px; }
-.btn.primary { background: var(--accent); border-color: var(--accent); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .btn:disabled { opacity: .5; cursor: default; }
 
 .marker {
@@ -200,7 +200,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .setting > span { color: var(--fg); }
 .corners { display: grid; grid-template-columns: repeat(2, 28px); gap: 3px; }
 .corners button { height: 24px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); font-size: 12px; }
-.corners button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.corners button.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .pref-name { width: 170px; font: inherit; font-size: 12px; color: var(--fg); background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 .pref-name:focus { outline: none; border-color: var(--accent); }
 .shortcut-set { display: flex; align-items: center; gap: 6px; }
@@ -239,7 +239,7 @@ a.btn:hover { border-color: var(--accent); }
 .row-confirm .rc-go { background: #dc2626; border-color: #dc2626; color: #fff; }
 .btn.armed { background: #dc2626; border-color: #dc2626; color: #fff; }
 @media (hover: none) { .row-dismiss { opacity: .6; } }
-.list-item .row-start { flex: none; align-self: center; padding: 3px 10px; font-size: 11px; background: var(--accent); border-color: var(--accent); }
+.list-item .row-start { flex: none; align-self: center; padding: 3px 10px; font-size: 11px; background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .list-item .queued { flex: none; align-self: center; font-size: 11px; color: var(--warn-text); white-space: nowrap; }
 .list-item .route { color: var(--muted); font-size: 11px; }
 .list-item.elsewhere { opacity: .6; }
@@ -290,9 +290,9 @@ a.btn:hover { border-color: var(--accent); }
 .tool.on { background: #f59e0b; border-color: var(--warn-text); color: #111; }
 .tool.mic.on { background: #ef4444; border-color: #ef4444; color: #fff; }
 .bubble input.design { width: 100%; margin-top: 6px; background: var(--bg2); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; font: inherit; font-size: 12px; outline: none; }
-.xbox { position: fixed; pointer-events: none; border: 2px dashed var(--accent); border-radius: 3px; }
+.xbox { position: fixed; pointer-events: none; border: 2px dashed var(--mark); border-radius: 3px; }
 .xbox.reference { border-color: #22c55e; }
-.xbox span { position: absolute; top: -18px; left: -2px; font-size: 10px; background: var(--accent); color: #fff; padding: 1px 5px; border-radius: 3px; }
+.xbox span { position: absolute; top: -18px; left: -2px; font-size: 10px; background: var(--mark); color: #fff; padding: 1px 5px; border-radius: 3px; }
 .xbox.reference span { background: #22c55e; }
 
 /* review, questions, thread */
