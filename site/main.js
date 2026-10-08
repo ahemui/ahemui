@@ -180,3 +180,117 @@ async function run() {
 addEventListener("resize", place);
 if (reduced) finalState();
 else run();
+
+// ——— living illustrations: each runs only while on screen, and not at all with reduced motion ———
+
+function whileVisible(el, start, stop = () => {}) {
+  if (!el || reduced || !("IntersectionObserver" in window)) return;
+  let on = false;
+  new IntersectionObserver(([e]) => {
+    if (e.isIntersecting && !on) { on = true; start(); }
+    else if (!e.isIntersecting && on) { on = false; stop(); }
+  }, { threshold: 0.35 }).observe(el);
+}
+
+// 1. The tally: notes move through backlog → in progress → review → done, and the count keeps up.
+(() => {
+  const box = document.querySelector(".vis.tally");
+  if (!box) return;
+  const rows = [...box.querySelectorAll(".row")];
+  const count = box.querySelector(".tally-head span:last-child");
+  const STAGES = [["open", "backlog"], ["doing", "in progress"], ["review", "review"], ["done", "done"]];
+  const initial = rows.map((r) => STAGES.findIndex(([, label]) => label === r.querySelector("em").textContent));
+  let stage = [...initial];
+  let timer;
+  const paint = () => {
+    rows.forEach((r, i) => {
+      const [cls, label] = STAGES[stage[i]];
+      r.querySelector(".dot").className = `dot ${cls}`;
+      r.querySelector("em").textContent = label;
+      r.classList.toggle("fin", cls === "done");
+    });
+    const done = stage.filter((s) => s === 3).length;
+    count.textContent = done === rows.length ? `${rows.length} items · all done` : `${rows.length} items · ${done} done`;
+  };
+  const tick = () => {
+    const next = stage.map((s, i) => [s, i]).filter(([s]) => s < 3).sort((a, b) => b[0] - a[0])[0];
+    if (!next) {
+      timer = setTimeout(() => { stage = [...initial]; paint(); timer = setTimeout(tick, 1400); }, 2200);
+      return;
+    }
+    stage[next[1]]++;
+    const row = rows[next[1]];
+    row.classList.remove("bump"); void row.offsetWidth; row.classList.add("bump");
+    paint();
+    timer = setTimeout(tick, 1100);
+  };
+  whileVisible(box, () => { paint(); timer = setTimeout(tick, 900); }, () => clearTimeout(timer));
+})();
+
+// 2. Feedback with receipts: the item file writes itself, the way a capture lands in the repo.
+(() => {
+  const pre = document.querySelector(".receipts .file pre");
+  const code = pre?.querySelector("code");
+  if (!code) return;
+  const lines = code.innerHTML.split("\n");
+  let played = false;
+  whileVisible(pre, async () => {
+    if (played) return;
+    played = true;
+    pre.style.minHeight = `${pre.offsetHeight}px`;
+    code.innerHTML = "";
+    for (let i = 0; i < lines.length; i++) {
+      code.innerHTML = lines.slice(0, i + 1).join("\n") + '<span class="type-caret"></span>';
+      await sleep(lines[i].trim() === "---" ? 380 : 75);
+    }
+    await sleep(900);
+    code.innerHTML = lines.join("\n");
+  });
+})();
+
+// 3. Trackers: a capture travels browser → repo → Claude Code → your tracker; the ticket moves along.
+(() => {
+  const flow = document.querySelector(".flow");
+  const ticket = document.querySelector(".ticket");
+  if (!flow || !ticket) return;
+  const nodes = [...flow.querySelectorAll(".node")];
+  const arrows = [...flow.querySelectorAll(".arrow")];
+  const state = ticket.querySelector(".state");
+  const STATES = ["Todo", "In progress", "In review"];
+  let n = 0;
+  let round = 0;
+  let timer;
+  const step = () => {
+    nodes.forEach((el, i) => el.classList.toggle("lit", i === n));
+    arrows.forEach((el, i) => el.classList.toggle("lit", i === n - 1));
+    if (n === nodes.length - 1) {
+      state.textContent = STATES[round % STATES.length];
+      ticket.classList.remove("ping"); void ticket.offsetWidth; ticket.classList.add("ping");
+      round++;
+    }
+    n = (n + 1) % nodes.length;
+    timer = setTimeout(step, n === 0 ? 1900 : 800);
+  };
+  whileVisible(flow, () => { timer = setTimeout(step, 400); }, () => {
+    clearTimeout(timer);
+    nodes.forEach((el) => el.classList.remove("lit"));
+    arrows.forEach((el) => el.classList.remove("lit"));
+  });
+})();
+
+// 4. How it works: a progress line runs across the four steps, lighting each in turn.
+(() => {
+  const steps = document.querySelector(".steps");
+  if (!steps) return;
+  const items = [...steps.children];
+  let i = 0;
+  let timer;
+  const step = () => {
+    items.forEach((el, k) => el.classList.toggle("on", k === i));
+    steps.style.setProperty("--p", `${((i + 1) / items.length) * 100}%`);
+    i = (i + 1) % items.length;
+    timer = setTimeout(step, i === 0 ? 2600 : 1700);
+  };
+  steps.classList.add("animated");
+  whileVisible(steps, step, () => clearTimeout(timer));
+})();

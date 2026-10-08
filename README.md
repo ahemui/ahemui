@@ -288,3 +288,13 @@ npm run dev -w ahemui-example-vue
 
 `packages/claude-plugin/server/` and `vendor/` are build outputs. Commit them if others will install the plugin
 from a git URL rather than a local path.
+
+## Licence
+
+- **This repository is MIT** ([LICENSE](LICENSE)): the Claude Code plugin, the browser overlay and extension, the Vite
+  plugin, the CLI and the local board. Use it, change it and ship it at work.
+- **A hosted service for teams is planned.** It will live in its own repository under the
+  [Functional Source License](https://fsl.software/) (FSL-1.1, each release becoming Apache 2.0 after two years): free
+  to read, run and modify, but not to offer as a competing product.
+- **The name and logo are not covered by the licence.** "AhemUI" and its logo are trademarks of the project; forks
+  are welcome under another name.
