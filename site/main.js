@@ -1,3 +1,28 @@
+// Sections fade up as they come into view; items in a row follow one another.
+document.documentElement.classList.add("js");
+if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const seen = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        e.target.classList.add("in");
+        seen.unobserve(e.target);
+      }
+    },
+    { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
+  );
+  const groups = ".gains, .trio, .steps, .grid, .vs-grid, .flow, .ticks";
+  for (const el of document.querySelectorAll(`main > section:not(.hero) .wrap > *:not(${groups}), ${groups.split(", ").map((g) => g + " > *").join(", ")}`)) {
+    const row = el.parentElement.matches(groups) ? [...el.parentElement.children].indexOf(el) : 0;
+    el.style.setProperty("--d", `${Math.min(row, 6) * 0.07}s`);
+    el.classList.add("reveal");
+    seen.observe(el);
+  }
+  seen.observe(document.querySelector(".final"));
+} else {
+  document.querySelector(".final")?.classList.add("in");
+}
+
 // Copy buttons
 for (const line of document.querySelectorAll(".copyline")) {
   const button = line.querySelector("button");
