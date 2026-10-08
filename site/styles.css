@@ -8,14 +8,15 @@
   --accent: #f2f2f4;
   --accent-2: #d4d4da;
   --on-accent: #0c0d11;
-  --mark: #16b981;
+  --mark: #4f8cff;
+  --console: #16b981;
   --lasso: #ff2d55;
   --open: #f5a524;
   --doing: #4f8cff;
   --review: #a78bfa;
   --done: #34d399;
   --code: #e6e1ff;
-  --glow: rgba(22, 185, 129, 0.16);
+  --glow: rgba(79, 140, 255, 0.16);
   --radius: 14px;
   --mono: ui-monospace, "SFMono-Regular", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
   --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -32,9 +33,10 @@
     --accent: #16181d;
     --accent-2: #3a3d47;
     --on-accent: #ffffff;
-    --mark: #0e9f6e;
+    --mark: #2563eb;
+    --console: #0e9f6e;
     --code: #2a2350;
-    --glow: rgba(14, 159, 110, 0.12);
+    --glow: rgba(37, 99, 235, 0.12);
     color-scheme: light;
   }
 }
@@ -79,7 +81,7 @@ h1 { font-size: clamp(44px, 8vw, 92px); font-weight: 800; letter-spacing: -0.045
 .copyline { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; max-width: 520px; padding: 10px 10px 10px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg2); }
 .copyline code { font-size: 14px; color: var(--code); white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
 .copyline code::-webkit-scrollbar { display: none; }
-.prompt { color: var(--mark); margin-right: 6px; }
+.prompt { color: var(--console); margin-right: 6px; }
 .copyline button { flex: none; font: 600 13px var(--sans); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
 .copyline button.done { color: var(--done); border-color: var(--done); }
 
@@ -391,15 +393,6 @@ h2 .ahem { -webkit-text-fill-color: var(--accent-2); }
 .cmd-body .cmds code { font-size: 13px; padding: 3px 9px; border-radius: 7px; background: var(--bg2); border: 1px solid var(--line); color: var(--code); transition: border-color .15s, color .15s; }
 .cmd-body .cmds code:hover { border-color: var(--accent); color: var(--fg); }
 
-/* final call: a warm card, with the same circle round "move." */
-.final-card { position: relative; overflow: hidden; padding: 84px 24px 90px; border-radius: 28px; border: 1px solid color-mix(in srgb, var(--mark) 26%, var(--line));
-  background: radial-gradient(80% 120% at 50% 0%, color-mix(in srgb, var(--mark) 14%, var(--bg2)), var(--bg2) 70%); box-shadow: 0 30px 90px var(--glow); }
-.final-card::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
-  background-image: radial-gradient(color-mix(in srgb, var(--fg) 14%, transparent) 1px, transparent 1.2px); background-size: 22px 22px;
-  -webkit-mask-image: linear-gradient(180deg, #000, transparent 80%); mask-image: linear-gradient(180deg, #000, transparent 80%); }
-.final-card > * { position: relative; z-index: 1; }
-.final .btn.primary { padding: 15px 28px; font-size: 17px; }
-
 /* reveal on scroll (only once the script runs, so the page reads fine without it) */
 .js .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s cubic-bezier(.2, .7, .2, 1); transition-delay: var(--d, 0s); }
 .js .reveal.in { opacity: 1; transform: none; }
@@ -411,7 +404,6 @@ html:not(.js) .final .scribble path { stroke-dashoffset: 0; }
   .pin { width: 26px; height: 26px; right: -10px; top: -6px; border-width: 2px; }
   .pin svg { width: 12px; height: 12px; }
   .scribble path { stroke-width: 3; }
-  .final-card { padding: 56px 18px 60px; border-radius: 20px; }
   .cmd-hot { flex-direction: column; gap: 2px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -419,3 +411,61 @@ html:not(.js) .final .scribble path { stroke-dashoffset: 0; }
   .pin { transform: none; }
   .js .reveal { opacity: 1; transform: none; }
 }
+
+/* ——— colour: blue is the site's colour (the mark); emerald is for the console ——— */
+:root { --mark-2: #8ab4ff; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --mark-2: #3b82f6; } }
+
+/* hero: "Ahem." in a blue sweep, and blue light behind the heading and the demo */
+.hero .ahem { background: linear-gradient(100deg, var(--mark), var(--mark-2)); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; padding-right: .06em; }
+.hero::before { height: 720px; background:
+  radial-gradient(460px 280px at 34% 28%, color-mix(in srgb, var(--mark) 20%, transparent), transparent 70%),
+  radial-gradient(420px 260px at 70% 22%, color-mix(in srgb, var(--mark-2) 14%, transparent), transparent 70%); }
+.demo::before { background: radial-gradient(closest-side, color-mix(in srgb, var(--mark) 22%, transparent), transparent); }
+
+/* cards: blue icons, numbers, edges and glow */
+:is(.gains, .steps, .grid, .trio) > * { --h: var(--mark); }
+.gain { border-color: var(--line); background: linear-gradient(180deg, color-mix(in srgb, var(--h) 6%, var(--panel)), var(--panel) 60%); box-shadow: none; }
+.gain .g-ico { background: var(--h); color: #fff; box-shadow: none; }
+.steps .n { background: var(--h); color: #fff; box-shadow: none; }
+.steps li::after { display: none; }
+.grid .ico { background: color-mix(in srgb, var(--h) 18%, transparent); border-color: color-mix(in srgb, var(--h) 40%, transparent); color: var(--mark-2); }
+:is(.grid article, .steps li, .trio article, .gain):hover { border-color: color-mix(in srgb, var(--h, var(--mark)) 30%, var(--line)); box-shadow: 0 14px 40px rgba(0, 0, 0, .25); }
+
+/* the "point at it" side and the tracker you keep */
+.vs-new { border-color: color-mix(in srgb, var(--mark) 28%, var(--line)); box-shadow: none; }
+.vs-new .vs-label { color: var(--mark-2); }
+.vs-new .vs-steps li::before { background: var(--mark); border-color: var(--mark); color: #fff; }
+.node.trackers-list { border-color: color-mix(in srgb, var(--mark) 35%, var(--line)); box-shadow: none; }
+.node-k { color: var(--mark-2); }
+.ticks li::before { color: var(--mark-2); }
+
+/* the console: prompts, terminal output and commands in emerald */
+.term .t-acc, .term .t-cmd { color: var(--console); }
+.cmd-hot code { color: var(--console); }
+.cmd-hot code::before { color: color-mix(in srgb, var(--console) 60%, var(--muted)); }
+.copyline code { color: var(--fg); }
+.file pre .k, .snippet .k { color: var(--console); }
+
+
+
+/* code blocks keep their own spacing: the inline-code chip style is for words in a sentence */
+pre code, li pre code { padding: 0; border: 0; background: none; border-radius: 0; font-size: inherit; color: inherit; }
+
+/* closing call: plain, centred, just the heading, the circle and the buttons */
+.final { border-top: 1px solid var(--line); }
+.final h2 { margin-bottom: 34px; }
+/* gradient headings are clipped to the text box: leave room for descenders (g, p, y) */
+h2 { padding-bottom: .12em; margin-bottom: calc(18px - .12em); }
+.final h2 { margin-bottom: calc(34px - .12em); }
+/* commands in a copy line read as plain text, not chips */
+.copyline code { padding: 0; border: 0; background: none; border-radius: 0; }
+
+/* not just UI: a quiet callout under the comparison */
+.beyond { display: grid; grid-template-columns: 1.2fr 1fr; gap: 28px; align-items: center; margin-top: 18px; padding: 24px 26px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.beyond h3 { font-size: 22px; margin-bottom: 8px; }
+.beyond p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.6; }
+.beyond-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.beyond-list li { font-size: 13px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg2); color: var(--fg); }
+.beyond-list li::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--mark); margin-right: 7px; vertical-align: 2px; }
+@media (max-width: 860px) { .beyond { grid-template-columns: 1fr; max-width: 560px; margin-inline: auto; } }

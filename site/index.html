@@ -6,7 +6,7 @@
   <title>AhemUI: point at your UI, Claude Code fixes it</title>
   <meta name="description" content="Circle anything in your running app and say what's off. Claude Code fixes it now or works through the batch later, and the queue lives in your repo so the whole team shares it. Open source.">
   <meta property="og:title" content="AhemUI: point at your UI, Claude Code fixes it">
-  <meta property="og:description" content="A visual feedback queue for Claude Code. Circle it, say it, review the fix.">
+  <meta property="og:description" content="Point Claude Code at anything in your running app. Circle it, say it, review the fix.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#0c0d11">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -33,7 +33,7 @@
     <!-- ——— hero ——— -->
     <section class="hero">
       <div class="wrap">
-        <p class="eyebrow">Open source · A UI feedback queue for Claude Code</p>
+        <p class="eyebrow">Open source · Point Claude Code at anything in your app</p>
         <h1><span class="ahem">Ahem.</span> That button’s <span class="circled">wrong.<svg class="scribble" viewBox="0 0 200 80" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M18 46 C 14 22, 62 7, 108 8 C 158 9, 195 24, 191 45 C 187 67, 134 77, 92 74 C 46 71, 7 61, 9 40 C 11 24, 42 13, 80 11"/></svg><span class="pin" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg></span></span></h1>
         <p class="lede">
           Circle it, say what's off. Claude Code fixes it now or in a batch, from one queue your whole team shares.
@@ -119,18 +119,25 @@
           <article class="vs-card vs-new">
             <div class="vs-label">Point at it</div>
             <ol class="vs-steps">
-              <li>Circle the button.</li>
-              <li>Type what should change and press <kbd>Enter</kbd>.</li>
-              <li>Claude opens <code>ProjectCard.vue:14</code> and fixes it. No searching, no guessing.</li>
-              <li>Approve the before and after right on the page.</li>
+              <li>Circle the button and say what to change.</li>
+              <li>Claude opens <code>ProjectCard.vue:14</code> and fixes it. Check it on the page if you like.</li>
             </ol>
             <div class="vs-box">
               <div class="vs-box-head">What you type</div>
               <p class="vs-prompt">"Make this full width and say Deploy to production."</p>
-              <div class="vs-box-head">What Claude gets on its own</div>
-              <div class="vs-chips"><span>ProjectCard.vue:14:5</span><span>/projects › Mobile app</span><span>ProjectsPage › ProjectCard</span><span>var(--brand-600)</span><span>GET /api/deployments → 500</span><span>screenshot</span></div>
+              <div class="vs-box-head">Claude also gets</div>
+              <div class="vs-chips"><span>ProjectCard.vue:14:5</span><span>/projects › Mobile app</span><span>screenshot</span></div>
             </div>
           </article>
+        </div>
+        <div class="beyond">
+          <div>
+            <h3>Not just UI.</h3>
+            <p>It's called AhemUI, but the point is pointing. Circle a wrong total, a checkout step that fails, a confusing error or a slow list, and Claude starts in the code behind it, with the component's props and state, the failed requests and the console errors that came with it.</p>
+          </div>
+          <ul class="beyond-list" aria-label="Things you can point at">
+            <li>Wrong numbers</li><li>Broken flows</li><li>Error messages</li><li>Failing requests</li><li>Copy</li><li>Layout &amp; styles</li><li>Accessibility</li>
+          </ul>
         </div>
       </div>
     </section>
@@ -383,7 +390,8 @@ Make this full width and say "Deploy to production".</code></pre>
       <div class="wrap">
         <h2>Questions, answered.</h2>
         <details><summary>Does my code or data go anywhere?</summary><p>No. The AhemUI server runs on <code>127.0.0.1</code> inside your dev server, the backlog lives in your repo, and Claude Code works on your machine as usual. There's no AhemUI cloud involved.</p></details>
-        <details><summary>Which frameworks does it support?</summary><p>Vue + Vite is first-class (exact template file and line). React ≤18 and Svelte give file and line from their dev builds; React 19 gives component names only. Screenshots, selectors, page context, errors and styles work with any framework.</p></details>
+        <details><summary>Is it only for visual tweaks?</summary><p>No. Point at anything on the page: a wrong calculation, a flow that breaks, an error message, a request that fails. Each capture carries the component's props and state, failed network requests, console errors and the clicks that led there, so Claude can fix behaviour and data as well as layout.</p></details>
+        <details><summary>Which frameworks does it support?</summary><p>Any framework: screenshots, selectors, page context, errors and styles work everywhere. On top of that, some frameworks give Claude the exact source location: Vue + Vite gives the template file and line, React ≤18 and Svelte give file and line from their dev builds, and React 19 gives component names.</p></details>
         <details><summary>Not using Vite?</summary><p>Run <code>npx ahemui serve</code> in your repo and use the browser extension. Screenshots, selectors, page context, errors and styles all work on any stack (webpack, Next.js, Rails, a deployed site); Claude finds the code from those instead of an exact file and line.</p></details>
         <details><summary>Which browsers?</summary><p>The overlay injected by the Vite plugin works in any modern browser, including Claude's built-in one. The extension targets Chromium browsers.</p></details>
         <details><summary>Is it free?</summary><p>Yes. The plugin, overlay, extension and CLI are open source under MIT. A hosted hub for teams is on the roadmap.</p></details>
@@ -392,7 +400,7 @@ Make this full width and say "Deploy to production".</code></pre>
     </section>
 
     <section class="final">
-      <div class="wrap final-card">
+      <div class="wrap">
         <h2><span class="ahem">Ahem.</span> Your <span class="circled">move.<svg class="scribble" viewBox="0 0 200 80" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M18 46 C 14 22, 62 7, 108 8 C 158 9, 195 24, 191 45 C 187 67, 134 77, 92 74 C 46 71, 7 61, 9 40 C 11 24, 42 13, 80 11"/></svg></span></h2>
         <div class="cta center">
           <a class="btn primary" href="#install">Install AhemUI</a>
