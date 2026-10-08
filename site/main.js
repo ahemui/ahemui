@@ -248,37 +248,7 @@ function whileVisible(el, start, stop = () => {}) {
   });
 })();
 
-// 3. Trackers: a capture travels browser → repo → Claude Code → your tracker; the ticket moves along.
-(() => {
-  const flow = document.querySelector(".flow");
-  const ticket = document.querySelector(".ticket");
-  if (!flow || !ticket) return;
-  const nodes = [...flow.querySelectorAll(".node")];
-  const arrows = [...flow.querySelectorAll(".arrow")];
-  const state = ticket.querySelector(".state");
-  const STATES = ["Todo", "In progress", "In review"];
-  let n = 0;
-  let round = 0;
-  let timer;
-  const step = () => {
-    nodes.forEach((el, i) => el.classList.toggle("lit", i === n));
-    arrows.forEach((el, i) => el.classList.toggle("lit", i === n - 1));
-    if (n === nodes.length - 1) {
-      state.textContent = STATES[round % STATES.length];
-      ticket.classList.remove("ping"); void ticket.offsetWidth; ticket.classList.add("ping");
-      round++;
-    }
-    n = (n + 1) % nodes.length;
-    timer = setTimeout(step, n === 0 ? 1900 : 800);
-  };
-  whileVisible(flow, () => { timer = setTimeout(step, 400); }, () => {
-    clearTimeout(timer);
-    nodes.forEach((el) => el.classList.remove("lit"));
-    arrows.forEach((el) => el.classList.remove("lit"));
-  });
-})();
-
-// 4. How it works: a progress line runs across the four steps, lighting each in turn.
+// 3. How it works: a progress line runs across the four steps, lighting each in turn.
 (() => {
   const steps = document.querySelector(".steps");
   if (!steps) return;

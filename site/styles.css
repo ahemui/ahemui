@@ -480,13 +480,6 @@ h2 { padding-bottom: .12em; margin-bottom: calc(18px - .12em); }
 
 .type-caret { display: inline-block; width: 7px; height: 1.05em; margin-left: 2px; vertical-align: -2px; background: var(--console); animation: blink 1s steps(1) infinite; }
 
-.node, .arrow { transition: border-color .3s ease, box-shadow .3s ease, color .3s ease, transform .3s ease; }
-.node.lit { border-color: color-mix(in srgb, var(--mark) 55%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--mark) 14%, transparent); transform: translateY(-2px); }
-.arrow.lit { color: var(--mark); transform: translateX(3px); }
-.ticket .state { transition: background-color .3s, color .3s; }
-.ticket.ping .state { animation: ping .9s ease; }
-@keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mark) 45%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
-
 .steps.animated { position: relative; }
 .steps.animated::before, .steps.animated::after { content: ""; position: absolute; left: 0; top: -18px; height: 2px; border-radius: 2px; }
 .steps.animated::before { right: 0; background: var(--line); }
