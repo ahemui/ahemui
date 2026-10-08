@@ -495,3 +495,7 @@ h2 { padding-bottom: .12em; margin-bottom: calc(18px - .12em); }
 .steps.animated li.on { border-color: color-mix(in srgb, var(--mark) 40%, var(--line)); transform: translateY(-3px); box-shadow: 0 14px 40px rgba(0, 0, 0, .25); }
 .steps.animated li.on .n { animation: dot-bump .6s ease; }
 @media (max-width: 960px) { .steps.animated::before, .steps.animated::after { display: none; } }
+
+/* the overlay's own buttons, shown inline in the copy */
+.ui-btn { display: inline-block; padding: 1px 8px; margin: 0 1px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg2); color: var(--fg); font: 600 12.5px/1.6 var(--sans); white-space: nowrap; vertical-align: 1px; }
+.ui-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
