@@ -492,3 +492,5 @@ h2 { padding-bottom: .12em; margin-bottom: calc(18px - .12em); }
 /* the overlay's own buttons, shown inline in the copy */
 .ui-btn { display: inline-block; padding: 1px 8px; margin: 0 1px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg2); color: var(--fg); font: 600 12.5px/1.6 var(--sans); white-space: nowrap; vertical-align: 1px; }
 .ui-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+/* install: the config snippet lines up with the copy lines above it */
+.install-steps .snippet { max-width: 520px; }
