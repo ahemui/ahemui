@@ -614,3 +614,49 @@ html:not(.js) .final-before { display: none; }
 .f-replay { position: absolute; right: 0; bottom: 0; font: 600 12px var(--sans); color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
 .f-replay:hover { color: var(--fg); border-color: var(--mark); }
 @media (max-width: 640px) { .f-bubble { width: 240px; } .final-stage { min-height: 300px; } }
+
+/* ——— closing call v2: quiet before, visual after, a dashed selection box instead of a circle ——— */
+.final { position: relative; overflow: hidden; }
+.final::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .8s ease;
+  background: radial-gradient(55% 75% at 50% 45%, color-mix(in srgb, var(--mark) 22%, transparent), transparent 70%),
+    radial-gradient(35% 50% at 22% 70%, color-mix(in srgb, var(--mark-2) 12%, transparent), transparent 70%),
+    radial-gradient(35% 50% at 80% 30%, color-mix(in srgb, var(--mark-2) 12%, transparent), transparent 70%); }
+.final.fixed::before, html:not(.js) .final::before { opacity: 1; }
+.final-stage { min-height: 420px; }
+/* before: the site's own styles, just nothing highlighted */
+.final-before { font: inherit; padding: 22px 30px; }
+.final-before h2 { font: 700 30px/1.2 var(--sans); letter-spacing: -0.01em; margin: 0 0 10px; color: var(--muted); -webkit-text-fill-color: var(--muted); background: none; }
+.final-before p { margin: 0 0 18px; color: var(--muted); font-size: 16px; }
+.final-before .btn { padding: 9px 16px; font-size: 14px; }
+/* after */
+.final-after { position: relative; padding: 10px 40px; }
+.final-after h2 { font-size: clamp(44px, 7.5vw, 88px); margin-bottom: 14px; }
+.f-grad { background: linear-gradient(100deg, var(--mark), var(--mark-2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; padding-right: .06em; }
+.f-sub { margin: 0 auto 26px; color: var(--muted); font-size: clamp(17px, 2vw, 20px); }
+.final-after .copyline { margin: 20px auto 0; }
+.f-deco { position: absolute; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff; font: 700 14px var(--sans); border: 3px solid var(--bg); box-shadow: 0 8px 24px rgba(0,0,0,.35); background: var(--open); transform: scale(0) rotate(-20deg); transition: transform .45s cubic-bezier(.3, 1.6, .5, 1); }
+.f-deco svg { width: 15px; height: 15px; fill: currentColor; }
+.f-deco.review { background: #8b5cf6; } .f-deco.review svg { fill: none; }
+.f-deco.done { background: #16a34a; } .f-deco.done svg { fill: none; }
+.d1 { left: 2%; top: 6%; } .d2 { right: 4%; top: 0; background: var(--doing); } .d3 { left: 6%; bottom: 14%; } .d4 { right: 1%; bottom: 22%; }
+.final.fixed .f-deco, html:not(.js) .f-deco { transform: none; }
+.final.fixed .d2 { transition-delay: .12s; } .final.fixed .d3 { transition-delay: .24s; } .final.fixed .d4 { transition-delay: .36s; }
+/* the overlay's own selection: a dashed box */
+.f-select { position: absolute; pointer-events: none; border: 2px dashed var(--mark); border-radius: 10px; background: color-mix(in srgb, var(--mark) 7%, transparent); opacity: 0; transform: scale(1.04); transition: opacity .3s, transform .3s; }
+.f-select.show { opacity: 1; transform: none; }
+.f-lasso { display: none; }
+@media (max-width: 640px) { .f-deco { display: none; } .final-after { padding: 10px 0; } }
+/* closing call, after: the hero's background (blue glows over a fading dot grid) and the hero's "Ahem." */
+.final::before { background:
+  radial-gradient(460px 280px at 34% 34%, color-mix(in srgb, var(--mark) 20%, transparent), transparent 70%),
+  radial-gradient(420px 260px at 68% 28%, color-mix(in srgb, var(--mark-2) 14%, transparent), transparent 70%); }
+.final::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: -1; opacity: 0; transition: opacity .8s ease;
+  background-image: radial-gradient(color-mix(in srgb, var(--fg) 16%, transparent) 1px, transparent 1.2px); background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 60% 70% at 50% 45%, #000 20%, transparent 75%); mask-image: radial-gradient(ellipse 60% 70% at 50% 45%, #000 20%, transparent 75%); }
+.final { isolation: isolate; }
+.final::before { z-index: -1; }
+.final.fixed::after, html:not(.js) .final::after { opacity: 1; }
+.final .ahem { background: linear-gradient(100deg, var(--mark), var(--mark-2)); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; padding-right: .06em; }
+.final-before a, .final-before a:hover { color: inherit; text-decoration: none; }
+.f-toast { top: 4px; bottom: auto; transform: translate(-50%, -8px); }
+.f-toast.show { transform: translate(-50%, 0); }

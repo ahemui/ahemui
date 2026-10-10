@@ -270,7 +270,7 @@ function whileVisible(el, start, stop = () => {}) {
   const stage = section?.querySelector(".final-stage");
   if (!stage) return;
   const before = stage.querySelector(".final-before");
-  const lasso = stage.querySelector(".f-lasso");
+  const select = stage.querySelector(".f-select");
   const bubble = stage.querySelector(".f-bubble");
   const typed = stage.querySelector(".f-typed");
   const mark = stage.querySelector(".f-marker");
@@ -290,9 +290,9 @@ function whileVisible(el, start, stop = () => {}) {
   const place = () => {
     const s = stage.getBoundingClientRect();
     const b = before.getBoundingClientRect();
-    const pad = 22;
+    const pad = 14;
     const box = { x: b.left - s.left - pad, y: b.top - s.top - pad, w: b.width + pad * 2, h: b.height + pad * 2 };
-    Object.assign(lasso.style, { left: `${box.x}px`, top: `${box.y}px`, width: `${box.w}px`, height: `${box.h}px` });
+    Object.assign(select.style, { left: `${box.x}px`, top: `${box.y}px`, width: `${box.w}px`, height: `${box.h}px` });
     Object.assign(mark.style, { left: `${box.x + box.w - 18}px`, top: `${box.y - 6}px` });
     const bw = bubble.offsetWidth || 290;
     Object.assign(bubble.style, { left: `${Math.max(0, Math.min(box.x + box.w / 2 - bw / 2, stage.clientWidth - bw))}px`, top: `${box.y + box.h + 8}px` });
@@ -304,18 +304,18 @@ function whileVisible(el, start, stop = () => {}) {
     replay.hidden = true;
     section.classList.remove("fixed");
     mark.className = "f-marker";
-    lasso.classList.remove("draw", "gone");
+    select.classList.remove("show");
     typed.textContent = "";
-    await sleep(500);
+    await sleep(250);
     place();
-    lasso.classList.add("draw");
-    await sleep(1150);
+    select.classList.add("show");
+    await sleep(420);
     bubble.classList.add("show");
     for (const ch of ASK) {
       typed.textContent += ch;
-      await sleep(42);
+      await sleep(24);
     }
-    await sleep(450);
+    await sleep(220);
     const go = bubble.querySelector(".go");
     go.classList.add("press");
     await sleep(200);
@@ -324,18 +324,16 @@ function whileVisible(el, start, stop = () => {}) {
     mark.innerHTML = BOLT_SVG;
     mark.className = "f-marker show";
     toast("⚡ Claude is starting on it");
-    await sleep(900);
+    await sleep(500);
     mark.innerHTML = RING_SVG;
     mark.className = "f-marker show doing";
-    await sleep(1300);
-    lasso.classList.add("gone");
+    await sleep(700);
+    select.classList.remove("show");
+    mark.className = "f-marker";
     section.classList.add("fixed");
     await sleep(700);
-    mark.innerHTML = CHECK_SVG;
-    mark.className = "f-marker show done";
     toast("Done ✓");
-    await sleep(2200);
-    mark.className = "f-marker";
+    await sleep(1400);
     replay.hidden = false;
     running = false;
   };
