@@ -572,3 +572,7 @@ h2 { padding-bottom: .12em; margin-bottom: calc(18px - .12em); }
 .vs-losses li { color: var(--muted); font-weight: 500; }
 .vs-losses li::before { background: color-mix(in srgb, var(--muted) 14%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m5.5 5.5 5 5m0-5-5 5' fill='none' stroke='%239aa0ae' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center / 14px no-repeat; }
 .vs-old .vs-losses { margin-top: 2px; }
+/* equal columns whatever the content, so the vs badge sits in the gap between the cards */
+.vs-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.vs-chips { min-width: 0; }
+@media (max-width: 860px) { .vs-grid { grid-template-columns: minmax(0, 1fr); } }
