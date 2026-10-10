@@ -218,7 +218,7 @@ a.ext { color: var(--accent-text); }
 .body { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0; }
 .mono { font-family: ui-monospace, Consolas, monospace; }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-.list-item { display: flex; gap: 8px; padding: 6px; border-radius: 6px; cursor: pointer; align-items: baseline; }
+.list-item { display: flex; gap: 8px; padding: 6px; border-radius: 6px; cursor: pointer; align-items: flex-start; }
 .list-item:hover { background: var(--bg2); }
 .list-item .grow { flex: 1; min-width: 0; }
 .panel-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--line); }
@@ -301,7 +301,8 @@ a.btn:hover { border-color: var(--accent); }
 @keyframes pulse-ask { 50% { box-shadow: 0 0 0 7px rgba(245,158,11,.3); } }
 .pill.review { background: #8b5cf6; }
 .pill.ask { background: #f59e0b; color: #111; }
-.list-item .pill { font-size: 11px; letter-spacing: 0; padding: 1px 6px; } /* icon-only in the backlog list */
+/* icon-only in the backlog list: as tall as the title line, icon centred, so it sits level with the title */
+.list-item .pill { flex: none; display: inline-flex; align-items: center; justify-content: center; height: 18px; min-width: 26px; padding: 0 6px; font-size: 11px; letter-spacing: 0; line-height: 1; }
 .pop { width: 340px; }
 .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
 .compare figure { margin: 0; }
