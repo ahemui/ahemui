@@ -34,7 +34,7 @@
     --accent-2: #3a3d47;
     --on-accent: #ffffff;
     --mark: #2563eb;
-    --console: #0e9f6e;
+    --console: #0b7a55;
     --code: #2a2350;
     --glow: rgba(37, 99, 235, 0.12);
     color-scheme: light;
@@ -124,6 +124,7 @@ h1 { font-size: clamp(44px, 8vw, 92px); font-weight: 800; letter-spacing: -0.045
 @keyframes blink { 50% { opacity: 0; } }
 .bubble-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 10px; color: #9ca3af; }
 .go { white-space: nowrap; background: #f2f2f4; color: #111317; padding: 4px 9px; border-radius: 6px; font-weight: 600; font-size: 11px; }
+.go svg { vertical-align: -1px; margin-right: 3px; }
 .go.press { transform: scale(.94); filter: brightness(1.2); }
 .pop { width: 252px; padding: 0; font-size: 11px; overflow: hidden; }
 .pop-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 10px 0; }
@@ -414,7 +415,7 @@ html:not(.js) .final .scribble path { stroke-dashoffset: 0; }
 
 /* ——— colour: blue is the site's colour (the mark); emerald is for the console ——— */
 :root { --mark-2: #8ab4ff; }
-@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --mark-2: #3b82f6; } }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --mark-2: #1d4ed8; } }
 
 /* hero: "Ahem." in a blue sweep, and blue light behind the heading and the demo */
 .hero .ahem { background: linear-gradient(100deg, var(--mark), var(--mark-2)); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; padding-right: .06em; }
@@ -646,6 +647,12 @@ html:not(.js) .final-before { display: none; }
 .f-select.show { opacity: 1; transform: none; }
 .f-lasso { display: none; }
 @media (max-width: 640px) { .f-deco { display: none; } .final-after { padding: 10px 0; } }
+/* the two halves share one cell; neither may push it wider than the screen */
+.final-stage { grid-template-columns: minmax(0, 1fr); }
+.final-before, .final-after { min-width: 0; max-width: 100%; }
+.final-after .copyline { max-width: min(520px, 100%); }
+.copyline code { min-width: 0; }
+@media (max-width: 640px) { .final-before { padding: 18px 8px; } }
 /* closing call, after: the hero's background (blue glows over a fading dot grid) and the hero's "Ahem." */
 .final::before { background:
   radial-gradient(460px 280px at 34% 34%, color-mix(in srgb, var(--mark) 20%, transparent), transparent 70%),

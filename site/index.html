@@ -8,6 +8,9 @@
   <meta property="og:title" content="AhemUI: point at your app, your coding agent fixes it">
   <meta property="og:description" content="Point your coding agent at anything in your running app. Circle it, say it, review the fix.">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ahemui.com/">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://ahemui.com/">
   <meta name="theme-color" content="#0c0d11">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
@@ -50,8 +53,8 @@
       </div>
 
       <!-- animated demo -->
-      <div class="wrap demo" aria-label="Animated demo: circling a button, Claude fixing it, approving the result">
-        <div class="browser">
+      <div class="wrap demo" role="img" aria-label="Animated demo: circling a button, your agent fixing it, approving the result">
+        <div class="browser" aria-hidden="true">
           <div class="chrome">
             <span class="dots"><i></i><i></i><i></i></span>
             <span class="url">localhost:5173/projects</span>
@@ -69,7 +72,7 @@
             <div class="bubble" id="demo-bubble" aria-hidden="true">
               <div class="where">src/components/ProjectCard.vue:14:5 · ProjectsPage › ProjectCard</div>
               <div class="field"><span id="demo-typed"></span><i class="caret"></i></div>
-              <div class="bubble-foot"><span>Enter start now · Ctrl+Enter backlog</span><span class="go"><svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>Start now</span></div>
+              <div class="bubble-foot"><span>Enter start now · Ctrl+Enter backlog</span><span class="go"><svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor" aria-hidden="true"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>Start now</span></div>
             </div>
             <div class="pop" id="demo-pop" aria-hidden="true">
               <div class="pop-head"><span class="pill">ready for review</span><span class="pop-id">01J9Z · ProjectCard.vue</span></div>
@@ -159,7 +162,7 @@
             <h3>Now, or as a batch</h3>
             <p>Hand one to your agent straight away, or park it in the backlog and clear the lot with one command later.</p>
             <div class="vis modes" aria-hidden="true">
-              <span class="key">Enter</span><span><b>⚡ Start now</b><small>Claude picks it up in seconds</small></span>
+              <span class="key">Enter</span><span><b>⚡ Start now</b><small>your agent picks it up in seconds</small></span>
               <span class="key">Ctrl Enter</span><span><b>Backlog</b><small>saved for later</small></span>
               <code class="key cmd">/ahemui:work</code><span><b>Clear the batch</b><small>works through the backlog</small></span>
             </div>
@@ -183,7 +186,7 @@
       <div class="wrap split">
         <div>
           <p class="kicker"><span>03</span>What your agent gets</p>
-        <h2>Feedback with receipts.</h2>
+          <h2>Feedback with receipts.</h2>
           <p>
             A screenshot tells your agent what you saw. AhemUI also tells it <em>where it lives</em>.
             Every capture lands in your repo as a plain Markdown file with everything needed to find and fix it.
@@ -306,7 +309,7 @@ full width, call it "Deploy to production"</code></pre>
         <h2>Already have a backlog? Keep it.</h2>
         <p class="sub">AhemUI doesn't replace your tracker. It's the inbox that fills it: every capture becomes a proper ticket through the MCP server your agent already uses. There's no AhemUI integration to install and no API keys to hand over.</p>
 
-        <div class="flow" aria-label="From the browser to your tracker">
+        <div class="flow" role="group" aria-label="From the browser to your tracker">
           <div class="node"><span class="node-k">Browser</span><b>Circle &amp; say it</b><small>overlay or extension</small></div>
           <span class="arrow" aria-hidden="true">→</span>
           <div class="node"><span class="node-k">Repo</span><b>.ahemui/</b><small>anchors, screenshots, context</small></div>
@@ -324,7 +327,7 @@ full width, call it "Deploy to production"</code></pre>
             <li><b>Your team's conventions</b>: issue types, labels, target project and workflow states live in <code>.ahemui/config.json</code>, committed for everyone</li>
             <li><b>Manual or automatic</b>: run <code>/ahemui:sync</code> when you like, or set <code>auto</code> and triage, work and watch keep tickets current as they go</li>
           </ul>
-          <div class="ticket" aria-label="Example ticket created from an AhemUI capture">
+          <div class="ticket" role="group" aria-label="Example ticket created from an AhemUI capture">
             <div class="ticket-head"><span class="key">ENG-142</span><span class="state">In review</span></div>
             <h3>Make the deploy button full width</h3>
             <div class="labels"><span>ahemui</span><span>layout</span><span>Projects › Mobile app</span></div>
@@ -402,7 +405,7 @@ full width, call it "Deploy to production"</code></pre>
             <p>Then run <code>/ahemui:watch</code> and press Enter on your first request.</p>
           </li>
         </ol>
-        <p class="aside">Want to capture on staging or prod? Add the browser extension (Chrome, Edge, Brave, Vivaldi) and flip "Enable on this site".</p>
+        <p class="aside">Want to capture on staging or prod? Download <code>ahemui-extension-v0.4.0.zip</code> from the <a href="https://github.com/ahemui/ahemui/releases" rel="noopener">GitHub release</a>, unzip it and load it unpacked at <code>chrome://extensions</code> (Developer mode on; works in Chrome, Edge, Brave and Vivaldi). A store listing is coming. Then turn on "Enable AhemUI on &lt;site&gt;" in its popup.</p>
       </div>
     </section>
 
@@ -410,21 +413,20 @@ full width, call it "Deploy to production"</code></pre>
     <section class="faq">
       <div class="wrap">
         <h2>Questions, answered.</h2>
-        <details><summary>Does my code or data go anywhere?</summary><p>No. The AhemUI server runs on <code>127.0.0.1</code> inside your dev server, the backlog lives in your repo, and your agent works on your machine as usual. There's no AhemUI cloud involved.</p></details>
+        <details><summary>Does my code or data go anywhere?</summary><p>AhemUI itself sends nothing anywhere, and there's no AhemUI cloud. The server runs on <code>127.0.0.1</code> inside your dev server, and captures stay on your machine and in your repo. Your coding agent reads them like the rest of your code, so they're handled under its provider's terms (Anthropic's, for Claude Code), the same as anything else you show it.</p></details>
         <details><summary>Is it only for visual tweaks?</summary><p>No. Point at anything on the page: a wrong calculation, a flow that breaks, an error message, a request that fails. Each capture carries the component's props and state, failed network requests, console errors and the clicks that led there, so your agent can fix behaviour and data as well as layout.</p></details>
         <details><summary>Which frameworks does it support?</summary><p>Any framework: screenshots, selectors, page context, errors and styles work everywhere. On top of that, some frameworks give your agent the exact source location: Vue + Vite gives the template file and line, React ≤18 and Svelte give file and line from their dev builds, and React 19 gives component names.</p></details>
         <details><summary>Not using Vite?</summary><p>Run <code>npx ahemui serve</code> in your repo and use the browser extension. Screenshots, selectors, page context, errors and styles all work on any stack (webpack, Next.js, Rails, a deployed site); your agent finds the code from those instead of an exact file and line.</p></details>
         <details><summary>Which browsers?</summary><p>The overlay injected by the Vite plugin works in any modern browser, including Claude's built-in one. The extension targets Chromium browsers.</p></details>
-        <details><summary>Is it free?</summary><p>Yes. The plugin, overlay, extension and CLI are open source under MIT. A hosted hub for teams is on the roadmap.</p></details>
+        <details><summary>Is it free?</summary><p>Yes. The plugin, overlay, extension and CLI are open source under MIT. A hosted version for teams may come later; the open-source tools stay free.</p></details>
         <details><summary>What if I already track work in Linear or Jira?</summary><p>Keep it. <code>/ahemui:sync</code> mirrors items to your tracker through the MCP server you already have connected, and keeps status in sync both ways.</p></details>
       </div>
     </section>
 
     <section class="final" aria-label="Get started">
       <div class="wrap final-stage">
-        <!-- before: deliberately bland; AhemUI "fixes" it when it scrolls into view -->
         <!-- before: plain and quiet; AhemUI "fixes" it when it scrolls into view -->
-        <div class="final-before" aria-hidden="true">
+        <div class="final-before">
           <h2>Get started with AhemUI</h2>
           <p>Install the plugin and start sending feedback to your agent.</p>
           <div class="cta center"><a class="btn" href="#install">Install</a><a class="btn" href="https://github.com/ahemui/ahemui" rel="noopener">GitHub</a></div>
@@ -442,7 +444,7 @@ full width, call it "Deploy to production"</code></pre>
         <div class="f-bubble" aria-hidden="true">
           <div class="where">Final call to action · index.html</div>
           <div class="field"><span class="f-typed"></span><span class="caret"></span></div>
-          <div class="bubble-foot"><span>Enter start now</span><span class="go"><svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>Start now</span></div>
+          <div class="bubble-foot"><span>Enter start now</span><span class="go"><svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor" aria-hidden="true"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>Start now</span></div>
         </div>
         <div class="f-marker" aria-hidden="true"></div>
         <div class="f-toast" aria-hidden="true"></div>

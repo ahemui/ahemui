@@ -1,11 +1,12 @@
 # AhemUI
 
-Highlight parts of your running web app, type what should change, and let Claude Code work through the backlog.
-Markers on the page follow each request from **queued** (amber) → **in progress** (blue) → **ready for your review**
-(purple ◎) → **approved** (green ✓). A **?** means Claude asked you something, and you can answer right in the page.
+Highlight parts of your running web app, type what should change, and let your coding agent (Claude Code today,
+Codex coming soon) work through the backlog. Markers on the page follow each request from **queued** (amber) →
+**in progress** (blue) → **ready for your review** (purple ◎) → **approved** (green ✓). A **?** means your agent asked
+you something, and you can answer right in the page.
 
 The backlog is plain files in your repo (`.ahemui/`), so it travels with git: capture a batch of feedback, commit it
-to a branch, and someone else (or another Claude session) can pick it up.
+to a branch, and someone else (or another agent session) can pick it up.
 
 ## What it works with
 
@@ -18,7 +19,7 @@ to a branch, and someone else (or another Claude session) can pick it up.
 | **Anything else** (webpack, Next.js, Rails, a deployed site…) | — | — | ✓ | Browser extension + `npx ahemui serve` |
 
 Storybook stories map to their story file. Nuxt and SvelteKit run on Vite, so they count as Vite. Without Vite,
-Claude finds the code from the selector, text and screenshot instead of a file:line, which works but is slower.
+your agent finds the code from the selector, text and screenshot instead of a file:line, which works but is slower.
 
 Browsers: the Vite-injected overlay runs in any modern browser, including Claude's built-in one; the extension is for
 Chromium browsers (Chrome, Edge, Vivaldi, Brave, Arc).
@@ -41,10 +42,12 @@ Chromium browsers (Chrome, Edge, Vivaldi, Brave, Arc).
 | `packages/vite` | `ahemui`: Vue source attributes + in-process `ahemui serve` + overlay injection. Bundled, with the CLI, into one dependency-free package |
 | `packages/extension` | MV3 extension for Chromium/Vivaldi: project picker, works on deployed sites, real tab screenshots, Alt+Shift+S |
 | `packages/board` | The backlog board page (live at the server's address, or the `.ahemui/backlog.html` snapshot) |
-| `packages/claude-plugin` | Claude Code plugin: MCP server (`ahemui_*` tools) + skills `/ahemui:setup`, `/ahemui:watch`, `/ahemui:board`, `/ahemui:triage`, `/ahemui:work`, `/ahemui:review`, `/ahemui:sync`, `/ahemui:status`, `/ahemui:handoff`, `/ahemui:archive` |
+| `packages/claude-plugin` | Claude Code plugin: MCP server (`ahemui_*` tools) + skills `/ahemui:setup`, `/ahemui:watch`, `/ahemui:board`, `/ahemui:triage`, `/ahemui:work`, `/ahemui:review`, `/ahemui:sync`, `/ahemui:status`, `/ahemui:handoff`, `/ahemui:archive`, `/ahemui:update`, `/ahemui:remove` |
 | `examples/vue-app` | Small Vue app wired up for trying it out |
 
 ## Getting started
+
+You need Node.js 20 or later, and Claude Code for the plugin.
 
 **1. Install the Claude Code plugin** (from any Claude Code session):
 
@@ -176,7 +179,13 @@ says what to reload.
 
 ### Browser extension (optional, and needed for deployed sites)
 
-`chrome://extensions` (or `vivaldi://extensions`) → Developer mode → **Load unpacked** → `packages/extension/dist`.
+The extension isn't in the Chrome Web Store yet (a store listing is coming). For now:
+
+1. Download `ahemui-extension-v0.4.0.zip` from the [GitHub release](https://github.com/ahemui/ahemui/releases) and unzip it.
+2. Open `chrome://extensions` (or `edge://extensions`, `vivaldi://extensions`…) and turn on **Developer mode**.
+3. **Load unpacked** → pick the unzipped folder.
+
+Working on AhemUI itself? Load `packages/extension/dist` after `npm run build` instead.
 
 Click the AhemUI toolbar icon to open the popup:
 
@@ -257,17 +266,25 @@ location, then CSS path, then text, so they survive HMR and small refactors.
 ```
 ahemui init [--origin <url>]... [--port <n>]
 ahemui serve [--port <n>]
-ahemui list [--status <s>]... [--all] [--json]
-ahemui show <id> | add --prompt … | claim <id> | resolve <id> [--wontfix] [--note …]
-ahemui triage <id> [--type t] [--priority p] [--area a] [--label l]...
-ahemui list [--route p] [--type t] [--label l] [--area a] [--untriaged]
-ahemui board [--no-open] | export [--out file]
-ahemui wait [--timeout s]   # used by /ahemui:watch; exits when ⚡ Start now items arrive
-ahemui reply <id> <text> | approve <id> | changes <id> --note <text>
-ahemui clear [--archive] [--yes]   # empty the backlog, keep the setup
-ahemui prune [--drop-shots <days>]
-ahemui reopen <id> | note <id> <text> | prune | unwatch
+ahemui board [--no-open]                 # open the live board (starts ahemui serve if needed)
+ahemui export [--out <file>]             # read-only snapshot (default .ahemui/backlog.html)
+ahemui list [--status <s>]... [--route <p>] [--type <t>] [--label <l>] [--area <a>] [--untriaged] [--all] [--json]
+ahemui show <id> [--json]
+ahemui add --prompt <text> [--source <file:line>] [--selector <css>] [--route <path>] [--shot <file>]
+ahemui claim <id> [--as <name>] [--force]
+ahemui resolve <id> [--done | --wontfix] [--sha <commit>] [--note <text>]   # default: review, if enabled
+ahemui triage <id> [--type <t>] [--priority <p>] [--area <a>] [--label <l>]...
+ahemui reopen <id> | note <id> <text>
+ahemui prune [--drop-shots <days>]       # move done/wontfix items to .ahemui/done/
+ahemui reply <id> <text> | approve <id> [--note <t>] | changes <id> --note <t>
+ahemui wait [--timeout <sec>] [--as <name>] [--agent <id>]   # used by /ahemui:watch; exits when ⚡ Start now items arrive
+ahemui unwatch                           # clear the "agent is watching" presence
+ahemui update [--from <tgz>] [--force]   # install the newest AhemUI package (used by /ahemui:update)
+ahemui clear [--archive] [--yes]         # empty the backlog, keep the setup
+ahemui --version
 ```
+
+Ids can be shortened to any unique prefix.
 
 In a project with `ahemui` installed: `npx ahemui …`.
 
@@ -283,8 +300,11 @@ Only local non-browser tools (the Vite plugin) can add origins at runtime.
 npm run build       # everything, incl. extension and plugin bundles
 npm run typecheck
 npm test            # core, server and MCP (stdio) tests
+npm run test:e2e    # Playwright browser tests
 npm run dev -w ahemui-example-vue
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) before sending a pull request.
 
 `packages/claude-plugin/server/` and `vendor/` are build outputs. Commit them if others will install the plugin
 from a git URL rather than a local path.
@@ -296,5 +316,5 @@ from a git URL rather than a local path.
 - **A hosted service for teams is planned.** It will live in its own repository under the
   [Functional Source License](https://fsl.software/) (FSL-1.1, each release becoming Apache 2.0 after two years): free
   to read, run and modify, but not to offer as a competing product.
-- **The name and logo are not covered by the licence.** "AhemUI" and its logo are trademarks of the project; forks
+- **The name and logo are not covered by the licence.** "AhemUI" and its logo are trademarks of Pietari Keurulainen; forks
   are welcome under another name.

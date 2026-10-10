@@ -40,7 +40,7 @@ for (const line of document.querySelectorAll(".copyline")) {
   });
 }
 
-// ——— hero demo: lasso → request → Claude works it → review → approve ———
+// ——— hero demo: lasso → request → the agent works it → review → approve ———
 
 const $ = (id) => document.getElementById(id);
 const page = $("demo-page");
@@ -270,6 +270,7 @@ function whileVisible(el, start, stop = () => {}) {
   const stage = section?.querySelector(".final-stage");
   if (!stage) return;
   const before = stage.querySelector(".final-before");
+  const after = stage.querySelector(".final-after");
   const select = stage.querySelector(".f-select");
   const bubble = stage.querySelector(".f-bubble");
   const typed = stage.querySelector(".f-typed");
@@ -280,7 +281,16 @@ function whileVisible(el, start, stop = () => {}) {
   const BOLT_SVG = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>';
   const CHECK_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg>';
   const RING_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5"/></svg>';
-  if (reduced || !("IntersectionObserver" in window)) return section.classList.add("fixed");
+  // Only the half on show can be focused or read out.
+  const setFixed = (on) => {
+    section.classList.toggle("fixed", on);
+    before.inert = on;
+    if (on) before.setAttribute("aria-hidden", "true");
+    else before.removeAttribute("aria-hidden");
+    after.inert = !on;
+  };
+  if (reduced || !("IntersectionObserver" in window)) return setFixed(true);
+  setFixed(false);
 
   const toast = (text) => {
     toastEl.textContent = text;
@@ -302,7 +312,7 @@ function whileVisible(el, start, stop = () => {}) {
     if (running) return;
     running = true;
     replay.hidden = true;
-    section.classList.remove("fixed");
+    setFixed(false);
     mark.className = "f-marker";
     select.classList.remove("show");
     typed.textContent = "";
@@ -330,7 +340,7 @@ function whileVisible(el, start, stop = () => {}) {
     await sleep(700);
     select.classList.remove("show");
     mark.className = "f-marker";
-    section.classList.add("fixed");
+    setFixed(true);
     await sleep(700);
     toast("Done ✓");
     await sleep(1400);
