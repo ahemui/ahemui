@@ -42,7 +42,7 @@ test("errors helpfully before init", async () => {
 
 test("init vendors the vite tarball", async () => {
   const r = await call("ahemui_init", { dev_origins: ["http://localhost:5173"] });
-  assert.match(text(r), /npm i -D \.\/\.ahemui\/vendor\/ahemui\.tgz/);
+  assert.match(text(r), /\.\/\.ahemui\/vendor\/ahemui\.tgz when the app is at the repo root/);
   assert.deepEqual(await readdir(join(dir, ".ahemui/vendor")), ["ahemui.tgz"]);
 });
 

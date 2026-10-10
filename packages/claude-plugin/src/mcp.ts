@@ -7,14 +7,17 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { exportBoard } from "../../cli/src/board.js";
 import { isRelease, pluginVersion } from "../../cli/src/update.js";
-import { defaultAuthor, type Item, type ListFilter, PRIORITIES, AhemError, AhemStore, STATUSES, type Tracker, TRACKERS, TYPES, workOrder } from "@ahemui/core";
+import { agentName, defaultAuthor, type Item, type ListFilter, PRIORITIES, AhemError, AhemStore, STATUSES, type Tracker, TRACKERS, TYPES, workOrder } from "@ahemui/core";
 import { z } from "zod";
 
 const projectDir = () => process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const here = dirname(fileURLToPath(import.meta.url));
 const VENDOR_TARBALL = "ahemui.tgz";
 
-const server = new McpServer({ name: "ahemui", version: "0.1.0" });
+/** Which agent this MCP server runs under; .mcp.json sets it, and it names the agent in claims and notes. */
+const AGENT = process.env.AHEMUI_AGENT || "claude-code";
+
+const server = new McpServer({ name: "ahemui", version: pluginVersion() ?? "0.0.0" });
 
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
 
@@ -69,13 +72,16 @@ tool(
     const batch = f.batch ? await s.findBatch(f.batch) : null;
     if (f.batch && !batch) return `No batch matches "${f.batch}". ahemui_batches lists them.`;
     const items = await s.list({ status, includeDone: include_archived, untriaged, ...toFilter({ ...f, batch: batch?.id }) });
-    if (!items.length) return "No matching AhemUI items.";
-    if (group_by === "none") return items.map(summary).join("\n");
+    const unreadable = s.unreadable.length
+      ? `\n\n${s.unreadable.length} item(s) couldn't be read and are left out: ${s.unreadable.map((u) => `${u.id} (${u.error})`).join("; ")}. A newer AhemUI may have written them: update AhemUI, or fix the file by hand.`
+      : "";
+    if (!items.length) return `No matching AhemUI items.${unreadable}`;
+    if (group_by === "none") return items.map(summary).join("\n") + unreadable;
     const key = (it: Item) =>
       group_by === "page" ? pageName(it) : group_by === "area" ? (it.area ?? "(no area yet)") : (it.type ?? "(no type yet)");
     const groups = new Map<string, Item[]>();
     for (const it of workOrder(items)) groups.set(key(it), [...(groups.get(key(it)) ?? []), it]);
-    return [...groups].map(([k, list]) => `## ${k} (${list.length})\n${list.map(summary).join("\n")}`).join("\n\n");
+    return [...groups].map(([k, list]) => `## ${k} (${list.length})\n${list.map(summary).join("\n")}`).join("\n\n") + unreadable;
   },
 );
 
@@ -161,7 +167,7 @@ tool(
       .max(12),
   },
   async ({ scan, findings }) => {
-    const { created, skipped } = await store().suggest(scan, findings, "agent");
+    const { created, skipped } = await store().suggest(scan, findings, "agent", agentName(AGENT));
     return `Filed ${created.length} suggestion(s)${skipped ? `, skipped ${skipped} already in the backlog` : ""}:\n${created.map(summary).join("\n")}`;
   },
 );
@@ -287,7 +293,9 @@ tool(
       const dest = join(s.dir, "vendor", VENDOR_TARBALL);
       await copyFile(tarball, dest);
       lines.push(`Vendored ahemui → ${relative(root, dest).split("\\").join("/")}`);
-      lines.push(`Install it with: npm i -D ./.ahemui/vendor/${VENDOR_TARBALL}  (pnpm add -D / yarn add -D work too)`);
+      lines.push(
+        `Install it from the folder with the app's package.json: npm i -D <path to .ahemui/vendor/${VENDOR_TARBALL} from there>, e.g. ./.ahemui/vendor/${VENDOR_TARBALL} when the app is at the repo root, ../.ahemui/vendor/${VENDOR_TARBALL} one folder down  (pnpm add -D / yarn add -D work too)`,
+      );
     } else {
       lines.push(`(vendor tarball missing at ${tarball}; build the ahemui repo to include it)`);
     }
@@ -295,8 +303,17 @@ tool(
   },
 );
 
+/** The host of a captured URL, or "" for one that won't parse (one odd item mustn't break a whole listing). */
+function hostOf(url: string | undefined): string {
+  try {
+    return url ? new URL(url).hostname : "";
+  } catch {
+    return "";
+  }
+}
+
 function isLocal(url: string): boolean {
-  return /^(localhost|127\.0\.0\.1|\[::1\]|.+\.localhost|.+\.test)$/.test(new URL(url).hostname);
+  return /^(localhost|127\.0\.0\.1|\[::1\]|.+\.localhost|.+\.test)$/.test(hostOf(url));
 }
 
 // ——— external trackers (Linear, Jira, Notion, GitHub…) through the user's own MCP servers ———
@@ -475,7 +492,7 @@ async function imageContent(path: string): Promise<Content> {
 }
 
 function claimant(): string {
-  return `Claude (${defaultAuthor()})`;
+  return `${agentName(AGENT)} (${defaultAuthor()})`;
 }
 
 const ICON = { open: "○", "in-progress": "◐", review: "◎", done: "✓", wontfix: "✗" } as const;
@@ -485,7 +502,7 @@ function summary(it: Item): string {
   const cls = [it.type, it.priority && it.priority !== "normal" ? it.priority : "", it.area, ...(it.labels ?? []).map((l) => `#${l}`)]
     .filter(Boolean)
     .join(" · ");
-  const where = [it.page?.section && `› ${it.page.section}`, it.anchor.source ?? (it.page?.env === "deployed" ? `(${new URL(it.url!).host})` : "")]
+  const where = [it.page?.section && `› ${it.page.section}`, it.anchor.source ?? (it.page?.env === "deployed" && hostOf(it.url) ? `(${hostOf(it.url)})` : "")]
     .filter(Boolean)
     .join("  ");
   const now =
@@ -540,7 +557,7 @@ async function describe(s: AhemStore, it: Item): Promise<Content[]> {
     "## Where",
     `- Route: ${it.route ?? "?"}${it.url ? ` (${it.url})` : ""}${it.viewport ? `, viewport ${it.viewport}` : ""}`,
     it.url && !isLocal(it.url) &&
-      `- Captured on a deployed site (${new URL(it.url).host}), not local dev${a.source ? "" : ": no source mapping, so find the code from the text, CSS path and screenshot"}. The deployed build may differ from this branch.`,
+      `- Captured on a deployed site (${hostOf(it.url)}), not local dev${a.source ? "" : ": no source mapping, so find the code from the text, CSS path and screenshot"}. The deployed build may differ from this branch.`,
     a.source && `- Source: ${a.source}  ← start here`,
     a.components?.length && `- ${p.framework ? p.framework[0].toUpperCase() + p.framework.slice(1) : "Vue"} components: ${a.components.join(" › ")}`,
     a.selector && `- CSS path: \`${a.selector}\``,

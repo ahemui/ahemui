@@ -17,7 +17,7 @@ This is **local git only** by default: don't push or open a PR unless the user e
    - Otherwise ask the user for a short name.
 
    Create the branch with `git switch -c <branch>` unless you're already on it. Uncommitted changes carry over to the new branch, which is fine.
-4. **Release claims.** For every item that is `in-progress` and claimed by this session (`Claude (…)`), call `ahemui_reopen`
+4. **Release claims.** For every item that is `in-progress` and claimed by this session (the claimant `ahemui_claim` reported, such as `Claude (<your name>)`), call `ahemui_reopen`
    so the receiver's `ahemui_next` will pick it up.
 5. **Stage only the backlog:** `git add .ahemui/`. If other files have uncommitted changes, list them and ask whether they
    belong in the handoff. Never stage them silently.

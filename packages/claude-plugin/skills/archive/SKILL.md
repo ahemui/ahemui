@@ -12,7 +12,8 @@ description: Archive finished AhemUI items — move done/wontfix items from .ahe
    (e.g. 30), which keeps each item.md but deletes old images, or setting that config value so every archive does it. For teams that
    want to keep every image, suggest Git LFS instead: `ahemui_init` with `lfs: true` writes `.ahemui/.gitattributes`, and
    each machine needs `git lfs install`.
-3. If this is a git repo, commit just the backlog:
+3. If this is a git repo, commit just the backlog. On `main`/`master` (or the repo's default branch), ask before
+   committing there, as `/ahemui:work` does.
    ```bash
    git add -A .ahemui/
    git commit -m "ahemui: archive <N> finished item(s)"

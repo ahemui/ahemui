@@ -1,9 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, renameSync, rmSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { parseFrontmatter, stringifyFrontmatter } from "./frontmatter.js";
 import {
+  ITEM_FORMAT,
   type Config,
   ConfigSchema,
   type Item,
@@ -61,7 +62,13 @@ export class AhemStore {
     for (;;) {
       if (existsSync(join(dir, AHEMUI_DIR, "config.json"))) return new AhemStore(dir);
       if (existsSync(join(dir, LEGACY_DIR, "config.json")) && !existsSync(join(dir, AHEMUI_DIR))) {
-        renameSync(join(dir, LEGACY_DIR), join(dir, AHEMUI_DIR));
+        try {
+          renameSync(join(dir, LEGACY_DIR), join(dir, AHEMUI_DIR));
+        } catch (err) {
+          throw new AhemError(
+            `couldn't rename ${LEGACY_DIR}/ to ${AHEMUI_DIR}/ (${(err as NodeJS.ErrnoException).code ?? err}). Stop anything using it (an old dev server, an editor) and try again, or rename it yourself.`,
+          );
+        }
         // A watcher recorded by the old Snap CLI watches .snap/, which no longer exists: don't advertise it.
         rmSync(join(dir, AHEMUI_DIR, WATCHER_FILE), { force: true });
         return new AhemStore(dir);
@@ -98,7 +105,7 @@ export class AhemStore {
     const file = join(this.dir, ".gitignore");
     const current = existsSync(file) ? await readFile(file, "utf8") : "";
     const lines = current.split(/\r?\n/).filter(Boolean);
-    const missing = [WATCHER_FILE, CONTROL_FILE, "backlog.html", ".scans/"].filter((l) => !lines.includes(l));
+    const missing = [WATCHER_FILE, CONTROL_FILE, "backlog.html", ".scans/", "*.tmp"].filter((l) => !lines.includes(l));
     if (missing.length) await writeFile(file, [...lines, ...missing].join("\n") + "\n");
   }
 
@@ -185,7 +192,15 @@ export class AhemStore {
   }
 
   shotPath(item: Item): string | null {
-    return item.shot ? join(this.itemDir(item.id, item.location), item.shot) : null;
+    return item.shot ? this.inItem(item, item.shot) : null;
+  }
+
+  /** A path inside the item's own folder; anything that would land elsewhere is refused. */
+  private inItem(item: Item, name: string): string {
+    const dir = resolve(this.itemDir(item.id, item.location));
+    const path = resolve(dir, name);
+    if (!path.startsWith(dir + sep)) throw new AhemError(`${item.id}: "${name}" is not a file in the item's folder`);
+    return path;
   }
 
   /** Every image an item references (screenshot, extra areas, after-shot), keyed by file name. */
@@ -196,18 +211,27 @@ export class AhemStore {
   /** Path of one of the item's own image files; anything else is refused. */
   filePath(item: Item, name: string): string {
     if (!this.files(item).includes(name)) throw new AhemError(`${item.id} has no file ${name}`);
-    return join(this.itemDir(item.id, item.location), name);
+    return this.inItem(item, name);
   }
+
+  /** Items the last list() couldn't read, so tools can report them instead of quietly leaving them out. */
+  unreadable: { id: string; location: Location; error: string }[] = [];
 
   async list(opts: ListFilter = {}): Promise<Item[]> {
     const locations: Location[] = opts.includeDone ? ["items", "done"] : ["items"];
     const items: Item[] = [];
+    const problems: { id: string; location: Location; error: string }[] = [];
     for (const loc of locations) {
       for (const id of await this.ids(loc)) {
-        const item = await this.read(id, loc).catch(() => null); // skip half-written/corrupt items
+        const item = await this.read(id, loc).catch((err) => {
+          // Half-written, hand-edited, or written by a newer AhemUI: keep it out of the list, but say so.
+          problems.push({ id, location: loc, error: err instanceof Error ? err.message.split("\n")[0].slice(0, 200) : String(err) });
+          return null;
+        });
         if (item && matches(item, opts)) items.push(item);
       }
     }
+    this.unreadable = problems;
     return items.sort((a, b) => a.id.localeCompare(b.id));
   }
 
@@ -230,6 +254,8 @@ export class AhemStore {
       for (const id of await this.ids(loc)) if (id.startsWith(needle)) matches.push([id, loc]);
     }
     if (matches.length === 0) throw new AhemError(`no item matching "${idOrPrefix}"`);
+    const ids = new Set(matches.map((m) => m[0]));
+    if (ids.size === 1) return this.read(...matches[0]); // the same item in both places: the backlog copy wins
     if (matches.length > 1) throw new AhemError(`"${idOrPrefix}" is ambiguous: ${matches.map((m) => m[0]).join(", ")}`);
     return this.read(...matches[0]);
   }
@@ -314,20 +340,23 @@ export class AhemStore {
   }
 
   /** Today's review batch for checks or for Claude ("UX review · 5 Oct"), created on first use. */
-  async reviewBatch(by: "checks" | "agent"): Promise<Batch> {
-    const day = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  async reviewBatch(by: "checks" | "agent", agent = "Agent"): Promise<Batch> {
+    const day = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     const name = by === "agent" ? `UX review · ${day}` : `Automatic checks · ${day}`;
-    return (await this.findBatch(name)) ?? (await this.createBatch({ name, intent: "review", author: by === "agent" ? "Claude (UX review)" : "AhemUI checks" }));
+    return (await this.findBatch(name)) ?? (await this.createBatch({ name, intent: "review", author: by === "agent" ? `${agent} (UX review)` : "AhemUI checks" }));
   }
 
   /**
    * Files findings from a scan as suggestion items in today's review batch, pinned to the elements they're about.
    * A finding about the same element and rule as an open item is skipped, so re-running a review doesn't pile up.
    */
-  async suggest(scanRef: string, findings: Finding[], by: "checks" | "agent"): Promise<{ created: Item[]; skipped: number }> {
+  async suggest(scanRef: string, findings: Finding[], by: "checks" | "agent", agent?: string): Promise<{ created: Item[]; skipped: number }> {
     const scan = await this.getScan(scanRef);
-    const batch = await this.reviewBatch(by);
-    const open = await this.list({ status: ["open", "in-progress", "review"] });
+    const batch = await this.reviewBatch(by, agent);
+    // Everything already said about this page, including suggestions someone dismissed: those stay dismissed.
+    const known = (await this.list({ includeDone: true })).filter(
+      (i) => i.route === scan.route && (i.status !== "done" && i.status !== "wontfix" ? true : !!i.suggestion),
+    );
     const shotPath = this.scanShotPath(scan);
     const shotData = shotPath && existsSync(shotPath) ? await readFile(shotPath) : undefined;
     const [vw, vh] = scan.viewport.split("x").map(Number);
@@ -346,8 +375,13 @@ export class AhemStore {
       const f = FindingSchema.parse(raw);
       const el = f.n !== undefined ? scan.elements.find((e) => e.n === f.n) : undefined;
       const selector = el?.selector ?? f.selector;
+      // A finding has to point at something on the page: a number from the scan's outline, or a selector.
+      if ((f.n !== undefined && !el) || !selector) {
+        skipped++;
+        continue;
+      }
       const ruleKey = (f.rule ?? f.request).toLowerCase();
-      const dup = open.some(
+      const dup = known.some(
         (i) => i.anchor.selector === selector && (i.suggestion?.rule ?? i.body.split("\n")[0]).toLowerCase() === ruleKey,
       );
       if (dup) {
@@ -374,7 +408,7 @@ export class AhemStore {
       );
       const suggestion = SuggestionSchema.parse({ by, severity: f.severity, rule: f.rule, why: f.why, fix: f.fix });
       const saved = await this.save({ ...item, suggestion, shot_focus: item.shot ? focus : undefined });
-      open.push(saved);
+      known.push(saved);
       created.push(saved);
     }
     return { created, skipped };
@@ -459,7 +493,7 @@ export class AhemStore {
     });
     const item: Item = { ...meta, body: prompt, location: "items" };
     await this.write(item);
-    return item;
+    return { ...item, v: ITEM_FORMAT };
   }
 
   /** "/abs/repo/src/A.vue:3" → "src/A.vue:3"; leaves already-relative or out-of-repo paths alone. */
@@ -559,7 +593,7 @@ export class AhemStore {
     if (item.suggestion && !item.shot_focus) return item;
     const dir = this.itemDir(item.id, item.location);
     const name = `shot.${shot.ext}`;
-    if (item.shot && item.shot !== name) await rm(join(dir, item.shot), { force: true });
+    if (item.shot && item.shot !== name) await rm(this.inItem(item, item.shot), { force: true });
     await writeFile(join(dir, name), shot.data);
     // Re-read: the item may have changed (taken on, moved) while the file was written.
     const now = await this.get(id);
@@ -587,7 +621,7 @@ export class AhemStore {
       const cutoff = Date.now() - days * 86_400_000;
       for (const item of await this.list({ includeDone: true })) {
         if (item.location !== "done" || Date.parse(item.created) > cutoff || !this.files(item).length) continue;
-        for (const f of this.files(item)) await rm(join(this.itemDir(item.id, "done"), f), { force: true });
+        for (const f of this.files(item)) await rm(this.inItem(item, f), { force: true });
         shotsDropped += this.files(item).length;
         const extras = item.extras?.map((e) => ({ ...e, shot: undefined }));
         await this.save(appendNote({ ...item, shot: undefined, after: undefined, extras }, "ahemui", "Screenshots removed when archiving.", "Note"));
@@ -640,8 +674,11 @@ export class AhemStore {
   }
 
   private async save(item: Item): Promise<Item> {
+    if (item.v !== undefined && item.v > ITEM_FORMAT) {
+      throw new AhemError(`${item.id} was written by a newer AhemUI (format ${item.v}). Update AhemUI to change it.`);
+    }
     await this.write(item);
-    return item;
+    return { ...item, v: ITEM_FORMAT };
   }
 
   private async move(item: Item, to: Location): Promise<Item> {
@@ -649,11 +686,16 @@ export class AhemStore {
     const dest = this.itemDir(item.id, to);
     await mkdir(dirname(dest), { recursive: true });
     try {
-      await rename(from, dest);
+      await renameRetrying(from, dest);
     } catch {
-      // Windows can refuse a rename while something holds a handle; copy instead.
+      // Windows can refuse a rename while something holds a handle; copy instead, and don't leave two copies.
       await cp(from, dest, { recursive: true });
-      await rm(from, { recursive: true, force: true });
+      try {
+        await rm(from, { recursive: true, force: true });
+      } catch (err) {
+        await rm(dest, { recursive: true, force: true }).catch(() => {});
+        throw err;
+      }
     }
     return { ...item, location: to };
   }
@@ -662,17 +704,21 @@ export class AhemStore {
     const dir = join(this.dir, loc);
     if (!existsSync(dir)) return [];
     const entries = await readdir(dir, { withFileTypes: true });
-    return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+    // A folder without item.md (screenshots left behind by a merge, say) isn't an item.
+    return entries.filter((e) => e.isDirectory() && existsSync(join(dir, e.name, ITEM_FILE))).map((e) => e.name);
   }
 
   private async read(id: string, location: Location): Promise<Item> {
     const text = await readFile(join(this.itemDir(id, location), ITEM_FILE), "utf8");
     const { data, body } = parseFrontmatter(text);
-    return { ...ItemMetaSchema.parse(data), body: body.trimEnd(), location };
+    return { ...ItemMetaSchema.parse(data), id, body: body.trimEnd(), location };
   }
 
   private async write(item: Item): Promise<void> {
-    const { body, location, ...meta } = item;
+    const { body, location, ...rest } = item;
+    // id first, then the format version, then everything else (newer fields kept as they are).
+    const { id, v, ...fields } = rest;
+    const meta = { id, v: v !== undefined && v > ITEM_FORMAT ? v : ITEM_FORMAT, ...fields };
     const file = join(this.itemDir(item.id, location), ITEM_FILE);
     // Write-then-rename so the watcher never sees a half-written file. A temp name per write: two saves of the
     // same item at once must not share one.

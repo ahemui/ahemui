@@ -35,5 +35,5 @@ The CLI is `node "${CLAUDE_PLUGIN_ROOT}/scripts/ahemui.mjs"`. Run it from the pr
    - Restart the dev server; the ✎ AhemUI pill will be gone.
    - Commit the removal if they want it gone for the team too.
    - The Claude Code plugin and the browser extension are installed per user, not per project, so they stay.
-     To remove those too: `/plugin` → uninstall **ahemui**, and remove the extension in `vivaldi://extensions`.
+     To remove those too: `/plugin` → uninstall **ahemui**, and remove the extension on your browser's extensions page (`chrome://extensions`).
      In the extension popup, set the project to **None** for any sites that pointed at this project.

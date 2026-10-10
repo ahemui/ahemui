@@ -32,7 +32,7 @@ test("rejects unknown origins, allows dev origin and extensions", async () => {
   const dev = await fetch(`${base}/api/health`, { headers: { Origin: "http://localhost:5173" } });
   assert.equal(dev.status, 200);
   assert.equal(dev.headers.get("access-control-allow-origin"), "http://localhost:5173");
-  const ext = await fetch(`${base}/api/health`, { headers: { Origin: "chrome-extension://abc" } });
+  const ext = await fetch(`${base}/api/health`, { headers: { Origin: "chrome-extension://lfgapjkopjhahhdeeaodfnmodkjahhpl" } });
   assert.equal(ext.status, 200);
   const health = await ext.json();
   assert.equal(health.project, basename(root));
@@ -54,7 +54,7 @@ test("local tools can register extra origins, browsers cannot", async () => {
 test("creates an item with a screenshot and serves it back", async () => {
   const res = await fetch(`${base}/api/items`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Origin: "chrome-extension://abc" },
+    headers: { "Content-Type": "application/json", Origin: "chrome-extension://lfgapjkopjhahhdeeaodfnmodkjahhpl" },
     body: JSON.stringify({ prompt: "Fix padding", route: "/", anchor: { source: "src/App.vue:3" }, shot: PNG_1PX }),
   });
   assert.equal(res.status, 201);
@@ -115,4 +115,12 @@ test("personal settings live in AHEMUI_HOME/prefs.json; invalid values are refus
   const cleared = await (await post({ name: null })).json();
   assert.deepEqual(cleared.prefs, { position: "top-left" });
   delete process.env.AHEMUI_HOME;
+});
+
+test("only AhemUI's own extension is allowed", async () => {
+  const { originAllowed } = await import("../src/server.js");
+  const config = { devOrigins: [] } as any;
+  assert.equal(originAllowed("chrome-extension://lfgapjkopjhahhdeeaodfnmodkjahhpl", config), true);
+  assert.equal(originAllowed("chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", config), false);
+  assert.equal(originAllowed("chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", { ...config, extensionIds: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"] }), true);
 });

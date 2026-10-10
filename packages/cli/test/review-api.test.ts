@@ -28,7 +28,7 @@ after(async () => {
 const post = (path: string, body: unknown) =>
   fetch(`${base}${path}`, {
     method: "POST",
-    headers: { Origin: "chrome-extension://abc", "Content-Type": "application/json" },
+    headers: { Origin: "chrome-extension://lfgapjkopjhahhdeeaodfnmodkjahhpl", "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 

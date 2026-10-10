@@ -61,11 +61,29 @@ export type Triage = z.infer<typeof TriageSchema>;
 
 export const TRACKERS = ["linear", "jira", "notion", "github", "other"] as const;
 
+/**
+ * A file inside an item's own folder (a screenshot). Only a plain name: no folders, no "..", an image extension, so a
+ * crafted item.md (from a pull request, say) can't point the server at files elsewhere. Anything else is dropped.
+ */
+export const FileNameSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9][\w-]{0,60}\.(webp|png|jpe?g)$/)
+  .optional()
+  .catch(undefined);
+
+/** A link people click: only http(s), so a crafted value can't run script on the board's origin. */
+export const WebUrlSchema = z
+  .string()
+  .max(2000)
+  .refine((v) => /^https?:\/\//i.test(v))
+  .optional()
+  .catch(undefined);
+
 /** The ticket an item is mirrored to in an external tracker (created by Claude through the tracker's MCP). */
 export const ExternalSchema = z.object({
   tracker: z.enum(TRACKERS),
   key: short(80), // "ENG-123", "WEB-42", a Notion page id, "#57"
-  url: short(500).optional(),
+  url: WebUrlSchema,
   status: short(80).optional(), // last known status in the tracker
   synced: z.string().optional(), // ISO time of the last sync
 });
@@ -124,7 +142,7 @@ export const ExtraSchema = z.object({
   anchor: AnchorSchema.default({}),
   elements: z.array(ElementRefSchema).max(20).optional(),
   styles: StylesSchema.optional(),
-  shot: z.string().optional(), // file name inside the item folder
+  shot: FileNameSchema, // file name inside the item folder
 });
 export type Extra = z.infer<typeof ExtraSchema>;
 
@@ -257,7 +275,13 @@ export const SuggestionSchema = z.object({
 });
 export type Suggestion = z.infer<typeof SuggestionSchema>;
 
-export const ItemMetaSchema = z.object({
+/** The item.md format. Bump it only for changes older versions can't safely read or write back. */
+export const ITEM_FORMAT = 1;
+
+export const ItemMetaSchema = z
+  .object({
+  /** Format version (absent in files written before it existed: 1). A newer one is read but never overwritten. */
+  v: z.number().int().optional(),
   id: z.string(),
   status: StatusSchema,
   start: StartSchema.optional(),
@@ -270,10 +294,10 @@ export const ItemMetaSchema = z.object({
   author: z.string(),
   created: z.string(),
   route: z.string().optional(),
-  url: z.string().optional(),
+  url: WebUrlSchema,
   viewport: z.string().optional(), // "1440x900"
   page: PageSchema.optional(),
-  design: short(500).optional(), // Figma or other design reference URL
+  design: WebUrlSchema, // Figma or other design reference URL
   rect: RectSchema.optional(),
   anchor: AnchorSchema.default({}),
   elements: z.array(ElementRefSchema).optional(),
@@ -284,8 +308,8 @@ export const ItemMetaSchema = z.object({
   a11y: z.array(A11yIssueSchema).max(30).optional(),
   steps: z.array(StepSchema).max(30).optional(),
   redacted: z.boolean().optional(), // sensitive parts of the screenshot were masked
-  shot: z.string().optional(), // file name inside the item folder
-  after: z.string().optional(), // screenshot of the same spot after the change, for review
+  shot: FileNameSchema, // file name inside the item folder
+  after: FileNameSchema, // screenshot of the same spot after the change, for review
   // A suggestion's shot starts as the whole scan screenshot; this is its element, as fractions of the image. The
   // overlay crops the shot to it (with a box round the element) and clears it.
   shot_focus: z.object({ x: z.number(), y: z.number(), w: z.number(), h: z.number() }).optional(),
@@ -294,7 +318,9 @@ export const ItemMetaSchema = z.object({
   review: ReviewSchema.optional(),
   external: ExternalSchema.optional(),
   suggestion: SuggestionSchema.optional(),
-});
+  })
+  // Keep fields a newer AhemUI added: a teammate on an older version must not erase them when it saves the item.
+  .passthrough();
 export type ItemMeta = z.infer<typeof ItemMetaSchema>;
 
 export interface Item extends ItemMeta {
@@ -359,6 +385,8 @@ export const ConfigSchema = z.object({
   agent: z.string().max(40).optional(),
   port: z.number().int().default(4777),
   devOrigins: z.array(z.string()).default(["http://localhost:5173"]),
+  /** Extra browser-extension ids allowed to talk to the server (a store build, a self-built extension). */
+  extensionIds: z.array(z.string().regex(/^[a-p]{32}$/)).optional(),
   screenshot: z
     .object({
       format: z.enum(["webp", "png"]).default("webp"),

@@ -23,7 +23,7 @@ Run from the project root, where `.ahemui/` is.
    still on the old build. If it reports that nothing depends on `ahemui`, the project hasn't been set up; suggest `/ahemui:setup`.
 3. **Tell the user what to restart,** only the parts that apply:
    - **Dev server:** restart it (AhemUI's server runs inside it), then reload the page.
-   - **Browser extension**, if they use it: press ↻ on AhemUI in `vivaldi://extensions` or `chrome://extensions`, then
+   - **Browser extension**, if they use it: press ↻ on AhemUI on the browser's extensions page (`chrome://extensions`), then
      reload the page. If a part is out of date, the amber dot in the AhemUI toolbar says so.
    - **Claude Code:** start a new session (or restart) so the updated plugin's commands and tools load, including
      any session running `/ahemui:watch`.

@@ -21,7 +21,8 @@ description: Set up AhemUI in the current Vue + Vite project — create .ahemui/
 4. **Install** the package from the Vite app's directory with the project's package manager (check for
    `pnpm-lock.yaml`, `yarn.lock` or `bun.lock`). `ahemui_init` prints the exact command: normally
    `npm i -D ahemui@<version>`, matching this plugin's version. For a local plugin build it prints a vendored tarball
-   path instead (`npm i -D ./.ahemui/vendor/ahemui.tgz`), because those builds aren't on npm.
+   path instead, because those builds aren't on npm. `.ahemui/` sits at the repo root, so from an app in a subfolder the
+   path goes up: `npm i -D ../.ahemui/vendor/ahemui.tgz` one folder down, `./.ahemui/vendor/ahemui.tgz` at the root.
 5. **Add the plugin** to the Vite config, after `vue()`:
    ```js
    import ahemui from "ahemui";
@@ -36,7 +37,7 @@ description: Set up AhemUI in the current Vue + Vite project — create .ahemui/
    - Restart the dev server. A **✎ AhemUI** pill appears bottom-right, and **Alt+Shift+S** toggles capture mode.
      Drag a rectangle, click an element, or Shift+drag to draw, then type the change and press Enter.
    - Commit `.ahemui/` and the package.json change so teammates get the same setup.
-   - Optional: the AhemUI browser extension (Chrome Web Store, or `packages/extension/dist` unpacked) takes
+   - Optional: the AhemUI browser extension (the zip on the GitHub release, loaded unpacked; a store listing is coming) takes
      pixel-perfect screenshots instead of re-rendering the DOM, and works on deployed sites.
    - Then run `/ahemui:work` to have Claude work through what was captured, or `/ahemui:watch` so that
      **⚡ Start now** in the browser is picked up immediately.

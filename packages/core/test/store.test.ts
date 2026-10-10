@@ -294,3 +294,72 @@ test("the watcher says which agent is watching", async () => {
   assert.equal((await store.watcher())?.agent, "codex");
   await store.setWatcher(null);
 });
+
+// ——— hardening before the first public release ———
+
+const itemFile = (id: string) => join(root, ".ahemui", "items", id, "item.md");
+const patch = async (id: string, from: string | RegExp, to: string) => writeFile(itemFile(id), (await readFile(itemFile(id), "utf8")).replace(from, to));
+
+test("screenshot names that point outside the item folder are ignored, and nothing outside gets deleted", async () => {
+  const victim = join(root, "victim.txt");
+  await writeFile(victim, "keep me");
+  const it = await store.create({ prompt: "Crafted", route: "/", anchor: {} }, { data: Buffer.from("RIFF0000WEBP"), ext: "webp" });
+  await patch(it.id, /shot: shot\.webp/, "shot: ../../../victim.txt");
+  const read = await store.get(it.id);
+  assert.equal(read.shot, undefined);
+  assert.throws(() => store.filePath(read, "../../../victim.txt"));
+  await store.setShot(it.id, { data: Buffer.from("RIFF1111WEBP"), ext: "webp" });
+  assert.equal(await readFile(victim, "utf8"), "keep me");
+});
+
+test("links people click must be http(s)", async () => {
+  const it = await store.create({ prompt: "Links", route: "/", anchor: {} });
+  await patch(it.id, /^status:/m, "design: javascript:alert(1)\nstatus:");
+  assert.equal((await store.get(it.id)).design, undefined);
+});
+
+test("fields a newer AhemUI added survive an older one saving the item", async () => {
+  const it = await store.create({ prompt: "Future", route: "/", anchor: {} });
+  await patch(it.id, /^status:/m, "future_field: keep\nstatus:");
+  await store.addNote(it.id, "me", "a note");
+  assert.match(await readFile(itemFile(it.id), "utf8"), /future_field: keep/);
+  assert.match(await readFile(itemFile(it.id), "utf8"), /^v: 1$/m);
+});
+
+test("an item in a newer format is never overwritten", async () => {
+  const it = await store.create({ prompt: "Newer", route: "/", anchor: {} });
+  await patch(it.id, /^v: 1$/m, "v: 2");
+  await assert.rejects(store.addNote(it.id, "me", "x"), /newer AhemUI/);
+});
+
+test("items that can't be read are reported, not silently dropped", async () => {
+  const it = await store.create({ prompt: "Blocked", route: "/", anchor: {} });
+  await patch(it.id, /^status: open$/m, "status: blocked");
+  const items = await store.list();
+  assert.ok(!items.some((i) => i.id === it.id));
+  assert.deepEqual(store.unreadable.map((u) => u.id), [it.id]);
+});
+
+test("suggestions are de-duplicated per page, and dismissed ones stay dismissed", async () => {
+  const el = { n: 1, kind: "heading" as const, tag: "h1", text: "Hi", selector: "main > h1", rect: { x: 0, y: 0, w: 10, h: 10 } };
+  const scanOf = (route: string) => store.saveScan({ route, url: `http://localhost:5173${route}`, viewport: "1280x800", scroll: { x: 0, y: 0 }, elements: [el], checks: [] }, undefined);
+  const f = { n: 1, request: "Bigger heading", why: "w", severity: "low" as const, rule: "small-heading" };
+  const a = await scanOf("/a");
+  const b = await scanOf("/b");
+  assert.equal((await store.suggest(a.id, [f], "agent", "Claude")).created.length, 1);
+  assert.equal((await store.suggest(b.id, [f], "agent", "Claude")).created.length, 1, "another page is not a duplicate");
+  const [made] = (await store.list()).filter((i) => i.route === "/a" && i.suggestion);
+  await store.dismiss(made.id, "me");
+  assert.equal((await store.suggest(a.id, [f], "agent", "Claude")).created.length, 0, "dismissed stays dismissed");
+  assert.equal((await store.suggest(a.id, [{ ...f, n: 99 }], "agent", "Claude")).skipped, 1, "no such element");
+  assert.match(made.author, /^Claude \(UX review\)$/);
+});
+
+test("the folder name is the item's id", async () => {
+  const it = await store.create({ prompt: "Copy me", route: "/", anchor: {} });
+  const copy = "01ZZZZZZZZZZZZZZZZZZZZZZZZ";
+  const { cp } = await import("node:fs/promises");
+  await cp(join(root, ".ahemui", "items", it.id), join(root, ".ahemui", "items", copy), { recursive: true });
+  await store.addNote(copy, "me", "only on the copy");
+  assert.doesNotMatch((await store.get(it.id)).body, /only on the copy/);
+});

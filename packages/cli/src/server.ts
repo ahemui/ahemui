@@ -117,6 +117,12 @@ export async function serve(store: AhemStore, opts: ServeOptions = {}) {
   };
 }
 
+/**
+ * AhemUI's extension: the id that the public key in packages/extension/manifest.json gives the unpacked build (the
+ * GitHub release zip). Add the Chrome Web Store id here once it's listed; config.json can add others (extensionIds).
+ */
+export const EXTENSION_IDS = ["lfgapjkopjhahhdeeaodfnmodkjahhpl"];
+
 class HttpError extends Error {
   constructor(readonly status: number, message: string) {
     super(message);
@@ -129,7 +135,9 @@ class HttpError extends Error {
  */
 export function originAllowed(origin: string | undefined, config: Config, self: string[] = []): boolean {
   if (!origin) return true;
-  if (origin.startsWith("chrome-extension://")) return true;
+  // Only AhemUI's own extension, not any extension the person has installed.
+  const ext = /^chrome-extension:\/\/([a-p]{32})$/.exec(origin);
+  if (ext) return EXTENSION_IDS.includes(ext[1]) || (config.extensionIds ?? []).includes(ext[1]);
   return config.devOrigins.includes(origin) || self.includes(origin);
 }
 
@@ -240,7 +248,7 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
     const body = await readJson(req, 16_000);
     const action = body.action;
     if (action !== "pause" && action !== "resume" && action !== "stop") throw new HttpError(400, "action must be pause, resume or stop");
-    if (action !== "resume" && !(await store.watcher())) throw new HttpError(409, "no agent session is watching; run /ahemui:watch in Claude Code");
+    if (action !== "resume" && !(await store.watcher())) throw new HttpError(409, "no agent session is watching; start one with /ahemui:watch");
     await store.setWatchControl(action === "pause" ? "paused" : action === "stop" ? "stop" : null, body.author ?? defaultAuthor());
     return send(res, 200, { watcher: await store.watcher() });
   }
