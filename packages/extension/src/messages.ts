@@ -8,7 +8,10 @@ export interface Server {
   root: string;
   devOrigins: string[];
   maxBytes: number;
-  watcher: { state: "waiting" | "working"; since: string; item?: string; by?: string; paused?: boolean; stopping?: boolean } | null;
+  /** The project's configured coding agent, and the server's build (to spot an out-of-date extension). */
+  agent?: string;
+  build?: string;
+  watcher: { state: "waiting" | "working"; since: string; item?: string; by?: string; paused?: boolean; stopping?: boolean; agent?: string } | null;
 }
 
 export interface PopupState {

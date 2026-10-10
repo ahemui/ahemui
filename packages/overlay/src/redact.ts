@@ -4,7 +4,7 @@ import type { Rect } from "./types.js";
 // Form fields and anything marked private are masked in screenshots. On deployed sites (real user data) that
 // covers every text field plus visible emails and long numbers; locally only passwords and explicit opt-ins.
 const DEPLOYED_FIELDS =
-  'input:not([type=button]):not([type=submit]):not([type=reset]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]), textarea, select, [contenteditable=""], [contenteditable=true]';
+  'input:not([type=button]):not([type=submit]):not([type=reset]):not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]):not([type=hidden]), textarea, select, [contenteditable=""], [contenteditable=true], [contenteditable=plaintext-only]';
 const LOCAL_FIELDS = "input[type=password]";
 
 const EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
@@ -21,11 +21,13 @@ export function sensitiveRects(sel: Rect, deployed: boolean, isOwn: (el: Element
   }
   if (deployed) {
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    // The cap counts only text inside the selection, so on a long page a number near the bottom is still found.
     let scanned = 0;
-    for (let node = walker.nextNode(); node && scanned < 2000; node = walker.nextNode(), scanned++) {
+    for (let node = walker.nextNode(); node && scanned < 2000; node = walker.nextNode()) {
       const text = node.nodeValue ?? "";
       if (text.length < 6 || !node.parentElement || isOwn(node.parentElement)) continue;
       if (!intersects(sel, node.parentElement.getBoundingClientRect())) continue;
+      scanned++;
       for (const re of [EMAIL, LONG_NUMBER]) {
         re.lastIndex = 0;
         for (let m = re.exec(text); m; m = re.exec(text)) {

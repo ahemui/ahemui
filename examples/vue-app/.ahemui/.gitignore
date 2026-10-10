@@ -2,3 +2,4 @@
 .watch-control.json
 backlog.html
 .scans/
+*.tmp

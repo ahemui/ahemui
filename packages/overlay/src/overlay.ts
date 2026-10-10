@@ -73,7 +73,7 @@ interface Draft {
 
 class Overlay {
   private hostEl = document.createElement("ahemui-overlay");
-  private shadow = this.hostEl.attachShadow({ mode: "open" });
+  private shadow!: ShadowRoot;
   private $ = <T extends Element = HTMLElement>(sel: string) => this.shadow.querySelector(sel) as T;
 
   private items: Item[] = [];
@@ -88,6 +88,8 @@ class Overlay {
   private panelView: "list" | "settings" = "list";
   private suppressClick = false;
   private recordingShortcut = false;
+  /** Ends a shortcut recording that's in progress (closing the panel mid-recording). */
+  private stopRecording: (() => void) | null = null;
   private batches: Batch[] = [];
   /** The batch new captures go into, remembered per project in this browser. */
   private batchId: string | null = null;
@@ -108,7 +110,31 @@ class Overlay {
   private reviewSince = new Map<string, number>();
   private afterTried = new Set<string>();
 
-  constructor(private host: Host) {}
+  constructor(private host: Host) {
+    // On sites the extension runs on (staging, prod) the page's own scripts mustn't read the backlog or press
+    // buttons: a closed shadow root they can't reach, and synthetic events ignored. The Vite overlay is the
+    // developer's own dev page, so it stays open (and testable).
+    this.shadow = this.hostEl.attachShadow({ mode: host.mode === "ext" ? "closed" : "open" });
+    if (host.mode === "ext") {
+      for (const type of ["click", "dblclick", "mousedown", "mouseup", "pointerdown", "pointerup", "keydown", "keyup", "input", "change", "submit"]) {
+        this.shadow.addEventListener(
+          type,
+          (e) => {
+            if (!e.isTrusted) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true,
+        );
+      }
+    }
+  }
+
+  /** Events from the person, not from page scripts (only enforced in the extension; see the constructor). */
+  private real(e: Event): boolean {
+    return this.host.mode !== "ext" || e.isTrusted;
+  }
 
   mount() {
     this.shadow.innerHTML = `
@@ -217,6 +243,7 @@ class Overlay {
     addEventListener(
       "keydown",
       (e) => {
+        if (!this.real(e)) return;
         if (this.recordingShortcut) return; // the settings view is listening for a new shortcut
         if (this.mode === "select" && !this.drag && this.keyPick(e)) return;
         if (matchesShortcut(e, this.prefs.shortcut)) {
@@ -237,7 +264,7 @@ class Overlay {
     const layer = this.$(".layer");
     layer.addEventListener("mousemove", (e) => this.onMove(e));
     layer.addEventListener("mousedown", (e) => this.onDown(e));
-    addEventListener("mouseup", (e) => this.onUp(e), true);
+    addEventListener("mouseup", (e) => this.real(e) && this.onUp(e), true);
 
     const ta = this.$<HTMLTextAreaElement>("textarea");
     ta.addEventListener("keydown", (e) => {
@@ -578,7 +605,7 @@ class Overlay {
     addEventListener(
       "mouseup",
       async (e) => {
-        if (!start) return;
+        if (!start || !this.real(e)) return;
         const r = normRect(start, local(e));
         start = null;
         box.style.display = "none";
@@ -997,7 +1024,7 @@ class Overlay {
     this.$(".state").title = this.statusLines().join("\n");
     this.$(".state").setAttribute("aria-label", `Status: ${this.statusLines().join(". ")}`);
     counts.setAttribute("aria-label", counts.title);
-    if (this.$(".panel").style.display === "block") this.renderPanel();
+    if (this.$(".panel").style.display === "block" && this.panelView !== "settings") this.renderPanel();
   }
 
   /** Project, branch, Claude's state and server details: the bar's tooltip and the panel header. */
@@ -1255,9 +1282,9 @@ class Overlay {
         ? [["Areas", `${also ? `${also + 1} places` : "1 place"}${extras.some((e) => e.role === "reference") ? " + an example to match" : ""}`] as [string, string]]
         : []),
       ...(item.external
-        ? [["Ticket", `${esc(item.external.tracker)} ${item.external.url ? `<a class="ext" href="${esc(item.external.url)}" target="_blank" rel="noopener">${esc(item.external.key)}</a>` : esc(item.external.key)}${item.external.status ? ` · ${esc(item.external.status)}` : ""}`] as [string, string]]
+        ? [["Ticket", `${esc(item.external.tracker)} ${webHref(item.external.url) ? `<a class="ext" href="${esc(webHref(item.external.url))}" target="_blank" rel="noopener">${esc(item.external.key)}</a>` : esc(item.external.key)}${item.external.status ? ` · ${esc(item.external.status)}` : ""}`] as [string, string]]
         : []),
-      ...(item.design ? [["Design", `<a class="ext" href="${esc(item.design)}" target="_blank" rel="noopener">${esc(shortUrl(item.design))}</a>`] as [string, string]] : []),
+      ...(webHref(item.design) ? [["Design", `<a class="ext" href="${esc(webHref(item.design))}" target="_blank" rel="noopener">${esc(shortUrl(webHref(item.design)))}</a>`] as [string, string]] : []),
       ...(item.url && !sameSite(item.url) ? [["Site", esc(new URL(item.url).origin)] as [string, string]] : []),
     ];
     const tags = [
@@ -1573,6 +1600,12 @@ class Overlay {
   }
 
   private closePopups() {
+    if (this.stopRecording) {
+      const stop = this.stopRecording;
+      this.stopRecording = null;
+      this.recordingShortcut = false;
+      stop();
+    }
     const opened = ["pop", "panel", "statuspop"].some((c) => this.$(`.${c}`).style.display === "block");
     if (opened && this.returnFocus?.isConnected) {
       const back = this.returnFocus;
@@ -1749,7 +1782,7 @@ class Overlay {
       open(item.url!, "_blank", "noopener");
       return this.toast(`Opened ${new URL(item.url!).origin} in a new tab`, 3000);
     }
-    const u = item.url ? new URL(item.url) : null;
+    const u = parseUrl(item.url);
     // Local dev servers count as one site, so keep this tab's origin even if the item was captured on another port.
     const target = u ? `${location.origin}${u.pathname}${u.search}${u.hash}` : location.origin + (item.route ?? "/");
     this.closePopups();
@@ -1956,6 +1989,7 @@ class Overlay {
         if (next) done(next);
       };
       const done = (next: string | null) => {
+        this.stopRecording = null;
         removeEventListener("keydown", listen, true);
         setTimeout(() => (this.recordingShortcut = false), 0);
         if (next) {
@@ -1965,6 +1999,7 @@ class Overlay {
         this.renderPanel();
       };
       addEventListener("keydown", listen, true);
+      this.stopRecording = () => done(null);
     });
     panel.querySelector(".shortcut-reset")?.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -2091,9 +2126,21 @@ function placeBeside(r: Rect, w: number, h: number): { top: number; left: number
  * Items show on the site they were captured on. Local dev servers count as one site,
  * since Vite may move to another port between runs.
  */
+/** A URL, or null for one that won't parse (one odd item mustn't stop every marker from drawing). */
+function parseUrl(url: string | undefined): URL | null {
+  try {
+    return url ? new URL(url) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Only http(s) links are rendered as links. */
+const webHref = (url: string | undefined) => (url && /^https?:\/\//i.test(url) ? url : "");
+
 function sameSite(url: string | undefined): boolean {
-  if (!url) return true;
-  const there = new URL(url);
+  const there = parseUrl(url);
+  if (!there) return true;
   if (there.origin === location.origin) return true;
   return LOCAL_HOST.test(there.hostname) && LOCAL_HOST.test(location.hostname);
 }

@@ -12,6 +12,8 @@ interface Boot {
   generated?: string;
   items?: Item[];
   batches?: Batch[];
+  /** The project's coding agent (config.json), so the static board names it. */
+  agent?: string;
   /** Static mode: path from the HTML file to the .ahemui directory, for screenshot links. */
   base?: string;
 }
@@ -54,6 +56,7 @@ export async function exportBoard(store: AhemStore, out = join(store.dir, "backl
     generated: new Date().toISOString(),
     items: await store.list({ includeDone: true }),
     batches: await store.listBatches(),
+    agent: (await store.config()).agent,
     base,
   });
   await writeFile(file, html);

@@ -292,7 +292,7 @@ function routeInfo(): RouteInfo {
 
 // ——— component state ———
 
-const SENSITIVE_KEY = /pass|secret|token|auth|api.?key|session|cookie|ssn|card|cvv|iban|otp/i;
+const SENSITIVE_KEY = /pass|secret|token|auth|api.?key|session|cookie|ssn|card|cvv|iban|otp|pin|phone|e.?mail|address|dob|birth/i;
 
 function componentState(el: Element): StateInfo | undefined {
   const inst = vueInstance(el);
@@ -311,8 +311,13 @@ function componentState(el: Element): StateInfo | undefined {
     let state: unknown;
     if (f.stateNode && f.stateNode.state) state = f.stateNode.state; // class component
     else {
+      // Hook state has no names, so key-based masking can't help: next to a password field, text values are masked.
+      const scope = el.closest("form") ?? el.parentElement?.parentElement ?? el;
+      const secretNearby = !!scope.querySelector?.("input[type=password]") || el.matches?.("input[type=password]");
       const hooks: unknown[] = [];
-      for (let h = f.memoizedState; h && hooks.length < 15; h = h.next) if (h.queue) hooks.push(h.memoizedState); // useState/useReducer
+      for (let h = f.memoizedState; h && hooks.length < 15; h = h.next) {
+        if (h.queue) hooks.push(secretNearby && typeof h.memoizedState === "string" ? "[masked]" : h.memoizedState); // useState/useReducer
+      }
       state = hooks.length ? hooks : undefined;
     }
     return capped({ component: typeName(f.type), props, state });

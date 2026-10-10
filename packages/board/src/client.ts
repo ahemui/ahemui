@@ -24,6 +24,7 @@ interface Boot {
   generated?: string;
   items?: Item[];
   batches?: Batch[];
+  agent?: string;
   base?: string;
 }
 declare global {
@@ -34,9 +35,13 @@ declare global {
 
 const boot = window.__AHEMUI_BOARD__;
 const live = boot.mode === "live";
+setCoder(boot.agent);
 
 /** The project's configured coding agent (from /api/health), used when no session is watching. */
 let agentSetting: string | undefined;
+
+/** Only http(s) links are rendered as links. */
+const webHref = (url: string | undefined) => (url && /^https?:\/\//i.test(url) ? url : "");
 const state = {
   items: (boot.items ?? []) as Item[],
   batches: (boot.batches ?? []) as Batch[],
@@ -411,7 +416,7 @@ function renderDrawer() {
   drawer.innerHTML = `
     <div class="d-head">
       <button class="id-copy" data-act="copy" title="Copy id"><code>${it.id.slice(0, 10)}…</code></button>
-      ${it.url ? `<a class="open-page" href="${esc(it.url)}" target="_blank" rel="noopener">Open page ↗</a>` : ""}
+      ${webHref(it.url) ? `<a class="open-page" href="${esc(webHref(it.url))}" target="_blank" rel="noopener">Open page ↗</a>` : ""}
       <button class="x" title="Close (Esc)" aria-label="Close">✕</button>
     </div>
     <div class="d-body">
@@ -435,9 +440,9 @@ function renderDrawer() {
       <section><h3>Where</h3><dl>
         ${row("Page", pageName(p, it.route) + (p.section ? ` › ${p.section}` : ""))}
         ${row("Code", a.source, true)}
-        ${it.url ? `<dt>URL</dt><dd><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url)}</a>${p.env === "deployed" ? " (deployed)" : ""}</dd>` : ""}
-        ${it.design ? `<dt>Design</dt><dd><a href="${esc(it.design)}" target="_blank" rel="noopener">${esc(it.design)}</a></dd>` : ""}
-        ${it.external ? `<dt>Ticket</dt><dd>${it.external.url ? `<a href="${esc(it.external.url)}" target="_blank" rel="noopener">${esc(it.external.key)}</a>` : esc(it.external.key)}${it.external.status ? ` · ${esc(it.external.status)}` : ""}</dd>` : ""}
+        ${webHref(it.url) ? `<dt>URL</dt><dd><a href="${esc(webHref(it.url))}" target="_blank" rel="noopener">${esc(webHref(it.url))}</a>${p.env === "deployed" ? " (deployed)" : ""}</dd>` : ""}
+        ${webHref(it.design) ? `<dt>Design</dt><dd><a href="${esc(webHref(it.design))}" target="_blank" rel="noopener">${esc(webHref(it.design))}</a></dd>` : ""}
+        ${it.external ? `<dt>Ticket</dt><dd>${webHref(it.external.url) ? `<a href="${esc(webHref(it.external.url))}" target="_blank" rel="noopener">${esc(it.external.key)}</a>` : esc(it.external.key)}${it.external.status ? ` · ${esc(it.external.status)}` : ""}</dd>` : ""}
       </dl></section>
       ${triageSection(it)}
       <details class="tech"><summary>Technical details</summary>

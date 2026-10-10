@@ -28,7 +28,7 @@ function scan(): Promise<Server[]> {
       try {
         const res = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(700) });
         const h = await res.json();
-        return h?.name === "ahemui" ? { base, project: h.project, branch: h.branch, root: h.root, devOrigins: h.devOrigins ?? [], maxBytes: h.maxBytes, watcher: h.watcher ?? null } : null;
+        return h?.name === "ahemui" ? { base, project: h.project, branch: h.branch, root: h.root, devOrigins: h.devOrigins ?? [], maxBytes: h.maxBytes, watcher: h.watcher ?? null, agent: h.agent, build: h.build } : null;
       } catch {
         return null;
       }
@@ -68,7 +68,8 @@ function ensureSocket(base: string) {
     if (msg.type === "items") notifyTabs(base, { type: "items", items: msg.items, watcher: msg.watcher });
   };
   ws.onclose = () => {
-    sockets.delete(base);
+    // A newer socket for the same server may already be open: only forget this one.
+    if (sockets.get(base) === ws) sockets.delete(base);
     scanCache = undefined;
     notifyTabs(base, { type: "disconnected" });
   };

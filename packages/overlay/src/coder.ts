@@ -18,8 +18,9 @@ let current: Coder = CODERS[DEFAULT];
 
 /** Use the watching session's agent if there is one, else the project's, else Claude Code. */
 export function setCoder(...ids: (string | null | undefined)[]): void {
-  const id = ids.find((i) => i && CODERS[i]);
-  current = CODERS[id ?? DEFAULT];
+  const id = ids.find((i) => i);
+  // An agent this build doesn't know yet is named as configured, not passed off as Claude.
+  current = id ? (CODERS[id] ?? { name: id, app: id }) : CODERS[DEFAULT];
 }
 
 export const who = (): string => current.name;
