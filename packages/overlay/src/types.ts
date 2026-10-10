@@ -79,7 +79,7 @@ export interface Item {
   batch?: string;
   intent?: "action" | "review";
   shot_focus?: Rect;
-  suggestion?: { by: "checks" | "claude"; severity: "high" | "medium" | "low"; rule?: string; why: string; fix?: string };
+  suggestion?: { by: "checks" | "agent"; severity: "high" | "medium" | "low"; rule?: string; why: string; fix?: string };
   needs_reply?: boolean;
   type?: ItemType;
   priority?: "high" | "normal" | "low";

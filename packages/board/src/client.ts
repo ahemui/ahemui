@@ -4,6 +4,7 @@
 import type { Batch } from "../../overlay/src/prefs.js";
 import type { Item, Page, Status } from "../../overlay/src/types.js";
 import { armDanger, hasArmed } from "../../overlay/src/confirm.js";
+import { setCoder, who, whoApp } from "../../overlay/src/coder.js";
 import { CSS } from "./styles.js";
 
 /** Drawn in the text colour: the ⚡ emoji keeps its own orange, which vanishes on a coral button. */
@@ -11,6 +12,7 @@ const BOLT = `<svg class="bolt" viewBox="0 0 16 16" width="12" height="12" aria-
 
 interface Watcher {
   state: "waiting" | "working";
+  agent?: string;
   item?: string;
   paused?: boolean;
   stopping?: boolean;
@@ -33,6 +35,8 @@ declare global {
 const boot = window.__AHEMUI_BOARD__;
 const live = boot.mode === "live";
 
+/** The project's configured coding agent (from /api/health), used when no session is watching. */
+let agentSetting: string | undefined;
 const state = {
   items: (boot.items ?? []) as Item[],
   batches: (boot.batches ?? []) as Batch[],
@@ -58,10 +62,10 @@ interface Column {
   test: (i: Item) => boolean;
 }
 const COLUMNS: Column[] = [
-  { key: "queue", title: "⚡ Queue", hint: "Claude works these as soon as a session runs /ahemui:watch", test: (i) => i.status === "open" && i.start === "now" && !i.needs_reply },
+  { key: "queue", title: "⚡ Queue", get hint() { return `${who()} works these as soon as a session runs /ahemui:watch`; }, test: (i) => i.status === "open" && i.start === "now" && !i.needs_reply },
   { key: "backlog", title: "Backlog", hint: "Saved for later: /ahemui:work, or press Start", test: (i) => i.status === "open" && i.start !== "now" && !i.needs_reply },
-  { key: "progress", title: "In progress", hint: "Claude is on it", test: (i) => i.status === "in-progress" },
-  { key: "you", title: "In review", hint: "Review the result, or answer Claude's question", test: (i) => i.status === "review" || (i.status === "open" && !!i.needs_reply) },
+  { key: "progress", title: "In progress", get hint() { return `${who()} is on it`; }, test: (i) => i.status === "in-progress" },
+  { key: "you", title: "In review", get hint() { return `Review the result, or answer ${who()}'s question`; }, test: (i) => i.status === "review" || (i.status === "open" && !!i.needs_reply) },
   { key: "done", title: "Done", hint: "Approved, done or won't fix", test: (i) => i.status === "done" || i.status === "wontfix" },
 ];
 
@@ -81,10 +85,12 @@ function fileUrl(it: Item, name: string): string {
 
 async function connect() {
   try {
-    const health = await api<{ project: string; branch: string | null; watcher: Watcher | null }>("GET", "/api/health");
+    const health = await api<{ project: string; branch: string | null; watcher: Watcher | null; agent?: string }>("GET", "/api/health");
+    agentSetting = health.agent;
     state.project = health.project;
     state.branch = health.branch;
     state.watcher = health.watcher;
+    setCoder(state.watcher?.agent, health.agent);
     state.items = await api<Item[]>("GET", state.archived ? "/api/items?all" : "/api/items");
     state.batches = await api<Batch[]>("GET", "/api/batches").catch(() => []);
     render();
@@ -102,6 +108,7 @@ async function connect() {
     // Live updates carry active items only; keep any archived ones fetched for the "archived" filter.
     state.items = state.archived ? [...msg.items, ...state.items.filter((i) => i.location === "done")] : msg.items;
     if (msg.watcher !== undefined) state.watcher = msg.watcher;
+    setCoder(state.watcher?.agent, agentSetting);
     // A new batch may have been started in the browser since the last fetch.
     if (msg.items.some((i: Item) => i.batch && !state.batches.some((b) => b.id === i.batch))) {
       api<Batch[]>("GET", "/api/batches").then((b) => ((state.batches = b), render()), () => {});
@@ -192,7 +199,7 @@ function renderHeader() {
   $(".proj").textContent = [state.project, state.branch].filter(Boolean).join(" · ");
   document.title = `AhemUI backlog${state.project ? ` — ${state.project}` : ""}`;
   const counts = COLUMNS.map((c) => `<span title="${c.hint}">${c.title} <b>${active.filter(c.test).length}</b></span>`).join("");
-  const claude = !live ? "" : w ? `<span class="live ${w.paused || w.stopping ? "" : "on"}">Claude ${w.stopping ? "stopping" : w.paused ? "paused" : w.state === "waiting" ? "watching" : "working"}</span>` : `<span class="live" title="Run /ahemui:watch in Claude Code">No Claude session watching</span>`;
+  const claude = !live ? "" : w ? `<span class="live ${w.paused || w.stopping ? "" : "on"}">${who()} ${w.stopping ? "stopping" : w.paused ? "paused" : w.state === "waiting" ? "watching" : "working"}</span>` : `<span class="live" title="Run /ahemui:watch in ${whoApp()}">No ${who()} session watching</span>`;
   const conn = live ? `<span class="dot ${state.connected ? "ok" : ""}" title="${state.connected ? "Live" : "Reconnecting…"}"></span>` : "";
   $(".status").innerHTML = `${counts}${claude}${conn}`;
 }
@@ -257,10 +264,10 @@ function dropAction(it: Item, col: string): { act: string; label: string } | nul
   const finished = it.status === "done" || it.status === "wontfix";
   // Something flagged for review becomes a change when it's dragged onto the queue or the backlog.
   if (open && it.intent === "review") {
-    if (col === "queue") return { act: "accept-now", label: "Taken on and queued for Claude" };
+    if (col === "queue") return { act: "accept-now", label: `Taken on and queued for ${who()}` };
     if (col === "backlog") return { act: "accept-later", label: "Taken on, in the backlog" };
   }
-  if (col === "queue" && open && it.start !== "now") return { act: "start", label: "Queued for Claude" };
+  if (col === "queue" && open && it.start !== "now") return { act: "start", label: `Queued for ${who()}` };
   if (col === "backlog" && open && it.start === "now") return { act: "later", label: "Moved to the backlog" };
   if (col === "backlog" && (finished || it.status === "in-progress")) return { act: "reopen", label: "Back in the backlog" };
   if (col === "done" && !finished) return { act: "done", label: "Marked done" };
@@ -330,7 +337,7 @@ function card(it: Item): string {
   const quick =
     // Flagged for review never starts from a card: open it (Do it / Later / Dismiss) or drag it onto the queue.
     live && it.status === "open" && !asking && it.start !== "now" && it.intent !== "review"
-      ? `<button class="quick" data-quick="start" data-id="${it.id}" title="Have Claude work on this now">${state.watcher?.state === "working" ? "Add to queue" : `${BOLT}Start`}</button>`
+      ? `<button class="quick" data-quick="start" data-id="${it.id}" title="Have ${who()} work on this now">${state.watcher?.state === "working" ? "Add to queue" : `${BOLT}Start`}</button>`
       : "";
   return `<article class="card s-${it.status}${asking ? " s-ask" : ""}" data-id="${it.id}" tabindex="0"${live && it.location === "items" ? ' draggable="true"' : ""}>
     ${it.shot ? `<div class="thumb"><img loading="lazy" src="${fileUrl(it, it.shot)}" alt=""></div>` : ""}
@@ -505,19 +512,19 @@ function fig(it: Item, name: string | undefined, caption: string): string {
 /** Where an item stands, in words: a title and one sentence, coloured by tone. */
 function statusInfo(it: Item, asking: boolean | undefined): { title: string; text: string; tone: string } {
   const archived = it.location === "done" ? " (archived)" : "";
-  if (asking) return { title: "Question for you", text: "Claude asked something before going on. Answer below.", tone: "ask" };
+  if (asking) return { title: "Question for you", text: `${who()} asked something before going on. Answer below.`, tone: "ask" };
   if (it.intent === "review" && it.status === "open") {
     return it.suggestion
-      ? { title: `Suggestion · ${it.suggestion.severity}`, text: `From ${it.suggestion.by === "checks" ? "the automatic checks" : "Claude's UX review"}. Take it on, or dismiss it.`, tone: "suggest" }
+      ? { title: `Suggestion · ${it.suggestion.severity}`, text: `From ${it.suggestion.by === "checks" ? "the automatic checks" : `${who()}'s UX review`}. Take it on, or dismiss it.`, tone: "suggest" }
       : { title: "Flagged for review", text: "Decide whether this becomes a change.", tone: "suggest" };
   }
   switch (it.status) {
     case "open":
       return it.start === "now"
-        ? { title: "Queued for Claude", text: state.watcher ? "Claude starts on it next." : "Starts as soon as a Claude session runs /ahemui:watch.", tone: "open" }
+        ? { title: `Queued for ${who()}`, text: state.watcher ? `${who()} starts on it next.` : `Starts as soon as a ${who()} session runs /ahemui:watch.`, tone: "open" }
         : { title: "In the backlog", text: "Waits for /ahemui:work, or start it now.", tone: "open" };
     case "in-progress":
-      return { title: "In progress", text: `${it.claimed_by ? esc(it.claimed_by) : "Claude"} is working on it.`, tone: "doing" };
+      return { title: "In progress", text: `${it.claimed_by ? esc(it.claimed_by) : who()} is working on it.`, tone: "doing" };
     case "review":
       return { title: "Ready for your review", text: "Compare before and after, then approve it or send it back.", tone: "review" };
     case "done":
@@ -529,7 +536,7 @@ function statusInfo(it: Item, asking: boolean | undefined): { title: string; tex
 
 /** The text the footer's buttons act on: an answer to Claude, or what still needs to change. */
 function answerBox(it: Item, asking: boolean | undefined): string {
-  if (asking) return `<div class="answer"><label>Your answer</label><textarea data-keep="reply" placeholder="Answer Claude's question…"></textarea></div>`;
+  if (asking) return `<div class="answer"><label>Your answer</label><textarea data-keep="reply" placeholder="Answer ${who()}'s question…"></textarea></div>`;
   if (it.status === "review") return `<div class="answer"><label>If it's not right yet</label><textarea data-keep="changes" placeholder="Say what still needs to change, then Send back"></textarea></div>`;
   return "";
 }
@@ -662,7 +669,7 @@ async function act(id: string, action: string) {
       case "start":
       case "later":
         updated = await api<Item>("POST", `/api/items/${id}/start`, { start: action === "start" ? "now" : "later" });
-        toast(action === "later" ? "Moved to the backlog" : state.watcher?.state === "waiting" ? "⚡ Claude is starting on it" : state.watcher ? "Added to the queue" : "Queued; start /ahemui:watch in Claude Code to work it");
+        toast(action === "later" ? "Moved to the backlog" : state.watcher?.state === "waiting" ? `⚡ ${who()} is starting on it` : state.watcher ? "Added to the queue" : `Queued; start /ahemui:watch in ${whoApp()} to work it`);
         break;
       case "done":
       case "wontfix": {
@@ -684,7 +691,7 @@ async function act(id: string, action: string) {
       case "accept-later": {
         const before = it.batch ?? null;
         updated = await api<Item>("POST", `/api/items/${id}/accept`, { start: action === "accept-now" ? "now" : "later" });
-        toast(action === "accept-now" ? "On Claude's queue" : "In the backlog as a change", async () => {
+        toast(action === "accept-now" ? `On ${who()}'s queue` : "In the backlog as a change", async () => {
           const back = await api<Item>("POST", `/api/items/${id}/batch`, { batch: before });
           state.items = state.items.map((i) => (i.id === back.id ? back : i));
           render();
@@ -698,7 +705,7 @@ async function act(id: string, action: string) {
       case "reply":
         if (!text("reply")) return toast("Type an answer first");
         updated = await api<Item>("POST", `/api/items/${id}/reply`, { text: text("reply") });
-        toast("Sent to Claude ✓");
+        toast(`Sent to ${who()} ✓`);
         break;
       case "approve":
         updated = await api<Item>("POST", `/api/items/${id}/review`, { verdict: "approved" });
@@ -707,7 +714,7 @@ async function act(id: string, action: string) {
       case "changes":
         if (!text("changes")) return toast("Say what still needs to change");
         updated = await api<Item>("POST", `/api/items/${id}/review`, { verdict: "changes", comment: text("changes") });
-        toast("Sent back to Claude");
+        toast(`Sent back to ${who()}`);
         break;
       case "triage": {
         const v = (k: string) => drawer.querySelector<HTMLInputElement>(`[data-t="${k}"]`)!.value.trim();
@@ -753,7 +760,7 @@ function batchActions(list: Item[]): string {
   }
   const waiting = list.filter((i) => i.status === "open" && !i.needs_reply && i.start !== "now").length;
   return waiting
-    ? `<button class="btn grp-act" data-batch-act="queue-all" data-batch-id="${b.id}" title="Queue every open item in this batch for Claude">${BOLT}Queue all ${waiting}</button>`
+    ? `<button class="btn grp-act" data-batch-act="queue-all" data-batch-id="${b.id}" title="Queue every open item in this batch for ${who()}">${BOLT}Queue all ${waiting}</button>`
     : "";
 }
 
@@ -777,7 +784,7 @@ async function batchAct(action: string, batchId: string) {
         state.items = state.items.map((i) => (i.id === u.id ? u : i));
       }
       render();
-      toast(`Queued ${ids.length} for Claude`, async () => {
+      toast(`Queued ${ids.length} for ${who()}`, async () => {
         for (const id of ids) {
           const u = await api<Item>("POST", `/api/items/${id}/start`, { start: "later" });
           state.items = state.items.map((i) => (i.id === u.id ? u : i));

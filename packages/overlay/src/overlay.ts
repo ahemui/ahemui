@@ -1,5 +1,6 @@
 import { checkA11y } from "./a11y.js";
 import { armDanger, hasArmed } from "./confirm.js";
+import { setCoder, who, whoApp } from "./coder.js";
 import { cropToDataUrl, loadImage } from "./crop.js";
 import type { Health, Watcher } from "./api.js";
 import { stylesOf } from "./design.js";
@@ -145,7 +146,7 @@ class Overlay {
         </div>
         <div class="pop" role="dialog" aria-label="Feedback item" tabindex="-1"></div>
         <div class="panel" role="dialog" aria-label="Backlog" tabindex="-1"></div>
-        <div class="statuspop" role="dialog" aria-label="Claude status" tabindex="-1"></div>
+        <div class="statuspop" role="dialog" aria-label="Agent status" tabindex="-1"></div>
         <div class="bar" role="toolbar" aria-label="AhemUI" hidden>
           <button class="capture" title="Capture feedback (Alt+Shift+S). Shift+drag to draw.">✎ AhemUI</button>
           <button class="counts" title="Show backlog"></button>
@@ -177,12 +178,14 @@ class Overlay {
         this.items = items;
         void this.cropSuggestionShots();
         if (watcher !== undefined) this.watcher = watcher;
+        setCoder(this.watcher?.agent, this.health?.agent);
         this.renderAll();
       },
       (health) => {
         const was = this.connected;
         this.health = health;
         if (health?.watcher !== undefined) this.watcher = health.watcher;
+        setCoder(this.watcher?.agent, health?.agent);
         this.connected = !!health;
         if (!was && this.connected) {
           this.loadPrefs();
@@ -763,7 +766,7 @@ class Overlay {
     this.pendingAlerts = [];
     this.alertFirst = 0;
     if (!all.length || this.prefs.notifications === "off") return;
-    const NAMES = { review: "Ready for review", ask: "Claude has a question", done: "Done" };
+    const NAMES = { review: "Ready for review", ask: `${who()} has a question`, done: "Done" };
     let title: string;
     let body: string;
     if (all.length === 1) {
@@ -876,9 +879,9 @@ class Overlay {
         shot,
       });
       const found = res.created ? `${res.created} issue${res.created === 1 ? "" : "s"} from the automatic checks (✦ on the page)` : "The automatic checks found nothing new";
-      this.toast(`${found}. For Claude's UX review of this page, run /ahemui:review.`, 12000, {
+      this.toast(`${found}. For ${who()}'s UX review of this page, run /ahemui:review.`, 12000, {
         label: "Copy command",
-        run: () => navigator.clipboard.writeText(`/ahemui:review ${currentRoute()}`).then(() => this.toast("Copied. Paste it into Claude Code.", 3000)),
+        run: () => navigator.clipboard.writeText(`/ahemui:review ${currentRoute()}`).then(() => this.toast(`Copied. Paste it into ${whoApp()}.`, 3000)),
       });
     } catch (err) {
       this.toast(`Review failed: ${(err as Error).message}`, 6000);
@@ -904,11 +907,11 @@ class Overlay {
   }
 
   private toastQueued() {
-    if (this.watcher?.stopping) this.toast("Queued, but Claude is stopping its watch. Run /ahemui:watch again to have it picked up.", 6000);
-    else if (this.watcher?.paused) this.toast("Queued. Claude is paused and starts on it when you resume.", 5000);
-    else if (this.watcher?.state === "waiting") this.toast("⚡ Claude is starting on it", 3000);
-    else if (this.watcher?.state === "working") this.toast("Added to the queue: Claude picks it up after the current item", 4000);
-    else this.toast("Queued, but no Claude session is watching yet. Run /ahemui:watch in Claude Code to start it.", 6000);
+    if (this.watcher?.stopping) this.toast(`Queued, but ${who()} is stopping its watch. Run /ahemui:watch again to have it picked up.`, 6000);
+    else if (this.watcher?.paused) this.toast(`Queued. ${who()} is paused and starts on it when you resume.`, 5000);
+    else if (this.watcher?.state === "waiting") this.toast(`⚡ ${who()} is starting on it`, 3000);
+    else if (this.watcher?.state === "working") this.toast(`Added to the queue: ${who()} picks it up after the current item`, 4000);
+    else this.toast(`Queued, but no ${who()} session is watching yet. Run /ahemui:watch in ${whoApp()} to start it.`, 6000);
   }
 
   /** Moves a backlog item into the queue (or back); the watching Claude session picks queued items up. */
@@ -948,11 +951,11 @@ class Overlay {
     start.innerHTML = busy ? (this.watcher?.paused ? "Add to queue (paused)" : "Add to queue") : `${BOLT}Start now`;
     start.title = busy
       ? this.watcher?.paused
-        ? `Claude is paused; this starts when you resume (${nowKey})`
-        : `Claude is working on another item; this one goes next in line (${nowKey})`
+        ? `${who()} is paused; this starts when you resume (${nowKey})`
+        : `${who()} is working on another item; this one goes next in line (${nowKey})`
       : this.watcher
-        ? `Claude starts on it right away (${nowKey})`
-        : `Queue it for Claude to start as soon as a session runs /ahemui:watch (${nowKey})`;
+        ? `${who()} starts on it right away (${nowKey})`
+        : `Queue it for ${who()} to start as soon as a session runs /ahemui:watch (${nowKey})`;
     const nowWord = busy ? "queue" : "start now";
     this.$(".hint").textContent = backlogFirst ? `↵ backlog · Ctrl+↵ ${nowWord}` : `↵ ${nowWord} · Ctrl+↵ backlog`;
     // A "flag for review" batch is for a person to decide on: one button, no Start now.
@@ -961,7 +964,7 @@ class Overlay {
     submit.textContent = review ? "Flag for review" : "Backlog";
     submit.classList.toggle("primary", backlogFirst || review);
     if (review) {
-      submit.title = "Saved for someone to review and decide on; Claude won't start it (Enter)";
+      submit.title = `Saved for someone to review and decide on; ${who()} won't start it (Enter)`;
       this.$(".hint").textContent = "↵ flag for review";
     }
     if (withBatch && this.mode === "compose" && !this.pickOpen) this.renderBatchUI();
@@ -1005,12 +1008,12 @@ class Overlay {
     return [
       `${h.project ?? "project"}${h.branch ? ` · ${h.branch}` : ""}`,
       !w
-        ? "No Claude session watching"
+        ? `No ${who()} session watching`
         : w.stopping
-          ? w.state === "working" ? "Claude stops watching after this item" : "Claude is stopping"
+          ? w.state === "working" ? `${who()} stops watching after this item` : `${who()} is stopping`
           : w.paused
-            ? w.state === "working" ? "Claude pauses after this item" : "Claude is paused: Start now items wait"
-            : w.state === "waiting" ? "Claude is watching for Start now" : "Claude is working",
+            ? w.state === "working" ? `${who()} pauses after this item` : `${who()} is paused: Start now items wait`
+            : w.state === "waiting" ? `${who()} is watching for Start now` : `${who()} is working`,
       ...(this.stale ? [`Overlay build ${BUILD} ≠ server build ${h.build}: reload the page${this.host.mode === "ext" ? " and the AhemUI extension" : ""}`] : []),
     ];
   }
@@ -1021,11 +1024,11 @@ class Overlay {
     const w = this.watcher;
     const b = (action: string, label: string, title: string) => `<button class="btn" data-watch="${action}" title="${title}">${label}</button>`;
     if (!w)
-      return `<div class="cmd-copy" title="Run this in Claude Code so Start now is picked up straight away"><code>/ahemui:watch</code><button data-watch="copy" aria-label="Copy /ahemui:watch" title="Copy">${COPY_ICON}</button></div>`;
+      return `<div class="cmd-copy" title="Run this in ${whoApp()} so Start now is picked up straight away"><code>/ahemui:watch</code><button data-watch="copy" aria-label="Copy /ahemui:watch" title="Copy">${COPY_ICON}</button></div>`;
     if (w.stopping) return "";
     return `<div class="watch-ctl">${
       w.paused
-        ? b("resume", "▶ Resume", "Let Claude pick up Start now items again")
+        ? b("resume", "▶ Resume", `Let ${who()} pick up Start now items again`)
         : b("pause", "❚❚ Pause", w.state === "working" ? "Finish the current item, then hold new ones until resumed" : "Hold Start now items until resumed")
     }${b("stop", "■ Stop", w.state === "working" ? "End the watch after the current item" : "End the watch")}</div>`;
   }
@@ -1034,9 +1037,9 @@ class Overlay {
     if (action === "copy") {
       try {
         await navigator.clipboard.writeText("/ahemui:watch");
-        this.toast("Copied. Paste it into Claude Code in this project.", 4000);
+        this.toast(`Copied. Paste it into ${whoApp()} in this project.`, 4000);
       } catch {
-        this.toast("Run /ahemui:watch in Claude Code in this project.", 5000);
+        this.toast(`Run /ahemui:watch in ${whoApp()} in this project.`, 5000);
       }
       return;
     }
@@ -1044,7 +1047,7 @@ class Overlay {
       const { watcher } = await this.host.transport.request<{ watcher: Watcher | null }>("POST", "/api/watch", { action });
       this.watcher = watcher;
       this.renderBar();
-      this.toast(action === "pause" ? "Paused: Start now items wait until you resume" : action === "resume" ? "Resumed" : "Claude will stop watching", 3000);
+      this.toast(action === "pause" ? "Paused: Start now items wait until you resume" : action === "resume" ? "Resumed" : `${who()} will stop watching`, 3000);
     } catch (err) {
       this.toast((err as Error).message, 4000);
     }
@@ -1111,7 +1114,7 @@ class Overlay {
             : item.start === "now" && item.status === "open"
               ? GLYPH.now
               : String(n);
-      m.el.title = `${asking ? "Claude has a question" : LABEL[item.status]} — ${item.body.split("\n")[0]}`;
+      m.el.title = `${asking ? `${who()} has a question` : LABEL[item.status]} — ${item.body.split("\n")[0]}`;
     }
     this.schedule();
   }
@@ -1223,7 +1226,7 @@ class Overlay {
     const flagged = item.intent === "review" && item.status === "open" && !asking;
     let actions: string;
     if (flagged) {
-      actions = `<div class="actions"><button class="btn primary" data-act="accept-now" title="Make it a change and queue it for Claude">Do it</button><button class="btn" data-act="accept-later" title="Make it a change, in the backlog for later">Later</button><button class="btn" data-act="dismiss">Dismiss</button></div>`;
+      actions = `<div class="actions"><button class="btn primary" data-act="accept-now" title="Make it a change and queue it for ${who()}">Do it</button><button class="btn" data-act="accept-later" title="Make it a change, in the backlog for later">Later</button><button class="btn" data-act="dismiss">Dismiss</button></div>`;
     } else if (asking) {
       actions = `<textarea class="reply" placeholder="Your answer…"></textarea><div class="actions"><button class="btn primary" data-act="reply">Reply</button><button class="btn" data-act="dismiss">Dismiss</button></div>`;
     } else if (item.status === "review") {
@@ -1278,7 +1281,7 @@ class Overlay {
       <div class="request">${esc(prompt.trim())}</div>
       ${
         item.suggestion
-          ? `<details class="sugg" data-fold="sugg"${fold("sugg", flagged) ? " open" : ""}><summary class="sugg-by">${item.suggestion.by === "checks" ? "Automatic check" : "Claude's UX review"}${item.suggestion.rule ? ` · ${esc(item.suggestion.rule)}` : ""}<span class="fold-hint">Why &amp; fix</span></summary><p><b>Why</b> ${esc(item.suggestion.why)}</p>${item.suggestion.fix ? `<p><b>Fix</b> ${esc(item.suggestion.fix)}</p>` : ""}</details>`
+          ? `<details class="sugg" data-fold="sugg"${fold("sugg", flagged) ? " open" : ""}><summary class="sugg-by">${item.suggestion.by === "checks" ? "Automatic check" : `${who()}'s UX review`}${item.suggestion.rule ? ` · ${esc(item.suggestion.rule)}` : ""}<span class="fold-hint">Why &amp; fix</span></summary><p><b>Why</b> ${esc(item.suggestion.why)}</p>${item.suggestion.fix ? `<p><b>Fix</b> ${esc(item.suggestion.fix)}</p>` : ""}</details>`
           : ""
       }
       <div class="byline">${esc(item.author)} · ${esc(shortDate(item.created))}${item.claimed_by && item.status === "in-progress" ? ` · ${esc(item.claimed_by)} is on it` : ""}</div>
@@ -1345,7 +1348,7 @@ class Overlay {
           } else if (act === "reply") {
             if (!text) return this.toast("Type an answer first");
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/reply`, { text, author: this.prefs.name || undefined });
-            this.toast("Sent to Claude ✓");
+            this.toast(`Sent to ${who()} ✓`);
           } else if (act === "approve" || act === "changes") {
             if (act === "changes" && !text) return this.toast("Say what still needs to change");
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/review`, {
@@ -1353,14 +1356,14 @@ class Overlay {
               comment: text || undefined,
               author: this.prefs.name || undefined,
             });
-            this.toast(act === "approve" ? "Approved ✓" : "Sent back to Claude");
+            this.toast(act === "approve" ? "Approved ✓" : `Sent back to ${who()}`);
           } else if (act === "reopen") {
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/reopen`, {});
           } else if (act === "accept-now" || act === "accept-later") {
             const before = { batch: item.batch ?? null };
             updated = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/accept`, { start: act === "accept-now" ? "now" : "later" });
             this.closePopups();
-            this.toast(act === "accept-now" ? "On Claude's queue" : "In the backlog as a change", 6000, async () => {
+            this.toast(act === "accept-now" ? `On ${who()}'s queue` : "In the backlog as a change", 6000, async () => {
               const back = await this.host.transport.request<Item>("POST", `/api/items/${item.id}/batch`, before);
               this.items = this.items.map((i) => (i.id === back.id ? back : i));
               this.renderAll();
@@ -1440,7 +1443,7 @@ class Overlay {
       );
     };
     if (!active.length) {
-      panel.innerHTML = `${this.panelHead()}<div class="empty">Backlog is empty. Press ✎ AhemUI or ${esc(shortcutLabel(this.prefs.shortcut))} to capture.</div><div class="panel-foot"><span class="foot-actions">${REVIEW_BUTTON}</span>${board}</div>`;
+      panel.innerHTML = `${this.panelHead()}<div class="empty">Backlog is empty. Press ✎ AhemUI or ${esc(shortcutLabel(this.prefs.shortcut))} to capture.</div><div class="panel-foot"><span class="foot-actions">${reviewButton()}</span>${board}</div>`;
       bindHead();
       return;
     }
@@ -1459,8 +1462,8 @@ class Overlay {
     const rowAction = (i: Item) => {
       // Flagged for review (suggestions too) never starts from here: open it and choose Do it, Later or Dismiss.
       if (i.status !== "open" || i.needs_reply || i.intent === "review") return "";
-      if (i.start === "now") return `<span class="queued" title="Waiting for Claude (runs when /ahemui:watch is active)">⚡ queued</span>`;
-      return `<button class="btn row-start" data-start="${i.id}" title="Have Claude work on this now">${this.startLabel()}</button>`;
+      if (i.start === "now") return `<span class="queued" title="Waiting for ${who()} (runs when /ahemui:watch is active)">⚡ queued</span>`;
+      return `<button class="btn row-start" data-start="${i.id}" title="Have ${who()} work on this now">${this.startLabel()}</button>`;
     };
     const row = (i: Item) => `<div class="list-item ${i.route === this.route && sameSite(i.url) ? "" : "elsewhere"}" data-id="${i.id}">
           <span class="pill ${i.needs_reply ? "ask" : i.suggestion && i.intent === "review" && i.status === "open" ? "suggest" : i.status}">${i.needs_reply ? GLYPH.ask : i.suggestion && i.intent === "review" && i.status === "open" ? GLYPH.suggest : GLYPH[i.status]}</span>
@@ -1480,7 +1483,7 @@ class Overlay {
     panel.innerHTML =
       this.panelHead() +
       [...groups].map(([key, items]) => `<div class="group">${esc(groupLabel(key, items))}</div>${items.map(row).join("")}`).join("") +
-      `<div class="panel-foot"><span class="foot-actions">${REVIEW_BUTTON}${clear}</span>${board}</div>`;
+      `<div class="panel-foot"><span class="foot-actions">${reviewButton()}${clear}</span>${board}</div>`;
     bindHead();
     panel.querySelector(".clear-finished")?.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -1657,7 +1660,7 @@ class Overlay {
       line.className = "batch-line picking";
       line.innerHTML = `
         <div class="bp-row">
-          <div class="seg bp-intent" title="Changes: Claude can pick these up. For review: someone looks and decides; Claude won't start them.">
+          <div class="seg bp-intent" title="Changes: ${who()} can pick these up. For review: someone looks and decides; ${who()} won't start them.">
             <button data-intent="action">Changes</button><button data-intent="review">For review</button>
           </div>
           <select class="bp-target" title="Start a new batch, add to a recent one, or capture without a batch">
@@ -1897,13 +1900,13 @@ class Overlay {
           ["auto", "Auto", "Follow the system setting"],
         ])}</div>
         <div class="setting"><span>Notifications</span>${seg("notifications", [
-          ["off", "Off", "No toasts or notifications when Claude finishes or asks"],
+          ["off", "Off", `No toasts or notifications when ${who()} finishes or asks`],
           ["page", "On page", "Toasts on this page only"],
           ["desktop", "Desktop", "Toasts, plus a system notification when this tab is in the background"],
         ])}</div>
         <div class="setting"><span>Enter key</span>${seg("enter", [
-          ["now", "Start now", "Enter hands it to Claude; Ctrl+Enter saves to the backlog"],
-          ["backlog", "Backlog", "Enter saves to the backlog; Ctrl+Enter hands it to Claude"],
+          ["now", "Start now", `Enter hands it to ${who()}; Ctrl+Enter saves to the backlog`],
+          ["backlog", "Backlog", `Enter saves to the backlog; Ctrl+Enter hands it to ${who()}`],
         ])}</div>
         <div class="setting"><span>Markers</span>${seg("markers", [
           ["all", "All", "Show every marker"],
@@ -2143,7 +2146,7 @@ const BOLT = `<svg class="bolt" viewBox="0 0 16 16" width="12" height="12" aria-
 const ALERT_QUIET = 4000;
 const ALERT_MAX = 30_000;
 
-const REVIEW_BUTTON = `<button class="btn review-page" title="Check this page for UX and accessibility issues; Claude can review it in depth with /ahemui:review">✦ Review page</button>`;
+const reviewButton = () => `<button class="btn review-page" title="Check this page for UX and accessibility issues; ${who()} can review it in depth with /ahemui:review">✦ Review page</button>`;
 
 
 const COPY_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>`;

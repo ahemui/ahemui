@@ -25,12 +25,12 @@ usage:
   ahemui note <id> <text>
   ahemui prune [--drop-shots <days>]
                                   move done/wontfix items to .ahemui/done/, optionally dropping old screenshots
-  ahemui reply <id> <text>          answer Claude's question on an item
+  ahemui reply <id> <text>          answer the agent's question on an item
   ahemui approve <id> [--note <t>]  approve an item in review
   ahemui changes <id> --note <t>    send an item in review back with feedback
   ahemui wait [--timeout <sec>] [--as <name>]
                                   block until "Start now" items arrive, print them, exit 0 (3 on timeout)
-  ahemui unwatch                    clear the "Claude is watching" presence
+  ahemui unwatch                    clear the "agent is watching" presence
   ahemui update [--from <tgz>] [--force]
                                   install the newest AhemUI package into this project (used by /ahemui:update)
   ahemui clear [--archive] [--yes]  delete all backlog items (and with --archive, .ahemui/done/ too); setup stays
@@ -40,6 +40,7 @@ ids can be abbreviated to any unique prefix.
 types: ${TYPES.join(", ")} · priorities: ${PRIORITIES.join(", ")}`;
 
 const OPTIONS = {
+  agent: { type: "string" },
   origin: { type: "string", multiple: true },
   port: { type: "string" },
   status: { type: "string", multiple: true },
@@ -178,7 +179,7 @@ async function main(argv: string[]) {
       return console.log(summary(await store.addNote(id(), process.env.AHEMUI_AUTHOR!, text)));
     }
     case "wait": {
-      const items = await waitForStartNow(store, o.as ?? process.env.AHEMUI_AUTHOR!, o.timeout ? Number(o.timeout) * 1000 : 0);
+      const items = await waitForStartNow(store, o.as ?? process.env.AHEMUI_AUTHOR!, o.timeout ? Number(o.timeout) * 1000 : 0, o.agent ?? process.env.AHEMUI_AGENT);
       if (items === "stopped") {
         console.log("STOPPED watching was stopped from the browser");
         process.exit(4);

@@ -1,11 +1,13 @@
 import type { Item } from "./types.js";
 
-/** A Claude session running /ahemui:watch, ready to pick up "Start now" items. */
+/** A coding-agent session running /ahemui:watch, ready to pick up "Start now" items. */
 export interface Watcher {
   state: "waiting" | "working";
   since: string;
   item?: string;
   by?: string;
+  /** Which coding agent is watching ("claude-code", "codex"…). */
+  agent?: string;
   /** Paused from the browser: Start-now items wait until resumed. */
   paused?: boolean;
   /** Stop requested from the browser: the watch ends after the current item. */
@@ -17,6 +19,8 @@ export interface Health {
   /** Base URL of this ahemui serve; its board lives at `${base}/`. */
   base?: string;
   watcher?: Watcher | null;
+  /** The project's configured coding agent, when set. */
+  agent?: string;
   project?: string;
   branch?: string | null;
   root: string;

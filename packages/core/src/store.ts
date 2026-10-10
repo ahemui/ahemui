@@ -314,17 +314,17 @@ export class AhemStore {
   }
 
   /** Today's review batch for checks or for Claude ("UX review · 5 Oct"), created on first use. */
-  async reviewBatch(by: "checks" | "claude"): Promise<Batch> {
+  async reviewBatch(by: "checks" | "agent"): Promise<Batch> {
     const day = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-    const name = by === "claude" ? `UX review · ${day}` : `Automatic checks · ${day}`;
-    return (await this.findBatch(name)) ?? (await this.createBatch({ name, intent: "review", author: by === "claude" ? "Claude (UX review)" : "AhemUI checks" }));
+    const name = by === "agent" ? `UX review · ${day}` : `Automatic checks · ${day}`;
+    return (await this.findBatch(name)) ?? (await this.createBatch({ name, intent: "review", author: by === "agent" ? "Claude (UX review)" : "AhemUI checks" }));
   }
 
   /**
    * Files findings from a scan as suggestion items in today's review batch, pinned to the elements they're about.
    * A finding about the same element and rule as an open item is skipped, so re-running a review doesn't pile up.
    */
-  async suggest(scanRef: string, findings: Finding[], by: "checks" | "claude"): Promise<{ created: Item[]; skipped: number }> {
+  async suggest(scanRef: string, findings: Finding[], by: "checks" | "agent"): Promise<{ created: Item[]; skipped: number }> {
     const scan = await this.getScan(scanRef);
     const batch = await this.reviewBatch(by);
     const open = await this.list({ status: ["open", "in-progress", "review"] });

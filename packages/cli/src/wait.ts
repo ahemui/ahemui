@@ -7,17 +7,17 @@ const pendingNow = async (store: AhemStore) =>
 
 /**
  * Blocks until someone presses "Start now" in the browser, then returns those items (oldest first).
- * While waiting it advertises itself in .ahemui/.watcher.json so the overlay can tell the person Claude is listening.
+ * While waiting it advertises itself in .ahemui/.watcher.json so the overlay can tell the person the agent is listening.
  * The browser can pause (Start-now items wait until resumed) or stop the watch through .ahemui/.watch-control.json.
  * Resolves with [] on timeout and "stopped" when the person stopped the watch.
  */
-export async function waitForStartNow(store: AhemStore, by: string, timeoutMs = 0): Promise<Item[] | "stopped"> {
+export async function waitForStartNow(store: AhemStore, by: string, timeoutMs = 0, agent?: string): Promise<Item[] | "stopped"> {
   const control = await store.watchControl();
   if (control?.mode === "stop") return stopped(store);
   const ready = control?.mode === "paused" ? [] : await pendingNow(store);
-  if (ready.length) return claimWatch(store, by, ready);
+  if (ready.length) return claimWatch(store, by, ready, agent);
 
-  await store.setWatcher({ state: "waiting", pid: process.pid, by });
+  await store.setWatcher({ state: "waiting", pid: process.pid, by, agent });
   const stop = () => store.setWatcher(null).finally(() => process.exit(130));
   process.once("SIGINT", stop);
   process.once("SIGTERM", stop);
@@ -58,7 +58,7 @@ export async function waitForStartNow(store: AhemStore, by: string, timeoutMs = 
     await store.setWatcher(null);
     return [];
   }
-  return claimWatch(store, by, result);
+  return claimWatch(store, by, result, agent);
 }
 
 /** The stop request is used up: presence and the request are cleared so the next /ahemui:watch starts fresh. */
@@ -68,8 +68,8 @@ async function stopped(store: AhemStore): Promise<"stopped"> {
   return "stopped";
 }
 
-/** Flip presence to "working" so the overlay says Claude is busy rather than gone. */
-async function claimWatch(store: AhemStore, by: string, items: Item[]): Promise<Item[]> {
-  await store.setWatcher({ state: "working", pid: process.pid, by, item: items[0].id });
+/** Flip presence to "working" so the overlay says the agent is busy rather than gone. */
+async function claimWatch(store: AhemStore, by: string, items: Item[], agent?: string): Promise<Item[]> {
+  await store.setWatcher({ state: "working", pid: process.pid, by, agent, item: items[0].id });
   return items;
 }

@@ -169,6 +169,7 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
       devOrigins: config.devOrigins,
       maxBytes: config.screenshot.maxBytes,
       watcher: await store.watcher(),
+      agent: config.agent,
     });
   }
   if (req.method === "POST" && parts[1] === "origins") {
@@ -204,7 +205,7 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
   }
   if (req.method === "POST" && parts[1] === "suggestions") {
     const body = await readJson(req, 200_000);
-    const by = body.by === "claude" ? "claude" : "checks";
+    const by = body.by === "checks" ? "checks" : "agent";
     const { created, skipped } = await store.suggest(String(body.scan ?? ""), Array.isArray(body.findings) ? body.findings : [], by);
     return send(res, 201, { created: created.map((i) => i.id), skipped });
   }
@@ -239,7 +240,7 @@ async function handle(store: AhemStore, config: Config, self: string[], req: Inc
     const body = await readJson(req, 16_000);
     const action = body.action;
     if (action !== "pause" && action !== "resume" && action !== "stop") throw new HttpError(400, "action must be pause, resume or stop");
-    if (action !== "resume" && !(await store.watcher())) throw new HttpError(409, "no Claude session is watching; run /ahemui:watch in Claude Code");
+    if (action !== "resume" && !(await store.watcher())) throw new HttpError(409, "no agent session is watching; run /ahemui:watch in Claude Code");
     await store.setWatchControl(action === "pause" ? "paused" : action === "stop" ? "stop" : null, body.author ?? defaultAuthor());
     return send(res, 200, { watcher: await store.watcher() });
   }

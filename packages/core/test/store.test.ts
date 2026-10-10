@@ -249,7 +249,7 @@ test("UX review: a page scan's findings become suggestions in today's review bat
   );
   assert.equal((await store.getScan("/pricing")).id, scan.id);
   const finding = { n: 1, request: "Make Start free trial the only primary button", why: "Two loud buttons split attention", severity: "high" as const, rule: "competing-ctas" };
-  const first = await store.suggest(scan.id, [finding], "claude");
+  const first = await store.suggest(scan.id, [finding], "agent");
   assert.equal(first.created.length, 1);
   const it = first.created[0];
   assert.equal(it.intent, "review");
@@ -263,7 +263,7 @@ test("UX review: a page scan's findings become suggestions in today's review bat
   await store.setShot(it.id, { data: Buffer.from("RIFF2222WEBP"), ext: "webp" });
   assert.equal(await readFile(join(root, ".ahemui", "items", it.id, "shot.webp"), "utf8"), "RIFF1111WEBP");
   assert.match((await store.findBatch(it.batch!))!.name, /^UX review · /);
-  const again = await store.suggest(scan.id, [finding], "claude");
+  const again = await store.suggest(scan.id, [finding], "agent");
   assert.equal(again.created.length, 0);
   assert.equal(again.skipped, 1);
   const taken = await store.accept(it.id, "now");
@@ -276,4 +276,21 @@ test("saving the same item from several requests at once doesn't trip over itsel
   const item = await store.create({ prompt: "Busy item", route: "/", anchor: {} });
   await Promise.all(Array.from({ length: 12 }, (_, n) => store.triage(item.id, { labels: [`l${n}`] })));
   assert.ok((await store.get(item.id)).labels?.length);
+});
+
+test("suggestions saved as by: claude (before 0.4) load as by: agent", async () => {
+  const scan = await store.saveScan(
+    { route: "/", url: "http://localhost:5173/", viewport: "1280x800", scroll: { x: 0, y: 0 }, elements: [{ n: 1, kind: "action", tag: "button", text: "Go", selector: "main > button", rect: { x: 0, y: 0, w: 10, h: 10 } }], checks: [] },
+    undefined,
+  );
+  const [it] = (await store.suggest(scan.id, [{ n: 1, request: "Legacy", why: "w", severity: "low" }], "agent")).created;
+  const file = join(root, ".ahemui", "items", it.id, "item.md");
+  await writeFile(file, (await readFile(file, "utf8")).replace("by: agent", "by: claude"));
+  assert.equal((await store.get(it.id)).suggestion?.by, "agent");
+});
+
+test("the watcher says which agent is watching", async () => {
+  await store.setWatcher({ state: "waiting", pid: process.pid, by: "me", agent: "codex" });
+  assert.equal((await store.watcher())?.agent, "codex");
+  await store.setWatcher(null);
 });

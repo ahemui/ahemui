@@ -245,7 +245,8 @@ export type Finding = z.infer<typeof FindingSchema>;
  * them on (Do it / Later) or dismisses them.
  */
 export const SuggestionSchema = z.object({
-  by: z.enum(["checks", "claude"]),
+  /** Who found it: the automatic checks, or the coding agent's review ("claude" in files written before 0.4). */
+  by: z.preprocess((v) => (v === "claude" ? "agent" : v), z.enum(["checks", "agent"])),
   severity: z.enum(SEVERITIES),
   /** What kind of problem: an axe rule id ("color-contrast") or a short slug ("unclear-cta"). */
   rule: short(80).optional(),
@@ -312,6 +313,8 @@ export const WatcherSchema = z.object({
   beat: z.string().optional(),
   item: z.string().optional(),
   by: z.string().optional(),
+  /** Which coding agent is watching ("claude-code", "codex"…), so the browser can name it. */
+  agent: z.string().max(40).optional(),
   /** Set by the browser (from .watch-control.json when read): hold Start-now items until resumed. */
   paused: z.boolean().optional(),
   /** Set by the browser: the watch ends when the current item is done (or right away when waiting). */
@@ -352,6 +355,8 @@ export type Prefs = z.infer<typeof PrefsSchema>;
 
 export const ConfigSchema = z.object({
   version: z.literal(1).default(1),
+  /** The coding agent this project works with ("claude-code", "codex"…); the browser uses its name. */
+  agent: z.string().max(40).optional(),
   port: z.number().int().default(4777),
   devOrigins: z.array(z.string()).default(["http://localhost:5173"]),
   screenshot: z

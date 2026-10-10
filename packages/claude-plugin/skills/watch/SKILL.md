@@ -28,7 +28,7 @@ If `$ARGUMENTS` is `stop`, or the user asks you to stop watching:
    away, and respects a pause set in the browser.
 3. **Arm the watcher.** Run this with the Bash tool and `run_in_background: true`:
    ```bash
-   node "${CLAUDE_PLUGIN_ROOT}/scripts/ahemui.mjs" wait
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/ahemui.mjs" wait --agent claude-code
    ```
    Tell the user in one line that you're watching and that ⚡ Start now in the browser sends work straight to you.
    Then end your turn. You'll be woken up when the command exits.

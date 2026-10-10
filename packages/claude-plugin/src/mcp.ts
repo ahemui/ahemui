@@ -161,7 +161,7 @@ tool(
       .max(12),
   },
   async ({ scan, findings }) => {
-    const { created, skipped } = await store().suggest(scan, findings, "claude");
+    const { created, skipped } = await store().suggest(scan, findings, "agent");
     return `Filed ${created.length} suggestion(s)${skipped ? `, skipped ${skipped} already in the backlog` : ""}:\n${created.map(summary).join("\n")}`;
   },
 );
