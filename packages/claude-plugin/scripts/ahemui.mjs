@@ -4003,10 +4003,10 @@ var require_resolve_block_map = __commonJS({
       let offset = bm.offset;
       let commentEnd = null;
       for (const collItem of bm.items) {
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const keyProps = resolveProps.resolveProps(start, {
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: bm.indent,
@@ -4020,7 +4020,7 @@ var require_resolve_block_map = __commonJS({
             else if ("indent" in key && key.indent !== bm.indent)
               onError(offset, "BAD_INDENT", startColMsg);
           }
-          if (!keyProps.anchor && !keyProps.tag && !sep) {
+          if (!keyProps.anchor && !keyProps.tag && !sep2) {
             commentEnd = keyProps.end;
             if (keyProps.comment) {
               if (map.comment)
@@ -4044,7 +4044,7 @@ var require_resolve_block_map = __commonJS({
         ctx.atKey = false;
         if (utilMapIncludes.mapIncludes(ctx, map.items, keyNode))
           onError(keyStart, "DUPLICATE_KEY", "Map keys must be unique");
-        const valueProps = resolveProps.resolveProps(sep ?? [], {
+        const valueProps = resolveProps.resolveProps(sep2 ?? [], {
           indicator: "map-value-ind",
           next: value,
           offset: keyNode.range[2],
@@ -4060,7 +4060,7 @@ var require_resolve_block_map = __commonJS({
             if (ctx.options.strict && keyProps.start < valueProps.found.offset - 1024)
               onError(keyNode.range, "KEY_OVER_1024_CHARS", "The : indicator must be at most 1024 chars after the start of an implicit block mapping key");
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep, null, valueProps, onError);
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : composeEmptyNode(ctx, offset, sep2, null, valueProps, onError);
           if (ctx.schema.compat)
             utilFlowIndentCheck.flowIndentCheck(bm.indent, value, onError);
           offset = valueNode.range[2];
@@ -4151,7 +4151,7 @@ var require_resolve_end = __commonJS({
       let comment = "";
       if (end) {
         let hasSpace = false;
-        let sep = "";
+        let sep2 = "";
         for (const token of end) {
           const { source, type } = token;
           switch (type) {
@@ -4165,13 +4165,13 @@ var require_resolve_end = __commonJS({
               if (!comment)
                 comment = cb;
               else
-                comment += sep + cb;
-              sep = "";
+                comment += sep2 + cb;
+              sep2 = "";
               break;
             }
             case "newline":
               if (comment)
-                sep += source;
+                sep2 += source;
               hasSpace = true;
               break;
             default:
@@ -4214,18 +4214,18 @@ var require_resolve_flow_collection = __commonJS({
       let offset = fc.offset + fc.start.source.length;
       for (let i = 0; i < fc.items.length; ++i) {
         const collItem = fc.items[i];
-        const { start, key, sep, value } = collItem;
+        const { start, key, sep: sep2, value } = collItem;
         const props = resolveProps.resolveProps(start, {
           flow: fcName,
           indicator: "explicit-key-ind",
-          next: key ?? sep?.[0],
+          next: key ?? sep2?.[0],
           offset,
           onError,
           parentIndent: fc.indent,
           startOnNewline: false
         });
         if (!props.found) {
-          if (!props.anchor && !props.tag && !sep && !value) {
+          if (!props.anchor && !props.tag && !sep2 && !value) {
             if (i === 0 && props.comma)
               onError(props.comma, "UNEXPECTED_TOKEN", `Unexpected , in ${fcName}`);
             else if (i < fc.items.length - 1)
@@ -4279,8 +4279,8 @@ var require_resolve_flow_collection = __commonJS({
             }
           }
         }
-        if (!isMap && !sep && !props.found) {
-          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep, null, props, onError);
+        if (!isMap && !sep2 && !props.found) {
+          const valueNode = value ? composeNode(ctx, value, props, onError) : composeEmptyNode(ctx, props.end, sep2, null, props, onError);
           coll.items.push(valueNode);
           offset = valueNode.range[2];
           if (isBlock(value))
@@ -4292,7 +4292,7 @@ var require_resolve_flow_collection = __commonJS({
           if (isBlock(key))
             onError(keyNode.range, "BLOCK_IN_FLOW", blockMsg);
           ctx.atKey = false;
-          const valueProps = resolveProps.resolveProps(sep ?? [], {
+          const valueProps = resolveProps.resolveProps(sep2 ?? [], {
             flow: fcName,
             indicator: "map-value-ind",
             next: value,
@@ -4303,8 +4303,8 @@ var require_resolve_flow_collection = __commonJS({
           });
           if (valueProps.found) {
             if (!isMap && !props.found && ctx.options.strict) {
-              if (sep)
-                for (const st of sep) {
+              if (sep2)
+                for (const st of sep2) {
                   if (st === valueProps.found)
                     break;
                   if (st.type === "newline") {
@@ -4321,7 +4321,7 @@ var require_resolve_flow_collection = __commonJS({
             else
               onError(valueProps.start, "MISSING_CHAR", `Missing , or : between ${fcName} items`);
           }
-          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep, null, valueProps, onError) : null;
+          const valueNode = value ? composeNode(ctx, value, valueProps, onError) : valueProps.found ? composeEmptyNode(ctx, valueProps.end, sep2, null, valueProps, onError) : null;
           if (valueNode) {
             if (isBlock(value))
               onError(valueNode.range, "BLOCK_IN_FLOW", blockMsg);
@@ -4501,7 +4501,7 @@ var require_resolve_block_scalar = __commonJS({
           chompStart = i + 1;
       }
       let value = "";
-      let sep = "";
+      let sep2 = "";
       let prevMoreIndented = false;
       for (let i = 0; i < contentStart; ++i)
         value += lines[i][0].slice(trimIndent) + "\n";
@@ -4518,24 +4518,24 @@ var require_resolve_block_scalar = __commonJS({
           indent = "";
         }
         if (type === Scalar.Scalar.BLOCK_LITERAL) {
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
         } else if (indent.length > trimIndent || content[0] === "	") {
-          if (sep === " ")
-            sep = "\n";
-          else if (!prevMoreIndented && sep === "\n")
-            sep = "\n\n";
-          value += sep + indent.slice(trimIndent) + content;
-          sep = "\n";
+          if (sep2 === " ")
+            sep2 = "\n";
+          else if (!prevMoreIndented && sep2 === "\n")
+            sep2 = "\n\n";
+          value += sep2 + indent.slice(trimIndent) + content;
+          sep2 = "\n";
           prevMoreIndented = true;
         } else if (content === "") {
-          if (sep === "\n")
+          if (sep2 === "\n")
             value += "\n";
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          value += sep + content;
-          sep = " ";
+          value += sep2 + content;
+          sep2 = " ";
           prevMoreIndented = false;
         }
       }
@@ -4718,25 +4718,25 @@ var require_resolve_flow_scalar = __commonJS({
         trimBoth = /^[ \t]+|[ \t]+$/g;
       }
       let res = match[1].replace(trimEnd, "");
-      let sep = " ";
+      let sep2 = " ";
       let pos = line.lastIndex;
       while (match = line.exec(source)) {
         const lm = match[1].replace(trimBoth, "");
         if (lm === "") {
-          if (sep === "\n")
-            res += sep;
+          if (sep2 === "\n")
+            res += sep2;
           else
-            sep = "\n";
+            sep2 = "\n";
         } else {
-          res += sep + lm;
-          sep = " ";
+          res += sep2 + lm;
+          sep2 = " ";
         }
         pos = line.lastIndex;
       }
       const last = /[ \t]*(.*)/sy;
       last.lastIndex = pos;
       match = last.exec(source);
-      return res + sep + (match?.[1] ?? "");
+      return res + sep2 + (match?.[1] ?? "");
     }
     function doubleQuotedValue(source, onError) {
       let res = "";
@@ -5546,14 +5546,14 @@ var require_cst_stringify = __commonJS({
         }
       }
     }
-    function stringifyItem({ start, key, sep, value }) {
+    function stringifyItem({ start, key, sep: sep2, value }) {
       let res = "";
       for (const st of start)
         res += st.source;
       if (key)
         res += stringifyToken(key);
-      if (sep)
-        for (const st of sep)
+      if (sep2)
+        for (const st of sep2)
           res += st.source;
       if (value)
         res += stringifyToken(value);
@@ -6720,18 +6720,18 @@ var require_parser = __commonJS({
         if (this.type === "map-value-ind") {
           const prev = getPrevProps(this.peek(2));
           const start = getFirstKeyStartProps(prev);
-          let sep;
+          let sep2;
           if (scalar.end) {
-            sep = scalar.end;
-            sep.push(this.sourceToken);
+            sep2 = scalar.end;
+            sep2.push(this.sourceToken);
             delete scalar.end;
           } else
-            sep = [this.sourceToken];
+            sep2 = [this.sourceToken];
           const map = {
             type: "block-map",
             offset: scalar.offset,
             indent: scalar.indent,
-            items: [{ start, key: scalar, sep }]
+            items: [{ start, key: scalar, sep: sep2 }]
           };
           this.onKeyLine = true;
           this.stack[this.stack.length - 1] = map;
@@ -6884,15 +6884,15 @@ var require_parser = __commonJS({
                 } else if (isFlowToken(it.key) && !includesToken(it.sep, "newline")) {
                   const start2 = getFirstKeyStartProps(it.start);
                   const key = it.key;
-                  const sep = it.sep;
-                  sep.push(this.sourceToken);
+                  const sep2 = it.sep;
+                  sep2.push(this.sourceToken);
                   delete it.key;
                   delete it.sep;
                   this.stack.push({
                     type: "block-map",
                     offset: this.offset,
                     indent: this.indent,
-                    items: [{ start: start2, key, sep }]
+                    items: [{ start: start2, key, sep: sep2 }]
                   });
                 } else if (start.length > 0) {
                   it.sep = it.sep.concat(start, this.sourceToken);
@@ -7086,13 +7086,13 @@ var require_parser = __commonJS({
             const prev = getPrevProps(parent);
             const start = getFirstKeyStartProps(prev);
             fixFlowSeqItems(fc);
-            const sep = fc.end.splice(1, fc.end.length);
-            sep.push(this.sourceToken);
+            const sep2 = fc.end.splice(1, fc.end.length);
+            sep2.push(this.sourceToken);
             const map = {
               type: "block-map",
               offset: fc.offset,
               indent: fc.indent,
-              items: [{ start, key: fc, sep }]
+              items: [{ start, key: fc, sep: sep2 }]
             };
             this.onKeyLine = true;
             this.stack[this.stack.length - 1] = map;
@@ -15149,11 +15149,13 @@ var TriageSchema = external_exports.object({
   labels: external_exports.array(short(40)).max(12).optional()
 });
 var TRACKERS = ["linear", "jira", "notion", "github", "other"];
+var FileNameSchema = external_exports.string().regex(/^[A-Za-z0-9][\w-]{0,60}\.(webp|png|jpe?g)$/).optional().catch(void 0);
+var WebUrlSchema = external_exports.string().max(2e3).refine((v) => /^https?:\/\//i.test(v)).optional().catch(void 0);
 var ExternalSchema = external_exports.object({
   tracker: external_exports.enum(TRACKERS),
   key: short(80),
   // "ENG-123", "WEB-42", a Notion page id, "#57"
-  url: short(500).optional(),
+  url: WebUrlSchema,
   status: short(80).optional(),
   // last known status in the tracker
   synced: external_exports.string().optional()
@@ -15197,7 +15199,7 @@ var ExtraSchema = external_exports.object({
   anchor: AnchorSchema.default({}),
   elements: external_exports.array(ElementRefSchema).max(20).optional(),
   styles: StylesSchema.optional(),
-  shot: external_exports.string().optional()
+  shot: FileNameSchema
   // file name inside the item folder
 });
 var EvidenceSchema = external_exports.object({
@@ -15294,7 +15296,10 @@ var SuggestionSchema = external_exports.object({
   /** What to do about it. */
   fix: short(800).optional()
 });
+var ITEM_FORMAT = 1;
 var ItemMetaSchema = external_exports.object({
+  /** Format version (absent in files written before it existed: 1). A newer one is read but never overwritten. */
+  v: external_exports.number().int().optional(),
   id: external_exports.string(),
   status: StatusSchema,
   start: StartSchema.optional(),
@@ -15307,11 +15312,11 @@ var ItemMetaSchema = external_exports.object({
   author: external_exports.string(),
   created: external_exports.string(),
   route: external_exports.string().optional(),
-  url: external_exports.string().optional(),
+  url: WebUrlSchema,
   viewport: external_exports.string().optional(),
   // "1440x900"
   page: PageSchema.optional(),
-  design: short(500).optional(),
+  design: WebUrlSchema,
   // Figma or other design reference URL
   rect: RectSchema.optional(),
   anchor: AnchorSchema.default({}),
@@ -15324,9 +15329,9 @@ var ItemMetaSchema = external_exports.object({
   steps: external_exports.array(StepSchema).max(30).optional(),
   redacted: external_exports.boolean().optional(),
   // sensitive parts of the screenshot were masked
-  shot: external_exports.string().optional(),
+  shot: FileNameSchema,
   // file name inside the item folder
-  after: external_exports.string().optional(),
+  after: FileNameSchema,
   // screenshot of the same spot after the change, for review
   // A suggestion's shot starts as the whole scan screenshot; this is its element, as fractions of the image. The
   // overlay crops the shot to it (with a box round the element) and clears it.
@@ -15336,7 +15341,7 @@ var ItemMetaSchema = external_exports.object({
   review: ReviewSchema.optional(),
   external: ExternalSchema.optional(),
   suggestion: SuggestionSchema.optional()
-});
+}).passthrough();
 var WatcherSchema = external_exports.object({
   state: external_exports.enum(["waiting", "working"]),
   pid: external_exports.number().int(),
@@ -15380,6 +15385,8 @@ var ConfigSchema = external_exports.object({
   agent: external_exports.string().max(40).optional(),
   port: external_exports.number().int().default(4777),
   devOrigins: external_exports.array(external_exports.string()).default(["http://localhost:5173"]),
+  /** Extra browser-extension ids allowed to talk to the server (a store build, a self-built extension). */
+  extensionIds: external_exports.array(external_exports.string().regex(/^[a-p]{32}$/)).optional(),
   screenshot: external_exports.object({
     format: external_exports.enum(["webp", "png"]).default("webp"),
     maxBytes: external_exports.number().int().default(3e5),
@@ -15419,13 +15426,13 @@ var NewItemSchema = external_exports.object({
 import { execFileSync } from "node:child_process";
 import { existsSync, renameSync, rmSync } from "node:fs";
 import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 // ../core/dist/frontmatter.js
 var import_yaml = __toESM(require_dist(), 1);
 var FENCE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 function parseFrontmatter(text) {
-  const m = FENCE.exec(text);
+  const m = FENCE.exec(text.replace(/\r\n/g, "\n"));
   if (!m)
     throw new Error("missing frontmatter");
   return { data: import_yaml.default.parse(m[1]), body: m[2].replace(/^\r?\n/, "") };
@@ -15479,7 +15486,11 @@ var AhemStore = class _AhemStore {
       if (existsSync(join(dir, AHEMUI_DIR, "config.json")))
         return new _AhemStore(dir);
       if (existsSync(join(dir, LEGACY_DIR, "config.json")) && !existsSync(join(dir, AHEMUI_DIR))) {
-        renameSync(join(dir, LEGACY_DIR), join(dir, AHEMUI_DIR));
+        try {
+          renameSync(join(dir, LEGACY_DIR), join(dir, AHEMUI_DIR));
+        } catch (err) {
+          throw new AhemError(`couldn't rename ${LEGACY_DIR}/ to ${AHEMUI_DIR}/ (${err.code ?? err}). Stop anything using it (an old dev server, an editor) and try again, or rename it yourself.`);
+        }
         rmSync(join(dir, AHEMUI_DIR, WATCHER_FILE), { force: true });
         return new _AhemStore(dir);
       }
@@ -15513,7 +15524,7 @@ var AhemStore = class _AhemStore {
     const file = join(this.dir, ".gitignore");
     const current = existsSync(file) ? await readFile(file, "utf8") : "";
     const lines = current.split(/\r?\n/).filter(Boolean);
-    const missing = [WATCHER_FILE, CONTROL_FILE, "backlog.html", ".scans/"].filter((l) => !lines.includes(l));
+    const missing = [WATCHER_FILE, CONTROL_FILE, "backlog.html", ".scans/", "*.tmp"].filter((l) => !lines.includes(l));
     if (missing.length)
       await writeFile(file, [...lines, ...missing].join("\n") + "\n");
   }
@@ -15594,7 +15605,15 @@ var AhemStore = class _AhemStore {
     return join(this.dir, location, id);
   }
   shotPath(item) {
-    return item.shot ? join(this.itemDir(item.id, item.location), item.shot) : null;
+    return item.shot ? this.inItem(item, item.shot) : null;
+  }
+  /** A path inside the item's own folder; anything that would land elsewhere is refused. */
+  inItem(item, name) {
+    const dir = resolve(this.itemDir(item.id, item.location));
+    const path = resolve(dir, name);
+    if (!path.startsWith(dir + sep))
+      throw new AhemError(`${item.id}: "${name}" is not a file in the item's folder`);
+    return path;
   }
   /** Every image an item references (screenshot, extra areas, after-shot), keyed by file name. */
   files(item) {
@@ -15604,18 +15623,25 @@ var AhemStore = class _AhemStore {
   filePath(item, name) {
     if (!this.files(item).includes(name))
       throw new AhemError(`${item.id} has no file ${name}`);
-    return join(this.itemDir(item.id, item.location), name);
+    return this.inItem(item, name);
   }
+  /** Items the last list() couldn't read, so tools can report them instead of quietly leaving them out. */
+  unreadable = [];
   async list(opts = {}) {
     const locations = opts.includeDone ? ["items", "done"] : ["items"];
     const items = [];
+    const problems = [];
     for (const loc of locations) {
       for (const id of await this.ids(loc)) {
-        const item = await this.read(id, loc).catch(() => null);
+        const item = await this.read(id, loc).catch((err) => {
+          problems.push({ id, location: loc, error: err instanceof Error ? err.message.split("\n")[0].slice(0, 200) : String(err) });
+          return null;
+        });
         if (item && matches(item, opts))
           items.push(item);
       }
     }
+    this.unreadable = problems;
     return items.sort((a, b) => a.id.localeCompare(b.id));
   }
   /** Sets classification fields; `null` clears one. */
@@ -15640,6 +15666,9 @@ var AhemStore = class _AhemStore {
     }
     if (matches2.length === 0)
       throw new AhemError(`no item matching "${idOrPrefix}"`);
+    const ids = new Set(matches2.map((m) => m[0]));
+    if (ids.size === 1)
+      return this.read(...matches2[0]);
     if (matches2.length > 1)
       throw new AhemError(`"${idOrPrefix}" is ambiguous: ${matches2.map((m) => m[0]).join(", ")}`);
     return this.read(...matches2[0]);
@@ -15716,19 +15745,19 @@ var AhemStore = class _AhemStore {
     return scan.shot ? join(this.scansDir, scan.shot) : null;
   }
   /** Today's review batch for checks or for Claude ("UX review · 5 Oct"), created on first use. */
-  async reviewBatch(by) {
-    const day = (/* @__PURE__ */ new Date()).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  async reviewBatch(by, agent = "Agent") {
+    const day = (/* @__PURE__ */ new Date()).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
     const name = by === "agent" ? `UX review \xB7 ${day}` : `Automatic checks \xB7 ${day}`;
-    return await this.findBatch(name) ?? await this.createBatch({ name, intent: "review", author: by === "agent" ? "Claude (UX review)" : "AhemUI checks" });
+    return await this.findBatch(name) ?? await this.createBatch({ name, intent: "review", author: by === "agent" ? `${agent} (UX review)` : "AhemUI checks" });
   }
   /**
    * Files findings from a scan as suggestion items in today's review batch, pinned to the elements they're about.
    * A finding about the same element and rule as an open item is skipped, so re-running a review doesn't pile up.
    */
-  async suggest(scanRef, findings, by) {
+  async suggest(scanRef, findings, by, agent) {
     const scan = await this.getScan(scanRef);
-    const batch = await this.reviewBatch(by);
-    const open = await this.list({ status: ["open", "in-progress", "review"] });
+    const batch = await this.reviewBatch(by, agent);
+    const known = (await this.list({ includeDone: true })).filter((i) => i.route === scan.route && (i.status !== "done" && i.status !== "wontfix" ? true : !!i.suggestion));
     const shotPath = this.scanShotPath(scan);
     const shotData = shotPath && existsSync(shotPath) ? await readFile(shotPath) : void 0;
     const [vw, vh] = scan.viewport.split("x").map(Number);
@@ -15748,8 +15777,12 @@ var AhemStore = class _AhemStore {
       const f = FindingSchema.parse(raw);
       const el = f.n !== void 0 ? scan.elements.find((e) => e.n === f.n) : void 0;
       const selector = el?.selector ?? f.selector;
+      if (f.n !== void 0 && !el || !selector) {
+        skipped++;
+        continue;
+      }
       const ruleKey = (f.rule ?? f.request).toLowerCase();
-      const dup = open.some((i) => i.anchor.selector === selector && (i.suggestion?.rule ?? i.body.split("\n")[0]).toLowerCase() === ruleKey);
+      const dup = known.some((i) => i.anchor.selector === selector && (i.suggestion?.rule ?? i.body.split("\n")[0]).toLowerCase() === ruleKey);
       if (dup) {
         skipped++;
         continue;
@@ -15774,7 +15807,7 @@ var AhemStore = class _AhemStore {
       );
       const suggestion = SuggestionSchema.parse({ by, severity: f.severity, rule: f.rule, why: f.why, fix: f.fix });
       const saved = await this.save({ ...item, suggestion, shot_focus: item.shot ? focus : void 0 });
-      open.push(saved);
+      known.push(saved);
       created.push(saved);
     }
     return { created, skipped };
@@ -15863,7 +15896,7 @@ var AhemStore = class _AhemStore {
     });
     const item = { ...meta, body: prompt, location: "items" };
     await this.write(item);
-    return item;
+    return { ...item, v: ITEM_FORMAT };
   }
   /** "/abs/repo/src/A.vue:3" → "src/A.vue:3"; leaves already-relative or out-of-repo paths alone. */
   relativeSource(source) {
@@ -15963,7 +15996,7 @@ var AhemStore = class _AhemStore {
     const dir = this.itemDir(item.id, item.location);
     const name = `shot.${shot.ext}`;
     if (item.shot && item.shot !== name)
-      await rm(join(dir, item.shot), { force: true });
+      await rm(this.inItem(item, item.shot), { force: true });
     await writeFile(join(dir, name), shot.data);
     const now = await this.get(id);
     return this.save({ ...now, shot: name, shot_focus: void 0 });
@@ -15991,7 +16024,7 @@ var AhemStore = class _AhemStore {
         if (item.location !== "done" || Date.parse(item.created) > cutoff || !this.files(item).length)
           continue;
         for (const f of this.files(item))
-          await rm(join(this.itemDir(item.id, "done"), f), { force: true });
+          await rm(this.inItem(item, f), { force: true });
         shotsDropped += this.files(item).length;
         const extras = item.extras?.map((e) => ({ ...e, shot: void 0 }));
         await this.save(appendNote({ ...item, shot: void 0, after: void 0, extras }, "ahemui", "Screenshots removed when archiving.", "Note"));
@@ -16042,18 +16075,27 @@ var AhemStore = class _AhemStore {
     await writeFile(join(this.dir, ".gitattributes"), ["*.webp", "*.png", "*.jpg"].map((p) => `${p} filter=lfs diff=lfs merge=lfs -text`).join("\n") + "\n");
   }
   async save(item) {
+    if (item.v !== void 0 && item.v > ITEM_FORMAT) {
+      throw new AhemError(`${item.id} was written by a newer AhemUI (format ${item.v}). Update AhemUI to change it.`);
+    }
     await this.write(item);
-    return item;
+    return { ...item, v: ITEM_FORMAT };
   }
   async move(item, to) {
     const from = this.itemDir(item.id, item.location);
     const dest = this.itemDir(item.id, to);
     await mkdir(dirname(dest), { recursive: true });
     try {
-      await rename(from, dest);
+      await renameRetrying(from, dest);
     } catch {
       await cp(from, dest, { recursive: true });
-      await rm(from, { recursive: true, force: true });
+      try {
+        await rm(from, { recursive: true, force: true });
+      } catch (err) {
+        await rm(dest, { recursive: true, force: true }).catch(() => {
+        });
+        throw err;
+      }
     }
     return { ...item, location: to };
   }
@@ -16062,15 +16104,17 @@ var AhemStore = class _AhemStore {
     if (!existsSync(dir))
       return [];
     const entries = await readdir(dir, { withFileTypes: true });
-    return entries.filter((e) => e.isDirectory()).map((e) => e.name);
+    return entries.filter((e) => e.isDirectory() && existsSync(join(dir, e.name, ITEM_FILE))).map((e) => e.name);
   }
   async read(id, location) {
     const text = await readFile(join(this.itemDir(id, location), ITEM_FILE), "utf8");
     const { data, body } = parseFrontmatter(text);
-    return { ...ItemMetaSchema.parse(data), body: body.trimEnd(), location };
+    return { ...ItemMetaSchema.parse(data), id, body: body.trimEnd(), location };
   }
   async write(item) {
-    const { body, location, ...meta } = item;
+    const { body, location, ...rest } = item;
+    const { id, v, ...fields } = rest;
+    const meta = { id, v: v !== void 0 && v > ITEM_FORMAT ? v : ITEM_FORMAT, ...fields };
     const file = join(this.itemDir(item.id, location), ITEM_FILE);
     const tmp = `${file}.${process.pid}.${++tmpSeq}.tmp`;
     await writeFile(tmp, stringifyFrontmatter(meta, body));
@@ -16164,7 +16208,7 @@ import { writeFile as writeFile2 } from "node:fs/promises";
 import { basename, dirname as dirname2, join as join2, relative as relative2, resolve as resolve2 } from "node:path";
 
 // ../cli/src/board-assets.generated.ts
-var BOARD_JS = '"use strict";(()=>{function J(e,t="Confirm"){if(e.classList.contains("armed"))return!0;let a=e.innerHTML,n=e.getAttribute("aria-label");return e.style.minWidth=`${e.offsetWidth}px`,e.classList.add("armed"),e.textContent=t,e.setAttribute("aria-label",`${t}: click again to dismiss`),setTimeout(()=>{e.isConnected&&(e.classList.remove("armed"),e.innerHTML=a,e.style.minWidth="",n?e.setAttribute("aria-label",n):e.removeAttribute("aria-label"))},4e3),!1}var X=e=>!!e.querySelector(".armed");var P={"claude-code":{name:"Claude",app:"Claude Code"},codex:{name:"Codex",app:"Codex"}},Y="claude-code",B=P[Y];function O(...e){let t=e.find(a=>a&&P[a]);B=P[t??Y]}var g=()=>B.name,D=()=>B.app;var K=`\n:root {\n  --bg: #f6f6f9; --panel: #ffffff; --card: #ffffff; --line: #e3e4ec; --fg: #1d2030; --muted: #6b7084;\n  --accent: #16181d; --on-accent: #ffffff; --mark: #e5482c; --accent-soft: rgba(22,24,29,.07);\n  --open: #d97706; --doing: #2563eb; --review: #7c3aed; --done: #16a34a; --wontfix: #6b7280; --ask: #d97706;\n  --shadow: 0 1px 2px rgba(20,20,40,.06), 0 4px 16px rgba(20,20,40,.06);\n  color-scheme: light;\n}\n@media (prefers-color-scheme: dark) {\n  :root {\n    --bg: #111318; --panel: #171a21; --card: #1d2029; --line: #2b2f3a; --fg: #eceef4; --muted: #9398a8;\n    --accent: #f2f2f4; --on-accent: #111317; --mark: #ff5a3c; --accent-soft: rgba(242,242,244,.08);\n    --open: #f59e0b; --doing: #60a5fa; --review: #a78bfa; --done: #34d399; --wontfix: #9ca3af; --ask: #fbbf24;\n    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.25);\n    color-scheme: dark;\n  }\n}\n* { box-sizing: border-box; }\nhtml, body { margin: 0; height: 100%; }\nbody { background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }\na { color: var(--accent); }\ncode, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; }\nbutton, select, input, textarea { font: inherit; color: inherit; }\n\n.top { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }\n.brand { display: flex; align-items: center; gap: 6px; white-space: nowrap; }\n.brand .logo { color: var(--mark); font-size: 18px; }\n.brand .proj { color: var(--muted); margin-left: 6px; }\n.filters { display: flex; gap: 8px; flex: 1; min-width: 280px; flex-wrap: wrap; align-items: center; }\n.filters input.search { flex: 1; min-width: 180px; }\n.filters input.search, .filters select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; outline: none; }\n.filters input:focus, .filters select:focus { border-color: var(--accent); }\n.f-arch { color: var(--muted); font-size: 13px; display: flex; gap: 4px; align-items: center; }\n.status { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: 12px; flex-wrap: wrap; }\n.status b { color: var(--fg); }\n.live { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }\n.live.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }\n.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wontfix); }\n.dot.ok { background: var(--done); }\n.banner { padding: 8px 20px; background: var(--accent-soft); color: var(--fg); font-size: 13px; border-bottom: 1px solid var(--line); }\n\n.board { flex: 1; overflow: auto; padding: 16px 20px 40px; }\n.board.columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 14px; align-items: start; }\n.col h2, .grp h2 { font-size: 13px; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\n.col h2 span, .grp h2 span { background: var(--line); color: var(--fg); border-radius: 999px; padding: 0 8px; font-size: 12px; }\n.col-queue h2 { color: var(--open); }\n.col h2 .clear { margin-left: auto; margin-right: 6px; font-size: 11px; padding: 1px 8px; text-transform: none; letter-spacing: 0; }\n.col-you h2 { color: var(--review); }\n.col .cards { display: flex; flex-direction: column; gap: 10px; }\n.board.groups .grp { margin-bottom: 24px; }\n.board.groups .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }\n.empty { color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 0; }\n.empty.big { font-size: 14px; }\n\n.card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--open); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); cursor: pointer; display: flex; flex-direction: column; gap: 6px; outline: none; }\n.card:hover, .card:focus-visible { border-color: var(--accent); border-left-width: 3px; }\n.card.sel { outline: 2px solid var(--accent); outline-offset: 1px; }\n.card.s-in-progress { border-left-color: var(--doing); }\n.card.s-review { border-left-color: var(--review); }\n.card.s-done { border-left-color: var(--done); }\n.card.s-wontfix { border-left-color: var(--wontfix); opacity: .75; }\n.card.s-ask { border-left-color: var(--ask); }\n.thumb { margin: -2px -4px 0; border-radius: 6px; overflow: hidden; background: var(--bg); max-height: 120px; display: flex; align-items: center; justify-content: center; }\n.thumb img { max-width: 100%; max-height: 120px; display: block; }\n.c-title { font-weight: 600; }\n.c-page { color: var(--muted); font-size: 12px; }\n.chips { display: flex; flex-wrap: wrap; gap: 4px; }\n.chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }\n.chip.t { color: var(--fg); }\n.chip.now, .chip.ask { color: var(--open); border-color: var(--open); }\n.chip.review { color: var(--review); border-color: var(--review); }\n.chip.high { color: #dc2626; border-color: #dc2626; }\n.chip.ext { color: var(--accent); border-color: var(--accent); }\n.c-foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; gap: 8px; }\n.quick { border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); border-radius: 6px; padding: 2px 9px; font-size: 12px; cursor: pointer; white-space: nowrap; }\n\n.scrim { position: fixed; inset: 0; background: rgba(8,9,12,.62); backdrop-filter: blur(2px); z-index: 9; }\n.scrim[hidden] { display: none; }\n.drawer { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 80px rgba(0,0,0,.45); overflow: hidden; display: flex; flex-direction: column; z-index: 10; }\n.drawer:not([hidden]) { display: flex; }\n.d-head { flex: none; padding: 12px 16px 10px 24px; border-bottom: 1px solid var(--line); }\n.d-head .open-page { margin-left: auto; font-size: 12px; text-decoration: none; }\n.d-head .open-page + .x { margin-left: 4px; }\n.d-body { flex: 1; overflow: auto; padding: 16px 24px 24px; }\n.d-body h1.request { margin-top: 0; }\n.d-status { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 4px; font-size: 13px; }\n.d-status .sdot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--open); transform: translateY(-1px); }\n.d-status span:last-child { color: var(--muted); }\n.st-doing .sdot { background: var(--doing); } .st-review .sdot { background: var(--review); } .st-done .sdot { background: var(--done); }\n.st-wontfix .sdot { background: var(--wontfix); } .st-ask .sdot { background: var(--ask); }\n.answer { margin: 14px 0 4px; }\n.new-batch { display: flex; gap: 8px; }\n.new-batch[hidden] { display: none; }\n.new-batch input { flex: 1; }\n.grp h2 .grp-act { margin-left: auto; margin-right: 8px; font-size: 11px; padding: 2px 10px; text-transform: none; letter-spacing: 0; }\n.chip.suggest { color: #0d9488; border-color: #0d9488; }\n.st-suggest .sdot { background: #0d9488; }\n.sugg { margin: 12px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--bg); border-left: 3px solid #0d9488; }\n.sugg p { margin: 4px 0; }\n.sugg b { margin-right: 6px; }\n.sugg .muted { color: var(--muted); font-size: 12px; }\n.saved-hint { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }\n.answer label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }\n.d-foot { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--line); background: var(--bg); }\n.btn.quiet { border-color: transparent; background: none; color: var(--muted); }\n.btn.quiet:hover { color: #dc2626; border-color: transparent; }\n.zoom { display: block; padding: 0; border: 0; background: none; cursor: zoom-in; width: 100%; }\n.lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(5,6,10,.86); display: grid; place-items: center; padding: 32px; cursor: zoom-out; }\n.lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 30px 80px rgba(0,0,0,.6); background: #fff; }\n.lb-x { position: fixed; top: 14px; right: 16px; border: 0; background: rgba(255,255,255,.12); color: #fff; width: 34px; height: 34px; border-radius: 50%; font-size: 15px; cursor: pointer; }\n/* drag and drop between columns */\n.card[draggable] { cursor: grab; }\n.card.dragging { opacity: .45; }\n.board.is-dragging .col:not(.can-drop) { opacity: .45; }\n.col.can-drop .cards { min-height: 60px; border-radius: 10px; transition: background .12s; }\n.col.over .cards { background: var(--accent-soft); outline: 2px dashed var(--accent); outline-offset: 4px; }\n.drawer[hidden] { display: none; }\nbody.modal-open { overflow: hidden; }\n@media (max-width: 640px) { .drawer { top: auto; bottom: 0; left: 0; transform: none; width: 100vw; max-height: 92vh; border-radius: 14px 14px 0 0; } }\n.d-head { display: flex; align-items: center; gap: 10px; }\n.d-head code { color: var(--muted); }\n.d-head .x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--muted); }\n.drawer h1 { font-size: 18px; margin: 10px 0 2px; }\n.drawer h1.request { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.35; margin-top: 14px; }\n.drawer .chips { margin: 10px 0 14px; }\n.id-copy { border: 0; background: none; padding: 2px 4px; border-radius: 5px; cursor: pointer; }\n.id-copy:hover { background: var(--card); }\ndetails.tech { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }\ndetails.tech summary { cursor: pointer; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }\ndetails.tech[open] summary { margin-bottom: 4px; }\n.d-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }\n.pill { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; color: #fff; background: var(--open); }\n.pill.s-in-progress { background: var(--doing); } .pill.s-review { background: var(--review); } .pill.s-done { background: var(--done); } .pill.s-wontfix { background: var(--wontfix); } .pill.s-ask { background: var(--ask); color: #111; }\n.acts { display: flex; gap: 6px; flex-wrap: wrap; }\n.acts.minor .btn { font-size: 12px; padding: 3px 10px; }\n.btn { border: 1px solid var(--line); background: var(--card); border-radius: 7px; padding: 5px 12px; cursor: pointer; text-decoration: none; color: var(--fg); }\n.btn:hover { border-color: var(--accent); }\n.btn.armed { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 600; }\n.bolt { display: inline-block; vertical-align: -1px; margin-right: 4px; }\n.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }\ntextarea { width: 100%; min-height: 64px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; outline: none; }\ntextarea:focus, .triage input:focus, .triage select:focus { border-color: var(--accent); }\nfigure { margin: 0 0 12px; }\nfigure img { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }\nfigcaption { color: var(--muted); font-size: 11px; margin-top: 3px; }\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.pending { height: 80px; display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 8px; padding: 6px; }\nsection { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 14px; }\nsection h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }\n.prose { white-space: pre-wrap; overflow-wrap: anywhere; }\n.entry { border-left: 2px solid var(--line); padding-left: 10px; margin-top: 10px; }\n.entry .who { color: var(--muted); font-size: 12px; }\n.entry .who b { color: var(--fg); font-weight: 600; }\n.entry.k-question { border-color: var(--ask); }\n.entry.k-feedback { border-color: #dc2626; }\n.entry.k-reply, .entry.k-approved { border-color: var(--done); }\ndl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }\ndt { color: var(--muted); font-size: 12px; }\ndd { margin: 0; overflow-wrap: anywhere; }\n.triage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.triage label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }\n.triage .wide { grid-column: 1 / -1; }\n.triage input, .triage select { background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; color: var(--fg); outline: none; }\n.mono-list { margin: 0; padding-left: 18px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }\npre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; overflow: auto; font-size: 12px; max-height: 260px; margin: 0; }\n.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }\n.toast.show { opacity: 1; }\n.toast.has-action.show { pointer-events: auto; }\n.toast-undo { margin-left: 10px; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }\n\n@media (max-width: 700px) {\n  .top { padding: 10px 16px; }\n  .board { padding: 12px 16px 40px; }\n  .board.columns { grid-auto-flow: row; grid-auto-columns: auto; }\n  .compare, .triage { grid-template-columns: 1fr; }\n}\n`;var R=\'<svg class="bolt" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="currentColor"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>\',y=window.__AHEMUI_BOARD__,h=y.mode==="live",V,r={items:y.items??[],batches:y.batches??[],watcher:null,connected:!h,project:y.project??"",branch:y.branch??null,q:"",type:"",groupBy:"status",archived:!1,selected:location.hash.slice(1)||null},ne=["bug","style","layout","copy","feature","a11y","other"],ce=["high","normal","low"];var re=[{key:"queue",title:"\\u26A1 Queue",get hint(){return`${g()} works these as soon as a session runs /ahemui:watch`},test:e=>e.status==="open"&&e.start==="now"&&!e.needs_reply},{key:"backlog",title:"Backlog",hint:"Saved for later: /ahemui:work, or press Start",test:e=>e.status==="open"&&e.start!=="now"&&!e.needs_reply},{key:"progress",title:"In progress",get hint(){return`${g()} is on it`},test:e=>e.status==="in-progress"},{key:"you",title:"In review",get hint(){return`Review the result, or answer ${g()}\'s question`},test:e=>e.status==="review"||e.status==="open"&&!!e.needs_reply},{key:"done",title:"Done",hint:"Approved, done or won\'t fix",test:e=>e.status==="done"||e.status==="wontfix"}];async function p(e,t,a){let n=await fetch(t,{method:e,headers:{"Content-Type":"application/json"},body:a===void 0?void 0:JSON.stringify(a)}),o=await n.json().catch(()=>({}));if(!n.ok)throw new Error(o.error??`HTTP ${n.status}`);return o}function _(e,t){return h?`/api/items/${e.id}/file/${encodeURIComponent(t)}`:`${y.base?`${y.base}/`:""}${e.location}/${e.id}/${encodeURIComponent(t)}`}async function oe(){try{let t=await p("GET","/api/health");V=t.agent,r.project=t.project,r.branch=t.branch,r.watcher=t.watcher,O(r.watcher?.agent,t.agent),r.items=await p("GET",r.archived?"/api/items?all":"/api/items"),r.batches=await p("GET","/api/batches").catch(()=>[]),m()}catch{}let e=new WebSocket(`ws://${location.host}/ws`);e.onopen=()=>{r.connected=!0,N()},e.onmessage=t=>{let a=JSON.parse(t.data);a.type==="items"&&(r.items=r.archived?[...a.items,...r.items.filter(n=>n.location==="done")]:a.items,a.watcher!==void 0&&(r.watcher=a.watcher),O(r.watcher?.agent,V),a.items.some(n=>n.batch&&!r.batches.some(o=>o.id===n.batch))&&p("GET","/api/batches").then(n=>(r.batches=n,m()),()=>{}),m())},e.onclose=()=>{r.connected=!1,N(),setTimeout(oe,2e3)}}var f=e=>document.querySelector(e);function de(){document.head.insertAdjacentHTML("beforeend",`<style>${K}</style>`),document.body.innerHTML=`\n    <header class="top">\n      <div class="brand"><span class="logo">\\u25C9</span> <b>AhemUI</b> <span class="proj"></span></div>\n      <div class="filters">\n        <input class="search" type="search" placeholder="Search requests, pages, files\\u2026  ( / )">\n        <select class="f-type"><option value="">All types</option>${ne.map(e=>`<option>${e}</option>`).join("")}</select>\n        <select class="f-group">\n          <option value="status">Columns by status</option>\n          <option value="page">Group by page</option>\n          <option value="area">Group by area</option>\n          <option value="batch">Group by batch</option>\n        </select>\n        <label class="f-arch"><input type="checkbox"> archived</label>\n      </div>\n      <div class="status"></div>\n    </header>\n    ${h?"":`<div class="banner">Read-only snapshot${y.generated?` from ${new Date(y.generated).toLocaleString()}`:""}. For the live board with actions, run <code>npx ahemui board</code> in the repo.</div>`}\n    <main class="board"></main>\n    <div class="scrim" hidden></div>\n    <aside class="drawer" role="dialog" aria-modal="true" aria-label="Item details" hidden></aside>\n    <div class="toast"></div>`,f(".scrim").addEventListener("click",()=>S(null)),f(".search").addEventListener("input",e=>{r.q=e.target.value.toLowerCase(),E()}),f(".f-type").addEventListener("change",e=>{r.type=e.target.value,E()}),f(".f-group").addEventListener("change",e=>{r.groupBy=e.target.value,E()}),f(".f-arch input").addEventListener("change",async e=>{r.archived=e.target.checked,h&&r.archived&&(r.items=await p("GET","/api/items?all").catch(()=>r.items)),E()}),addEventListener("keydown",e=>{let t=e.target.closest("input, textarea, select");e.key==="/"&&!t?(e.preventDefault(),f(".search").focus()):e.key==="Escape"&&S(null)}),addEventListener("hashchange",()=>S(location.hash.slice(1)||null,!1)),f(".board").addEventListener("click",e=>{let t=e.target.closest(".card"),a=e.target.closest("[data-quick]");if(a)return e.stopPropagation(),C(a.dataset.id,a.dataset.quick);t&&S(t.dataset.id)})}function m(){N(),E(),se()}function N(){let e=r.items.filter(s=>s.location==="items"),t=r.watcher;f(".proj").textContent=[r.project,r.branch].filter(Boolean).join(" \\xB7 "),document.title=`AhemUI backlog${r.project?` \\u2014 ${r.project}`:""}`;let a=re.map(s=>`<span title="${s.hint}">${s.title} <b>${e.filter(s.test).length}</b></span>`).join(""),n=h?t?`<span class="live ${t.paused||t.stopping?"":"on"}">${g()} ${t.stopping?"stopping":t.paused?"paused":t.state==="waiting"?"watching":"working"}</span>`:`<span class="live" title="Run /ahemui:watch in ${D()}">No ${g()} session watching</span>`:"",o=h?`<span class="dot ${r.connected?"ok":""}" title="${r.connected?"Live":"Reconnecting\\u2026"}"></span>`:"";f(".status").innerHTML=`${a}${n}${o}`}function le(){return r.items.filter(e=>r.archived||e.location==="items").filter(e=>!r.type||e.type===r.type).filter(e=>r.q?[e.body,e.id,e.area,e.route,e.anchor.source,e.anchor.text,e.page?.heading,e.page?.title,e.page?.routeName,e.page?.section,e.labels?.join(" "),e.external?.key].filter(Boolean).join(" ").toLowerCase().includes(r.q):!0).sort((e,t)=>t.id>e.id?1:-1)}function E(){let e=le(),t=f(".board");if(r.groupBy==="status")t.className="board columns",t.innerHTML=re.map(a=>{let n=e.filter(a.test),o=n.filter(c=>c.location==="items").length,s=h&&a.key==="done"&&o?`<button class="btn clear" data-quick="prune" data-id="" title="Archive every done and won\'t-fix item (moves them to .ahemui/done/)">Clear ${o}</button>`:"";return`<section class="col col-${a.key}" data-col="${a.key}"><h2 title="${a.hint}">${a.title} <span>${n.length}</span>${s}</h2><div class="cards">${n.map(ee).join("")||`<p class="empty">${a.hint}</p>`}</div></section>`}).join("");else{t.className="board groups";let a=new Map;for(let n of e){let o=r.groupBy==="page"?U(n.page,n.route):r.groupBy==="batch"?ie(n):n.area??"No area yet (run /ahemui:triage)";a.set(o,[...a.get(o)??[],n])}t.innerHTML=[...a].sort(([n],[o])=>n.localeCompare(o)).map(([n,o])=>`<section class="grp"><h2>${i(n)} <span>${o.length}</span>${r.groupBy==="batch"&&h?ve(o):""}</h2><div class="cards">${o.map(ee).join("")}</div></section>`).join("")||\'<p class="empty big">Nothing matches.</p>\'}t.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===r.selected)),h&&r.groupBy==="status"&&pe(t),t.querySelectorAll("[data-batch-act]").forEach(a=>a.addEventListener("click",n=>{n.stopPropagation(),we(a.dataset.batchAct,a.dataset.batchId)}))}function Z(e,t){let a=e.status==="open"&&!e.needs_reply,n=e.status==="done"||e.status==="wontfix";if(a&&e.intent==="review"){if(t==="queue")return{act:"accept-now",label:`Taken on and queued for ${g()}`};if(t==="backlog")return{act:"accept-later",label:"Taken on, in the backlog"}}return t==="queue"&&a&&e.start!=="now"?{act:"start",label:`Queued for ${g()}`}:t==="backlog"&&a&&e.start==="now"?{act:"later",label:"Moved to the backlog"}:t==="backlog"&&(n||e.status==="in-progress")?{act:"reopen",label:"Back in the backlog"}:t==="done"&&!n?{act:"done",label:"Marked done"}:null}var L=null;function pe(e){e.querySelectorAll(".card[draggable]").forEach(t=>{t.addEventListener("dragstart",a=>{L=t.dataset.id,a.dataTransfer?.setData("text/plain",L),a.dataTransfer&&(a.dataTransfer.effectAllowed="move"),t.classList.add("dragging");let n=r.items.find(o=>o.id===L);e.querySelectorAll(".col").forEach(o=>o.classList.toggle("can-drop",!!Z(n,o.dataset.col))),e.classList.add("is-dragging")}),t.addEventListener("dragend",()=>{L=null,t.classList.remove("dragging"),e.classList.remove("is-dragging"),e.querySelectorAll(".col").forEach(a=>a.classList.remove("can-drop","over"))})}),e.querySelectorAll(".col").forEach(t=>{t.addEventListener("dragover",a=>{!L||!t.classList.contains("can-drop")||(a.preventDefault(),t.classList.add("over"))}),t.addEventListener("dragleave",a=>{t.contains(a.relatedTarget)||t.classList.remove("over")}),t.addEventListener("drop",async a=>{a.preventDefault(),t.classList.remove("over");let n=r.items.find(c=>c.id===L),o=n&&Z(n,t.dataset.col);if(!n||!o)return;let s={status:n.status,start:n.start};await C(n.id,o.act),u(o.label,async()=>{await I(n.id,s.status),s.start&&s.status==="open"&&await p("POST",`/api/items/${n.id}/start`,{start:s.start}).then(c=>(r.items=r.items.map(l=>l.id===c.id?c:l),m()))})})})}function ee(e){let t=e.status==="open"&&e.needs_reply,a=[e.start==="now"&&e.status==="open"&&!t?\'<span class="chip now">\\u26A1 queued</span>\':"",e.suggestion&&e.intent==="review"?`<span class="chip suggest">\\u2726 ${e.suggestion.by==="checks"?"check":"suggestion"} \\xB7 ${e.suggestion.severity}</span>`:e.intent==="review"?\'<span class="chip ask">for review</span>\':"",t?\'<span class="chip ask">? question for you</span>\':"",e.status==="review"?\'<span class="chip review">\\u25CE review</span>\':"",e.status==="wontfix"?`<span class="chip">won\'t fix</span>`:"",e.location==="done"?\'<span class="chip">archived</span>\':"",e.type?`<span class="chip t">${i(e.type)}</span>`:"",e.priority==="high"?\'<span class="chip high">high</span>\':"",e.area?`<span class="chip">${i(e.area)}</span>`:"",...(e.labels??[]).map(o=>`<span class="chip">#${i(o)}</span>`),e.external?`<span class="chip ext">${i(e.external.key)}</span>`:""].join(""),n=h&&e.status==="open"&&!t&&e.start!=="now"&&e.intent!=="review"?`<button class="quick" data-quick="start" data-id="${e.id}" title="Have ${g()} work on this now">${r.watcher?.state==="working"?"Add to queue":`${R}Start`}</button>`:"";return`<article class="card s-${e.status}${t?" s-ask":""}" data-id="${e.id}" tabindex="0"${h&&e.location==="items"?\' draggable="true"\':""}>\n    ${e.shot?`<div class="thumb"><img loading="lazy" src="${_(e,e.shot)}" alt=""></div>`:""}\n    <div class="c-title">${i(xe(e))}</div>\n    <div class="c-page">${i(U(e.page,e.route))}${e.page?.section?` \\u203A ${i(e.page.section)}`:""}</div>\n    ${a?`<div class="chips">${a}</div>`:""}\n    <div class="c-foot"><span>${i(e.author)} \\xB7 ${$e(e.created)}</span>${n}</div>\n  </article>`}function S(e,t=!0){r.selected=e,t&&history.replaceState(null,"",e?`#${e}`:location.pathname+location.search),se(),document.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===e))}function se(){let e=f(".drawer"),t=r.items.find(d=>d.id===r.selected),a=f(".scrim");if(!t){e.hidden=!0,a.hidden=!0,document.body.classList.remove("modal-open");return}let n=new Map([...e.querySelectorAll("[data-keep]")].map(d=>[d.dataset.keep,d.value])),o=document.activeElement,s=!!o&&e.contains(o)&&/^(INPUT|TEXTAREA)$/.test(o.tagName),c=!!e.querySelector(".new-batch:not([hidden])");if(e.dataset.id===t.id&&([...n.values()].some(d=>d.trim())||X(e)||s||c))return;e.dataset.id=t.id,e.hidden=!1,a.hidden=!1,document.body.classList.add("modal-open");let l=t.status==="open"&&t.needs_reply,{prompt:b,thread:W}=ye(t.body),x=t.page??{},T=t.anchor,M=[];t.status==="review"||t.after?M.push(`<div class="compare">${A(t,t.shot,"before")}${t.after?A(t,t.after,"after"):\'<figure><div class="pending">after-shot is taken when the page is open</div><figcaption>after</figcaption></figure>\'}</div>`):t.shot&&M.push(A(t,t.shot,"highlighted area"));for(let[d,v]of(t.extras??[]).entries())v.shot&&M.push(A(t,v.shot,v.role==="reference"?`area ${d+2}: example to match`:`area ${d+2}: also applies here`));let F=[t.type,t.priority&&t.priority!=="normal"?`${t.priority} priority`:"",t.area,...(t.labels??[]).map(d=>`#${d}`),t.batch?`batch: ${ie(t)}`:""].filter(Boolean),Q=[w("Components",T.components?.join(" \\u203A ")),w("Page file",x.pageFile,!0),w("Story",x.storyTitle?`${x.storyTitle}${x.storyFile?` \\u2014 ${x.storyFile}`:""}`:void 0),w("Element",T.text?`"${T.text}"`:void 0),w("CSS path",T.selector,!0),w("Seen in",[x.browser,t.viewport,x.colorScheme&&`${x.colorScheme} mode`].filter(Boolean).join(", "))].join(""),H=ue(t,l);e.innerHTML=`\n    <div class="d-head">\n      <button class="id-copy" data-act="copy" title="Copy id"><code>${t.id.slice(0,10)}\\u2026</code></button>\n      ${t.url?`<a class="open-page" href="${i(t.url)}" target="_blank" rel="noopener">Open page \\u2197</a>`:""}\n      <button class="x" title="Close (Esc)" aria-label="Close">\\u2715</button>\n    </div>\n    <div class="d-body">\n      <h1 class="request">${i(b.trim())}</h1>\n      <div class="d-status st-${H.tone}"><span class="sdot"></span><b>${H.title}</b><span>${H.text}</span></div>\n      <div class="d-sub">${i(t.author)} \\xB7 ${new Date(t.created).toLocaleString()}${F.length?` \\xB7 ${F.map(i).join(" \\xB7 ")}`:""}</div>\n      ${t.suggestion?`<div class="sugg"><p><b>Why</b> ${i(t.suggestion.why)}</p>${t.suggestion.fix?`<p><b>Suggested fix</b> ${i(t.suggestion.fix)}</p>`:""}${t.suggestion.rule?`<p class="muted">${i(t.suggestion.rule)}</p>`:""}</div>`:""}\n      ${h?ge(t,l):""}\n      ${M.join("")}\n      ${W.length?`<section><h3>Conversation</h3>${W.map(d=>`<div class="entry k-${d.kind.toLowerCase()}"><div class="who"><b>${i(d.who)}</b> \\xB7 ${i(d.kind.toLowerCase())}</div><div class="prose">${i(d.text)}</div></div>`).join("")}</section>`:""}\n      <section><h3>Where</h3><dl>\n        ${w("Page",U(x,t.route)+(x.section?` \\u203A ${x.section}`:""))}\n        ${w("Code",T.source,!0)}\n        ${t.url?`<dt>URL</dt><dd><a href="${i(t.url)}" target="_blank" rel="noopener">${i(t.url)}</a>${x.env==="deployed"?" (deployed)":""}</dd>`:""}\n        ${t.design?`<dt>Design</dt><dd><a href="${i(t.design)}" target="_blank" rel="noopener">${i(t.design)}</a></dd>`:""}\n        ${t.external?`<dt>Ticket</dt><dd>${t.external.url?`<a href="${i(t.external.url)}" target="_blank" rel="noopener">${i(t.external.key)}</a>`:i(t.external.key)}${t.external.status?` \\xB7 ${i(t.external.status)}`:""}</dd>`:""}\n      </dl></section>\n      ${fe(t)}\n      <details class="tech"><summary>Technical details</summary>\n        ${Q?`<section><dl>${Q}</dl></section>`:""}\n        ${be(t)}\n      </details>\n    </div>\n    ${h?me(t,l):""}`;for(let[d,v]of n){let $=e.querySelector(`[data-keep="${d}"]`);$&&($.value=v)}e.querySelector(".x").addEventListener("click",()=>S(null)),e.querySelectorAll("[data-act]").forEach(d=>d.addEventListener("click",()=>{d.dataset.act==="dismiss"&&!J(d)||C(t.id,d.dataset.act)})),e.querySelectorAll("textarea, input").forEach(d=>d.addEventListener("keydown",v=>v.stopPropagation())),e.querySelectorAll("[data-t]").forEach(d=>{d.addEventListener("change",()=>C(t.id,"triage")),d instanceof HTMLInputElement&&d.addEventListener("keydown",v=>v.key==="Enter"&&d.blur())});let z=e.querySelector("[data-batch]"),k=e.querySelector(".new-batch");z?.addEventListener("change",async()=>{if(z.value==="new"){k.hidden=!1,k.querySelector("input").focus();return}k.hidden=!0,await ae(t.id,z.value||null)});let q=k?.querySelector("[data-new-batch]"),j=!1,G=async()=>{let d=q.value.trim();if(!d||j)return;j=!0;let v=k.querySelector("[data-new-intent]").value;try{let $=await p("POST","/api/batches",{name:d,intent:v});r.batches=[$,...r.batches],k.hidden=!0,q.blur(),await ae(t.id,$.id)}catch($){j=!1,u($.message)}};q?.addEventListener("keydown",d=>{d.stopPropagation(),d.key==="Enter"&&G()}),q?.addEventListener("change",G),e.querySelectorAll("[data-zoom]").forEach(d=>d.addEventListener("click",()=>he(d.dataset.zoom)))}function A(e,t,a){return t?`<figure><button class="zoom" data-zoom="${_(e,t)}" title="Enlarge"><img src="${_(e,t)}" alt=""></button><figcaption>${i(a)}</figcaption></figure>`:`<figure><div class="pending">no screenshot</div><figcaption>${i(a)}</figcaption></figure>`}function ue(e,t){let a=e.location==="done"?" (archived)":"";if(t)return{title:"Question for you",text:`${g()} asked something before going on. Answer below.`,tone:"ask"};if(e.intent==="review"&&e.status==="open")return e.suggestion?{title:`Suggestion \\xB7 ${e.suggestion.severity}`,text:`From ${e.suggestion.by==="checks"?"the automatic checks":`${g()}\'s UX review`}. Take it on, or dismiss it.`,tone:"suggest"}:{title:"Flagged for review",text:"Decide whether this becomes a change.",tone:"suggest"};switch(e.status){case"open":return e.start==="now"?{title:`Queued for ${g()}`,text:r.watcher?`${g()} starts on it next.`:`Starts as soon as a ${g()} session runs /ahemui:watch.`,tone:"open"}:{title:"In the backlog",text:"Waits for /ahemui:work, or start it now.",tone:"open"};case"in-progress":return{title:"In progress",text:`${e.claimed_by?i(e.claimed_by):g()} is working on it.`,tone:"doing"};case"review":return{title:"Ready for your review",text:"Compare before and after, then approve it or send it back.",tone:"review"};case"done":return{title:`Done${a}`,text:"",tone:"done"};default:return{title:`Won\'t fix${a}`,text:"",tone:"wontfix"}}}function ge(e,t){return t?`<div class="answer"><label>Your answer</label><textarea data-keep="reply" placeholder="Answer ${g()}\'s question\\u2026"></textarea></div>`:e.status==="review"?`<div class="answer"><label>If it\'s not right yet</label><textarea data-keep="changes" placeholder="Say what still needs to change, then Send back"></textarea></div>`:""}function me(e,t){let a=(c,l,b="")=>`<button class="btn ${b}" data-act="${c}">${l}</button>`,n=r.watcher?.state==="working"?"Add to queue":`${R}Start now`,o="",s="";return e.intent==="review"&&e.status==="open"&&!t?(o=a("dismiss","Dismiss","quiet"),s=a("accept-later","Later")+a("accept-now","Do it","primary")):t?(o=a("dismiss","Dismiss","quiet"),s=a("reply","Send answer","primary")):e.status==="review"?(o=a("dismiss","Dismiss","quiet"),s=a("changes","Send back")+a("approve","Looks good \\u2713","primary")):e.status==="open"?(o=a("dismiss","Dismiss","quiet"),s=e.start==="now"?a("later","Move to backlog")+a("done","Mark done"):a("done","Mark done")+a("start",n,"primary")):e.status==="in-progress"?(o=a("dismiss","Dismiss","quiet"),s=a("reopen","Put back to open")+a("done","Mark done","primary")):e.location==="items"?s=a("reopen","Reopen")+a("archive","Archive","primary"):s=a("reopen","Reopen","primary"),`<div class="d-foot"><div>${o}</div><div class="acts">${s}</div></div>`}function he(e){let t=document.createElement("div");t.className="lightbox",t.setAttribute("role","dialog"),t.setAttribute("aria-label","Screenshot"),t.innerHTML=`<img src="${i(e)}" alt=""><button class="lb-x" aria-label="Close">\\u2715</button>`;let a=()=>{t.remove(),removeEventListener("keydown",n,!0)},n=o=>{o.key==="Escape"&&(o.stopPropagation(),a())};t.addEventListener("click",a),addEventListener("keydown",n,!0),document.body.appendChild(t)}function fe(e){if(!h){let a=[e.type,e.priority,e.area,...(e.labels??[]).map(n=>`#${n}`)].filter(Boolean).join(" \\xB7 ");return a?`<section><h3>Classification</h3><p>${i(a)}</p></section>`:""}let t=(a,n,o="\\u2014")=>`<option value="">${o}</option>${a.map(s=>`<option ${s===n?"selected":""}>${s}</option>`).join("")}`;return`<section><h3>Classification</h3><div class="triage">\n    <label>Type <select data-t="type">${t(ne,e.type)}</select></label>\n    <label>Priority <select data-t="priority">${t(ce,e.priority,"normal")}</select></label>\n    <label class="wide">Batch <select data-batch>\n      <option value="">No batch</option>\n      ${r.batches.map(a=>`<option value="${a.id}" ${a.id===e.batch?"selected":""}>${i(a.name)} (${a.intent==="review"?"for review":"changes"})</option>`).join("")}\n      <option value="new">New batch\\u2026</option>\n    </select></label>\n    <div class="new-batch wide" hidden>\n      <input data-new-batch placeholder="Batch name" maxlength="120">\n      <select data-new-intent><option value="action">Changes to make</option><option value="review">For review</option></select>\n    </div>\n    <label class="wide">Area <input data-t="area" value="${i(e.area??"")}" placeholder="Page \\u203A Section"></label>\n    <label class="wide">Labels <input data-t="labels" value="${i((e.labels??[]).join(", "))}" placeholder="mobile, dark-mode"></label>\n    <div class="saved-hint">Saved as you change it</div>\n  </div></section>`}function be(e){let t=[],a=e.styles;a?.computed&&t.push(`<section><h3>Styles</h3><dl>${Object.entries(a.computed).map(([l,b])=>w(l,`${b}${a.tokens?.[l]?`  \\u2192  ${a.tokens[l]}`:""}`,!0)).join("")}${a.classes?w("classes",a.classes.join(" "),!0):""}</dl></section>`);let n=e.evidence;(n?.console?.length||n?.network?.length)&&t.push(`<section><h3>Errors before capture</h3><ul class="mono-list">${[...(n.console??[]).map(l=>`<li><b>console.${i(l.level)}</b> ${i(l.message)}</li>`),...(n.network??[]).map(l=>`<li><b>${i(l.method)} ${l.status||"failed"}</b> ${i(l.url)}</li>`)].join("")}</ul></section>`);let o=e.steps;o?.length&&t.push(`<section><h3>Steps before capture</h3><ol class="mono-list">${o.map(l=>`<li>${i(l.kind)} ${i(l.target??"")}${l.detail?` (${i(l.detail)})`:""}</li>`).join("")}</ol></section>`);let s=e.a11y;s?.length&&t.push(`<section><h3>Accessibility</h3><ul class="mono-list">${s.map(l=>`<li><b>${i(l.impact??"")}</b> ${i(l.id)}: ${i(l.help)}</li>`).join("")}</ul></section>`);let c=e.state;return c&&(c.props!==void 0||c.state!==void 0)&&t.push(`<section><h3>Component state${c.component?` \\xB7 ${i(c.component)}`:""}</h3><pre>${i(JSON.stringify({props:c.props,state:c.state},null,2))}</pre></section>`),t.join("")}async function C(e,t){if(t==="prune"){try{let{archived:s}=await p("POST","/api/prune",{});r.items=r.items.map(c=>s.includes(c.id)?{...c,location:"done"}:c),m(),u(`Archived ${s.length} finished item(s)`,async()=>{for(let c of s)await I(c)})}catch(s){u(s.message)}return}let a=r.items.find(s=>s.id===e);if(!a)return;let n=f(".drawer"),o=s=>n.querySelector(`[data-keep="${s}"]`)?.value.trim()??"";try{let s;switch(t){case"copy":return await navigator.clipboard.writeText(e),u("Copied");case"start":case"later":s=await p("POST",`/api/items/${e}/start`,{start:t==="start"?"now":"later"}),u(t==="later"?"Moved to the backlog":r.watcher?.state==="waiting"?`\\u26A1 ${g()} is starting on it`:r.watcher?"Added to the queue":`Queued; start /ahemui:watch in ${D()} to work it`);break;case"done":case"wontfix":{let c=a.status;s=await p("POST",`/api/items/${e}/resolve`,{status:t}),u(t==="wontfix"?"Marked won\'t fix":"Marked done",()=>I(e,c));break}case"reopen":s=await p("POST",`/api/items/${e}/reopen`,{});break;case"dismiss":{let c=a.status;s=await p("POST",`/api/items/${e}/dismiss`,{}),u("Dismissed",()=>I(e,c));break}case"accept-now":case"accept-later":{let c=a.batch??null;s=await p("POST",`/api/items/${e}/accept`,{start:t==="accept-now"?"now":"later"}),u(t==="accept-now"?`On ${g()}\'s queue`:"In the backlog as a change",async()=>{let l=await p("POST",`/api/items/${e}/batch`,{batch:c});r.items=r.items.map(b=>b.id===l.id?l:b),m()});break}case"archive":s=await p("POST",`/api/items/${e}/archive`,{}),u("Archived",()=>I(e));break;case"reply":if(!o("reply"))return u("Type an answer first");s=await p("POST",`/api/items/${e}/reply`,{text:o("reply")}),u(`Sent to ${g()} \\u2713`);break;case"approve":s=await p("POST",`/api/items/${e}/review`,{verdict:"approved"}),u("Approved \\u2713");break;case"changes":if(!o("changes"))return u("Say what still needs to change");s=await p("POST",`/api/items/${e}/review`,{verdict:"changes",comment:o("changes")}),u(`Sent back to ${g()}`);break;case"triage":{let c=b=>n.querySelector(`[data-t="${b}"]`).value.trim(),l=c("labels").split(",").map(b=>b.trim()).filter(Boolean);s=await p("POST",`/api/items/${e}/triage`,{type:c("type")||null,priority:c("priority")||null,area:c("area")||null,labels:l.length?l:null}),u("Classification saved");break}}s&&(n.querySelectorAll("[data-keep]").forEach(c=>c.value=""),r.items=r.items.map(c=>c.id===s.id?s:c),m())}catch(s){u(s.message)}}function w(e,t,a=!1){return t?`<dt>${i(e)}</dt><dd${a?\' class="mono"\':""}>${i(t)}</dd>`:""}function xe(e){return e.body.split(`\n`)[0].slice(0,140)}function ve(e){let t=e[0]?.batch,a=t?r.batches.find(o=>o.id===t):void 0;if(!a)return"";if(a.intent==="review")return`<button class="btn grp-act" data-batch-act="to-changes" data-batch-id="${a.id}" title="Make these changes: the batch and its items become actionable">Make these changes</button>`;let n=e.filter(o=>o.status==="open"&&!o.needs_reply&&o.start!=="now").length;return n?`<button class="btn grp-act" data-batch-act="queue-all" data-batch-id="${a.id}" title="Queue every open item in this batch for ${g()}">${R}Queue all ${n}</button>`:""}async function we(e,t){try{if(e==="to-changes"){let{batch:a,items:n}=await p("POST",`/api/batches/${t}`,{intent:"action"});r.batches=r.batches.map(o=>o.id===a.id?a:o),r.items=r.items.map(o=>n.find(s=>s.id===o.id)??o),m(),u(`${a.name} is now changes to make`,async()=>{let o=await p("POST",`/api/batches/${t}`,{intent:"review"});r.batches=r.batches.map(s=>s.id===o.batch.id?o.batch:s),r.items=r.items.map(s=>o.items.find(c=>c.id===s.id)??s),m()})}else if(e==="queue-all"){let a=r.items.filter(n=>n.batch===t&&n.status==="open"&&!n.needs_reply&&n.start!=="now").map(n=>n.id);for(let n of a){let o=await p("POST",`/api/items/${n}/start`,{start:"now"});r.items=r.items.map(s=>s.id===o.id?o:s)}m(),u(`Queued ${a.length} for ${g()}`,async()=>{for(let n of a){let o=await p("POST",`/api/items/${n}/start`,{start:"later"});r.items=r.items.map(s=>s.id===o.id?o:s)}m()})}}catch(a){u(a.message)}}function ie(e){if(!e.batch)return"No batch";let t=r.batches.find(a=>a.id===e.batch);return t?`${t.name} (${t.intent==="review"?"for review":"changes"} \\xB7 ${t.author})`:`Batch ${e.batch.slice(0,8)}`}function U(e,t){let a=e?.storyTitle||e?.routeName||e?.pageComponent?.replace(/(Page|View)$/,""),n=e?.routePattern??t??"?";return a?`${n} \\xB7 ${a}`:n}function ye(e){let t=e.split(/\\n\\n### (Note|Question|Reply|Feedback|Approved) \u2014 ([^\\n]+)\\n\\n/),a=[];for(let n=1;n+2<t.length+1;n+=3)a.push({kind:t[n],who:t[n+1].replace(/, \\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d$/,""),text:(t[n+2]??"").trim()});return{prompt:t[0],thread:a}}function $e(e){let t=(Date.now()-Date.parse(e))/1e3;return t<60?"just now":t<3600?`${Math.round(t/60)} min ago`:t<86400?`${Math.round(t/3600)} h ago`:`${Math.round(t/86400)} d ago`}var te=0;function u(e,t){let a=f(".toast");if(a.textContent=e,a.classList.toggle("has-action",!!t),t){let n=document.createElement("button");n.className="toast-undo",n.textContent="Undo",n.addEventListener("click",async()=>{a.classList.remove("show"),await t().then(()=>u("Undone"),o=>u(`Couldn\'t undo: ${o.message}`))}),a.append(" ",n)}a.classList.add("show"),clearTimeout(te),te=window.setTimeout(()=>a.classList.remove("show"),t?6e3:2500)}async function ae(e,t){let a=r.items.find(n=>n.id===e);try{let n=await p("POST",`/api/items/${e}/batch`,{batch:t});r.items=r.items.map(s=>s.id===e?n:s),m();let o=r.batches.find(s=>s.id===t);u(o?`Moved to ${o.name}${o.intent==="review"?" (for review)":""}`:"Removed from its batch",async()=>{let s=await p("POST",`/api/items/${e}/batch`,{batch:a?.batch??null}),c=a?.start==="now"?await p("POST",`/api/items/${e}/start`,{start:"now"}):s;r.items=r.items.map(l=>l.id===e?c:l),m()})}catch(n){u(n.message)}}async function I(e,t){let a=await p("POST",`/api/items/${e}/restore`,t?{status:t}:{});r.items=r.items.map(n=>n.id===e?a:n),m()}function i(e){return e.replace(/[&<>"\']/g,t=>`&#${t.charCodeAt(0)};`)}de();m();h&&oe();})();\n';
+var BOARD_JS = '"use strict";(()=>{function X(e,t="Confirm"){if(e.classList.contains("armed"))return!0;let a=e.innerHTML,n=e.getAttribute("aria-label");return e.style.minWidth=`${e.offsetWidth}px`,e.classList.add("armed"),e.textContent=t,e.setAttribute("aria-label",`${t}: click again to dismiss`),setTimeout(()=>{e.isConnected&&(e.classList.remove("armed"),e.innerHTML=a,e.style.minWidth="",n?e.setAttribute("aria-label",n):e.removeAttribute("aria-label"))},4e3),!1}var Y=e=>!!e.querySelector(".armed");var O={"claude-code":{name:"Claude",app:"Claude Code"},codex:{name:"Codex",app:"Codex"}},K="claude-code",D=O[K];function C(...e){let t=e.find(a=>a);D=t?O[t]??{name:t,app:t}:O[K]}var g=()=>D.name,_=()=>D.app;var V=`\n:root {\n  --bg: #f6f6f9; --panel: #ffffff; --card: #ffffff; --line: #e3e4ec; --fg: #1d2030; --muted: #6b7084;\n  --accent: #16181d; --on-accent: #ffffff; --mark: #e5482c; --accent-soft: rgba(22,24,29,.07);\n  --open: #d97706; --doing: #2563eb; --review: #7c3aed; --done: #16a34a; --wontfix: #6b7280; --ask: #d97706;\n  --shadow: 0 1px 2px rgba(20,20,40,.06), 0 4px 16px rgba(20,20,40,.06);\n  color-scheme: light;\n}\n@media (prefers-color-scheme: dark) {\n  :root {\n    --bg: #111318; --panel: #171a21; --card: #1d2029; --line: #2b2f3a; --fg: #eceef4; --muted: #9398a8;\n    --accent: #f2f2f4; --on-accent: #111317; --mark: #ff5a3c; --accent-soft: rgba(242,242,244,.08);\n    --open: #f59e0b; --doing: #60a5fa; --review: #a78bfa; --done: #34d399; --wontfix: #9ca3af; --ask: #fbbf24;\n    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.25);\n    color-scheme: dark;\n  }\n}\n* { box-sizing: border-box; }\nhtml, body { margin: 0; height: 100%; }\nbody { background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }\na { color: var(--accent); }\ncode, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12px; }\nbutton, select, input, textarea { font: inherit; color: inherit; }\n\n.top { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }\n.brand { display: flex; align-items: center; gap: 6px; white-space: nowrap; }\n.brand .logo { color: var(--mark); font-size: 18px; }\n.brand .proj { color: var(--muted); margin-left: 6px; }\n.filters { display: flex; gap: 8px; flex: 1; min-width: 280px; flex-wrap: wrap; align-items: center; }\n.filters input.search { flex: 1; min-width: 180px; }\n.filters input.search, .filters select { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; outline: none; }\n.filters input:focus, .filters select:focus { border-color: var(--accent); }\n.f-arch { color: var(--muted); font-size: 13px; display: flex; gap: 4px; align-items: center; }\n.status { display: flex; gap: 14px; align-items: center; color: var(--muted); font-size: 12px; flex-wrap: wrap; }\n.status b { color: var(--fg); }\n.live { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }\n.live.on { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }\n.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--wontfix); }\n.dot.ok { background: var(--done); }\n.banner { padding: 8px 20px; background: var(--accent-soft); color: var(--fg); font-size: 13px; border-bottom: 1px solid var(--line); }\n\n.board { flex: 1; overflow: auto; padding: 16px 20px 40px; }\n.board.columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 14px; align-items: start; }\n.col h2, .grp h2 { font-size: 13px; margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }\n.col h2 span, .grp h2 span { background: var(--line); color: var(--fg); border-radius: 999px; padding: 0 8px; font-size: 12px; }\n.col-queue h2 { color: var(--open); }\n.col h2 .clear { margin-left: auto; margin-right: 6px; font-size: 11px; padding: 1px 8px; text-transform: none; letter-spacing: 0; }\n.col-you h2 { color: var(--review); }\n.col .cards { display: flex; flex-direction: column; gap: 10px; }\n.board.groups .grp { margin-bottom: 24px; }\n.board.groups .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }\n.empty { color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 10px; padding: 12px; margin: 0; }\n.empty.big { font-size: 14px; }\n\n.card { background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--open); border-radius: 10px; padding: 10px 12px; box-shadow: var(--shadow); cursor: pointer; display: flex; flex-direction: column; gap: 6px; outline: none; }\n.card:hover, .card:focus-visible { border-color: var(--accent); border-left-width: 3px; }\n.card.sel { outline: 2px solid var(--accent); outline-offset: 1px; }\n.card.s-in-progress { border-left-color: var(--doing); }\n.card.s-review { border-left-color: var(--review); }\n.card.s-done { border-left-color: var(--done); }\n.card.s-wontfix { border-left-color: var(--wontfix); opacity: .75; }\n.card.s-ask { border-left-color: var(--ask); }\n.thumb { margin: -2px -4px 0; border-radius: 6px; overflow: hidden; background: var(--bg); max-height: 120px; display: flex; align-items: center; justify-content: center; }\n.thumb img { max-width: 100%; max-height: 120px; display: block; }\n.c-title { font-weight: 600; }\n.c-page { color: var(--muted); font-size: 12px; }\n.chips { display: flex; flex-wrap: wrap; gap: 4px; }\n.chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--muted); }\n.chip.t { color: var(--fg); }\n.chip.now, .chip.ask { color: var(--open); border-color: var(--open); }\n.chip.review { color: var(--review); border-color: var(--review); }\n.chip.high { color: #dc2626; border-color: #dc2626; }\n.chip.ext { color: var(--accent); border-color: var(--accent); }\n.c-foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 12px; gap: 8px; }\n.quick { border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent); border-radius: 6px; padding: 2px 9px; font-size: 12px; cursor: pointer; white-space: nowrap; }\n\n.scrim { position: fixed; inset: 0; background: rgba(8,9,12,.62); backdrop-filter: blur(2px); z-index: 9; }\n.scrim[hidden] { display: none; }\n.drawer { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 80px rgba(0,0,0,.45); overflow: hidden; display: flex; flex-direction: column; z-index: 10; }\n.drawer:not([hidden]) { display: flex; }\n.d-head { flex: none; padding: 12px 16px 10px 24px; border-bottom: 1px solid var(--line); }\n.d-head .open-page { margin-left: auto; font-size: 12px; text-decoration: none; }\n.d-head .open-page + .x { margin-left: 4px; }\n.d-body { flex: 1; overflow: auto; padding: 16px 24px 24px; }\n.d-body h1.request { margin-top: 0; }\n.d-status { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 4px; font-size: 13px; }\n.d-status .sdot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--open); transform: translateY(-1px); }\n.d-status span:last-child { color: var(--muted); }\n.st-doing .sdot { background: var(--doing); } .st-review .sdot { background: var(--review); } .st-done .sdot { background: var(--done); }\n.st-wontfix .sdot { background: var(--wontfix); } .st-ask .sdot { background: var(--ask); }\n.answer { margin: 14px 0 4px; }\n.new-batch { display: flex; gap: 8px; }\n.new-batch[hidden] { display: none; }\n.new-batch input { flex: 1; }\n.grp h2 .grp-act { margin-left: auto; margin-right: 8px; font-size: 11px; padding: 2px 10px; text-transform: none; letter-spacing: 0; }\n.chip.suggest { color: #0d9488; border-color: #0d9488; }\n.st-suggest .sdot { background: #0d9488; }\n.sugg { margin: 12px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--bg); border-left: 3px solid #0d9488; }\n.sugg p { margin: 4px 0; }\n.sugg b { margin-right: 6px; }\n.sugg .muted { color: var(--muted); font-size: 12px; }\n.saved-hint { grid-column: 1 / -1; color: var(--muted); font-size: 11px; }\n.answer label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }\n.d-foot { flex: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 24px; border-top: 1px solid var(--line); background: var(--bg); }\n.btn.quiet { border-color: transparent; background: none; color: var(--muted); }\n.btn.quiet:hover { color: #dc2626; border-color: transparent; }\n.zoom { display: block; padding: 0; border: 0; background: none; cursor: zoom-in; width: 100%; }\n.lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(5,6,10,.86); display: grid; place-items: center; padding: 32px; cursor: zoom-out; }\n.lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 30px 80px rgba(0,0,0,.6); background: #fff; }\n.lb-x { position: fixed; top: 14px; right: 16px; border: 0; background: rgba(255,255,255,.12); color: #fff; width: 34px; height: 34px; border-radius: 50%; font-size: 15px; cursor: pointer; }\n/* drag and drop between columns */\n.card[draggable] { cursor: grab; }\n.card.dragging { opacity: .45; }\n.board.is-dragging .col:not(.can-drop) { opacity: .45; }\n.col.can-drop .cards { min-height: 60px; border-radius: 10px; transition: background .12s; }\n.col.over .cards { background: var(--accent-soft); outline: 2px dashed var(--accent); outline-offset: 4px; }\n.drawer[hidden] { display: none; }\nbody.modal-open { overflow: hidden; }\n@media (max-width: 640px) { .drawer { top: auto; bottom: 0; left: 0; transform: none; width: 100vw; max-height: 92vh; border-radius: 14px 14px 0 0; } }\n.d-head { display: flex; align-items: center; gap: 10px; }\n.d-head code { color: var(--muted); }\n.d-head .x { margin-left: auto; border: 0; background: none; font-size: 18px; cursor: pointer; color: var(--muted); }\n.drawer h1 { font-size: 18px; margin: 10px 0 2px; }\n.drawer h1.request { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.35; margin-top: 14px; }\n.drawer .chips { margin: 10px 0 14px; }\n.id-copy { border: 0; background: none; padding: 2px 4px; border-radius: 5px; cursor: pointer; }\n.id-copy:hover { background: var(--card); }\ndetails.tech { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }\ndetails.tech summary { cursor: pointer; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }\ndetails.tech[open] summary { margin-bottom: 4px; }\n.d-sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }\n.pill { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; color: #fff; background: var(--open); }\n.pill.s-in-progress { background: var(--doing); } .pill.s-review { background: var(--review); } .pill.s-done { background: var(--done); } .pill.s-wontfix { background: var(--wontfix); } .pill.s-ask { background: var(--ask); color: #111; }\n.acts { display: flex; gap: 6px; flex-wrap: wrap; }\n.acts.minor .btn { font-size: 12px; padding: 3px 10px; }\n.btn { border: 1px solid var(--line); background: var(--card); border-radius: 7px; padding: 5px 12px; cursor: pointer; text-decoration: none; color: var(--fg); }\n.btn:hover { border-color: var(--accent); }\n.btn.armed { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 600; }\n.bolt { display: inline-block; vertical-align: -1px; margin-right: 4px; }\n.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }\ntextarea { width: 100%; min-height: 64px; resize: vertical; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 8px; outline: none; }\ntextarea:focus, .triage input:focus, .triage select:focus { border-color: var(--accent); }\nfigure { margin: 0 0 12px; }\nfigure img { max-width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; }\nfigcaption { color: var(--muted); font-size: 11px; margin-top: 3px; }\n.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.pending { height: 80px; display: grid; place-items: center; text-align: center; color: var(--muted); font-size: 12px; border: 1px dashed var(--line); border-radius: 8px; padding: 6px; }\nsection { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 14px; }\nsection h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }\n.prose { white-space: pre-wrap; overflow-wrap: anywhere; }\n.entry { border-left: 2px solid var(--line); padding-left: 10px; margin-top: 10px; }\n.entry .who { color: var(--muted); font-size: 12px; }\n.entry .who b { color: var(--fg); font-weight: 600; }\n.entry.k-question { border-color: var(--ask); }\n.entry.k-feedback { border-color: #dc2626; }\n.entry.k-reply, .entry.k-approved { border-color: var(--done); }\ndl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 0; }\ndt { color: var(--muted); font-size: 12px; }\ndd { margin: 0; overflow-wrap: anywhere; }\n.triage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }\n.triage label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }\n.triage .wide { grid-column: 1 / -1; }\n.triage input, .triage select { background: var(--card); border: 1px solid var(--line); border-radius: 7px; padding: 5px 8px; color: var(--fg); outline: none; }\n.mono-list { margin: 0; padding-left: 18px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }\npre { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; overflow: auto; font-size: 12px; max-height: 260px; margin: 0; }\n.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 8px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }\n.toast.show { opacity: 1; }\n.toast.has-action.show { pointer-events: auto; }\n.toast-undo { margin-left: 10px; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }\n\n@media (max-width: 700px) {\n  .top { padding: 10px 16px; }\n  .board { padding: 12px 16px 40px; }\n  .board.columns { grid-auto-flow: row; grid-auto-columns: auto; }\n  .compare, .triage { grid-template-columns: 1fr; }\n}\n`;var U=\'<svg class="bolt" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true" fill="currentColor"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>\',$=window.__AHEMUI_BOARD__,h=$.mode==="live";C($.agent);var Z,w=e=>e&&/^https?:\\/\\//i.test(e)?e:"",r={items:$.items??[],batches:$.batches??[],watcher:null,connected:!h,project:$.project??"",branch:$.branch??null,q:"",type:"",groupBy:"status",archived:!1,selected:location.hash.slice(1)||null},re=["bug","style","layout","copy","feature","a11y","other"],de=["high","normal","low"];var oe=[{key:"queue",title:"\\u26A1 Queue",get hint(){return`${g()} works these as soon as a session runs /ahemui:watch`},test:e=>e.status==="open"&&e.start==="now"&&!e.needs_reply},{key:"backlog",title:"Backlog",hint:"Saved for later: /ahemui:work, or press Start",test:e=>e.status==="open"&&e.start!=="now"&&!e.needs_reply},{key:"progress",title:"In progress",get hint(){return`${g()} is on it`},test:e=>e.status==="in-progress"},{key:"you",title:"In review",get hint(){return`Review the result, or answer ${g()}\'s question`},test:e=>e.status==="review"||e.status==="open"&&!!e.needs_reply},{key:"done",title:"Done",hint:"Approved, done or won\'t fix",test:e=>e.status==="done"||e.status==="wontfix"}];async function p(e,t,a){let n=await fetch(t,{method:e,headers:{"Content-Type":"application/json"},body:a===void 0?void 0:JSON.stringify(a)}),o=await n.json().catch(()=>({}));if(!n.ok)throw new Error(o.error??`HTTP ${n.status}`);return o}function N(e,t){return h?`/api/items/${e.id}/file/${encodeURIComponent(t)}`:`${$.base?`${$.base}/`:""}${e.location}/${e.id}/${encodeURIComponent(t)}`}async function se(){try{let t=await p("GET","/api/health");Z=t.agent,r.project=t.project,r.branch=t.branch,r.watcher=t.watcher,C(r.watcher?.agent,t.agent),r.items=await p("GET",r.archived?"/api/items?all":"/api/items"),r.batches=await p("GET","/api/batches").catch(()=>[]),m()}catch{}let e=new WebSocket(`ws://${location.host}/ws`);e.onopen=()=>{r.connected=!0,R()},e.onmessage=t=>{let a=JSON.parse(t.data);a.type==="items"&&(r.items=r.archived?[...a.items,...r.items.filter(n=>n.location==="done")]:a.items,a.watcher!==void 0&&(r.watcher=a.watcher),C(r.watcher?.agent,Z),a.items.some(n=>n.batch&&!r.batches.some(o=>o.id===n.batch))&&p("GET","/api/batches").then(n=>(r.batches=n,m()),()=>{}),m())},e.onclose=()=>{r.connected=!1,R(),setTimeout(se,2e3)}}var f=e=>document.querySelector(e);function le(){document.head.insertAdjacentHTML("beforeend",`<style>${V}</style>`),document.body.innerHTML=`\n    <header class="top">\n      <div class="brand"><span class="logo">\\u25C9</span> <b>AhemUI</b> <span class="proj"></span></div>\n      <div class="filters">\n        <input class="search" type="search" placeholder="Search requests, pages, files\\u2026  ( / )">\n        <select class="f-type"><option value="">All types</option>${re.map(e=>`<option>${e}</option>`).join("")}</select>\n        <select class="f-group">\n          <option value="status">Columns by status</option>\n          <option value="page">Group by page</option>\n          <option value="area">Group by area</option>\n          <option value="batch">Group by batch</option>\n        </select>\n        <label class="f-arch"><input type="checkbox"> archived</label>\n      </div>\n      <div class="status"></div>\n    </header>\n    ${h?"":`<div class="banner">Read-only snapshot${$.generated?` from ${new Date($.generated).toLocaleString()}`:""}. For the live board with actions, run <code>npx ahemui board</code> in the repo.</div>`}\n    <main class="board"></main>\n    <div class="scrim" hidden></div>\n    <aside class="drawer" role="dialog" aria-modal="true" aria-label="Item details" hidden></aside>\n    <div class="toast"></div>`,f(".scrim").addEventListener("click",()=>I(null)),f(".search").addEventListener("input",e=>{r.q=e.target.value.toLowerCase(),S()}),f(".f-type").addEventListener("change",e=>{r.type=e.target.value,S()}),f(".f-group").addEventListener("change",e=>{r.groupBy=e.target.value,S()}),f(".f-arch input").addEventListener("change",async e=>{r.archived=e.target.checked,h&&r.archived&&(r.items=await p("GET","/api/items?all").catch(()=>r.items)),S()}),addEventListener("keydown",e=>{let t=e.target.closest("input, textarea, select");e.key==="/"&&!t?(e.preventDefault(),f(".search").focus()):e.key==="Escape"&&I(null)}),addEventListener("hashchange",()=>I(location.hash.slice(1)||null,!1)),f(".board").addEventListener("click",e=>{let t=e.target.closest(".card"),a=e.target.closest("[data-quick]");if(a)return e.stopPropagation(),z(a.dataset.id,a.dataset.quick);t&&I(t.dataset.id)})}function m(){R(),S(),ie()}function R(){let e=r.items.filter(s=>s.location==="items"),t=r.watcher;f(".proj").textContent=[r.project,r.branch].filter(Boolean).join(" \\xB7 "),document.title=`AhemUI backlog${r.project?` \\u2014 ${r.project}`:""}`;let a=oe.map(s=>`<span title="${s.hint}">${s.title} <b>${e.filter(s.test).length}</b></span>`).join(""),n=h?t?`<span class="live ${t.paused||t.stopping?"":"on"}">${g()} ${t.stopping?"stopping":t.paused?"paused":t.state==="waiting"?"watching":"working"}</span>`:`<span class="live" title="Run /ahemui:watch in ${_()}">No ${g()} session watching</span>`:"",o=h?`<span class="dot ${r.connected?"ok":""}" title="${r.connected?"Live":"Reconnecting\\u2026"}"></span>`:"";f(".status").innerHTML=`${a}${n}${o}`}function pe(){return r.items.filter(e=>r.archived||e.location==="items").filter(e=>!r.type||e.type===r.type).filter(e=>r.q?[e.body,e.id,e.area,e.route,e.anchor.source,e.anchor.text,e.page?.heading,e.page?.title,e.page?.routeName,e.page?.section,e.labels?.join(" "),e.external?.key].filter(Boolean).join(" ").toLowerCase().includes(r.q):!0).sort((e,t)=>t.id>e.id?1:-1)}function S(){let e=pe(),t=f(".board");if(r.groupBy==="status")t.className="board columns",t.innerHTML=oe.map(a=>{let n=e.filter(a.test),o=n.filter(c=>c.location==="items").length,s=h&&a.key==="done"&&o?`<button class="btn clear" data-quick="prune" data-id="" title="Archive every done and won\'t-fix item (moves them to .ahemui/done/)">Clear ${o}</button>`:"";return`<section class="col col-${a.key}" data-col="${a.key}"><h2 title="${a.hint}">${a.title} <span>${n.length}</span>${s}</h2><div class="cards">${n.map(te).join("")||`<p class="empty">${a.hint}</p>`}</div></section>`}).join("");else{t.className="board groups";let a=new Map;for(let n of e){let o=r.groupBy==="page"?W(n.page,n.route):r.groupBy==="batch"?ce(n):n.area??"No area yet (run /ahemui:triage)";a.set(o,[...a.get(o)??[],n])}t.innerHTML=[...a].sort(([n],[o])=>n.localeCompare(o)).map(([n,o])=>`<section class="grp"><h2>${i(n)} <span>${o.length}</span>${r.groupBy==="batch"&&h?we(o):""}</h2><div class="cards">${o.map(te).join("")}</div></section>`).join("")||\'<p class="empty big">Nothing matches.</p>\'}t.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===r.selected)),h&&r.groupBy==="status"&&ue(t),t.querySelectorAll("[data-batch-act]").forEach(a=>a.addEventListener("click",n=>{n.stopPropagation(),ye(a.dataset.batchAct,a.dataset.batchId)}))}function ee(e,t){let a=e.status==="open"&&!e.needs_reply,n=e.status==="done"||e.status==="wontfix";if(a&&e.intent==="review"){if(t==="queue")return{act:"accept-now",label:`Taken on and queued for ${g()}`};if(t==="backlog")return{act:"accept-later",label:"Taken on, in the backlog"}}return t==="queue"&&a&&e.start!=="now"?{act:"start",label:`Queued for ${g()}`}:t==="backlog"&&a&&e.start==="now"?{act:"later",label:"Moved to the backlog"}:t==="backlog"&&(n||e.status==="in-progress")?{act:"reopen",label:"Back in the backlog"}:t==="done"&&!n?{act:"done",label:"Marked done"}:null}var T=null;function ue(e){e.querySelectorAll(".card[draggable]").forEach(t=>{t.addEventListener("dragstart",a=>{T=t.dataset.id,a.dataTransfer?.setData("text/plain",T),a.dataTransfer&&(a.dataTransfer.effectAllowed="move"),t.classList.add("dragging");let n=r.items.find(o=>o.id===T);e.querySelectorAll(".col").forEach(o=>o.classList.toggle("can-drop",!!ee(n,o.dataset.col))),e.classList.add("is-dragging")}),t.addEventListener("dragend",()=>{T=null,t.classList.remove("dragging"),e.classList.remove("is-dragging"),e.querySelectorAll(".col").forEach(a=>a.classList.remove("can-drop","over"))})}),e.querySelectorAll(".col").forEach(t=>{t.addEventListener("dragover",a=>{!T||!t.classList.contains("can-drop")||(a.preventDefault(),t.classList.add("over"))}),t.addEventListener("dragleave",a=>{t.contains(a.relatedTarget)||t.classList.remove("over")}),t.addEventListener("drop",async a=>{a.preventDefault(),t.classList.remove("over");let n=r.items.find(c=>c.id===T),o=n&&ee(n,t.dataset.col);if(!n||!o)return;let s={status:n.status,start:n.start};await z(n.id,o.act),u(o.label,async()=>{await M(n.id,s.status),s.start&&s.status==="open"&&await p("POST",`/api/items/${n.id}/start`,{start:s.start}).then(c=>(r.items=r.items.map(l=>l.id===c.id?c:l),m()))})})})}function te(e){let t=e.status==="open"&&e.needs_reply,a=[e.start==="now"&&e.status==="open"&&!t?\'<span class="chip now">\\u26A1 queued</span>\':"",e.suggestion&&e.intent==="review"?`<span class="chip suggest">\\u2726 ${e.suggestion.by==="checks"?"check":"suggestion"} \\xB7 ${e.suggestion.severity}</span>`:e.intent==="review"?\'<span class="chip ask">for review</span>\':"",t?\'<span class="chip ask">? question for you</span>\':"",e.status==="review"?\'<span class="chip review">\\u25CE review</span>\':"",e.status==="wontfix"?`<span class="chip">won\'t fix</span>`:"",e.location==="done"?\'<span class="chip">archived</span>\':"",e.type?`<span class="chip t">${i(e.type)}</span>`:"",e.priority==="high"?\'<span class="chip high">high</span>\':"",e.area?`<span class="chip">${i(e.area)}</span>`:"",...(e.labels??[]).map(o=>`<span class="chip">#${i(o)}</span>`),e.external?`<span class="chip ext">${i(e.external.key)}</span>`:""].join(""),n=h&&e.status==="open"&&!t&&e.start!=="now"&&e.intent!=="review"?`<button class="quick" data-quick="start" data-id="${e.id}" title="Have ${g()} work on this now">${r.watcher?.state==="working"?"Add to queue":`${U}Start`}</button>`:"";return`<article class="card s-${e.status}${t?" s-ask":""}" data-id="${e.id}" tabindex="0"${h&&e.location==="items"?\' draggable="true"\':""}>\n    ${e.shot?`<div class="thumb"><img loading="lazy" src="${N(e,e.shot)}" alt=""></div>`:""}\n    <div class="c-title">${i(ve(e))}</div>\n    <div class="c-page">${i(W(e.page,e.route))}${e.page?.section?` \\u203A ${i(e.page.section)}`:""}</div>\n    ${a?`<div class="chips">${a}</div>`:""}\n    <div class="c-foot"><span>${i(e.author)} \\xB7 ${ke(e.created)}</span>${n}</div>\n  </article>`}function I(e,t=!0){r.selected=e,t&&history.replaceState(null,"",e?`#${e}`:location.pathname+location.search),ie(),document.querySelectorAll(".card").forEach(a=>a.classList.toggle("sel",a.dataset.id===e))}function ie(){let e=f(".drawer"),t=r.items.find(d=>d.id===r.selected),a=f(".scrim");if(!t){e.hidden=!0,a.hidden=!0,document.body.classList.remove("modal-open");return}let n=new Map([...e.querySelectorAll("[data-keep]")].map(d=>[d.dataset.keep,d.value])),o=document.activeElement,s=!!o&&e.contains(o)&&/^(INPUT|TEXTAREA)$/.test(o.tagName),c=!!e.querySelector(".new-batch:not([hidden])");if(e.dataset.id===t.id&&([...n.values()].some(d=>d.trim())||Y(e)||s||c))return;e.dataset.id=t.id,e.hidden=!1,a.hidden=!1,document.body.classList.add("modal-open");let l=t.status==="open"&&t.needs_reply,{prompt:b,thread:F}=$e(t.body),x=t.page??{},E=t.anchor,q=[];t.status==="review"||t.after?q.push(`<div class="compare">${H(t,t.shot,"before")}${t.after?H(t,t.after,"after"):\'<figure><div class="pending">after-shot is taken when the page is open</div><figcaption>after</figcaption></figure>\'}</div>`):t.shot&&q.push(H(t,t.shot,"highlighted area"));for(let[d,v]of(t.extras??[]).entries())v.shot&&q.push(H(t,v.shot,v.role==="reference"?`area ${d+2}: example to match`:`area ${d+2}: also applies here`));let Q=[t.type,t.priority&&t.priority!=="normal"?`${t.priority} priority`:"",t.area,...(t.labels??[]).map(d=>`#${d}`),t.batch?`batch: ${ce(t)}`:""].filter(Boolean),G=[y("Components",E.components?.join(" \\u203A ")),y("Page file",x.pageFile,!0),y("Story",x.storyTitle?`${x.storyTitle}${x.storyFile?` \\u2014 ${x.storyFile}`:""}`:void 0),y("Element",E.text?`"${E.text}"`:void 0),y("CSS path",E.selector,!0),y("Seen in",[x.browser,t.viewport,x.colorScheme&&`${x.colorScheme} mode`].filter(Boolean).join(", "))].join(""),j=ge(t,l);e.innerHTML=`\n    <div class="d-head">\n      <button class="id-copy" data-act="copy" title="Copy id"><code>${t.id.slice(0,10)}\\u2026</code></button>\n      ${w(t.url)?`<a class="open-page" href="${i(w(t.url))}" target="_blank" rel="noopener">Open page \\u2197</a>`:""}\n      <button class="x" title="Close (Esc)" aria-label="Close">\\u2715</button>\n    </div>\n    <div class="d-body">\n      <h1 class="request">${i(b.trim())}</h1>\n      <div class="d-status st-${j.tone}"><span class="sdot"></span><b>${j.title}</b><span>${j.text}</span></div>\n      <div class="d-sub">${i(t.author)} \\xB7 ${new Date(t.created).toLocaleString()}${Q.length?` \\xB7 ${Q.map(i).join(" \\xB7 ")}`:""}</div>\n      ${t.suggestion?`<div class="sugg"><p><b>Why</b> ${i(t.suggestion.why)}</p>${t.suggestion.fix?`<p><b>Suggested fix</b> ${i(t.suggestion.fix)}</p>`:""}${t.suggestion.rule?`<p class="muted">${i(t.suggestion.rule)}</p>`:""}</div>`:""}\n      ${h?me(t,l):""}\n      ${q.join("")}\n      ${F.length?`<section><h3>Conversation</h3>${F.map(d=>`<div class="entry k-${d.kind.toLowerCase()}"><div class="who"><b>${i(d.who)}</b> \\xB7 ${i(d.kind.toLowerCase())}</div><div class="prose">${i(d.text)}</div></div>`).join("")}</section>`:""}\n      <section><h3>Where</h3><dl>\n        ${y("Page",W(x,t.route)+(x.section?` \\u203A ${x.section}`:""))}\n        ${y("Code",E.source,!0)}\n        ${w(t.url)?`<dt>URL</dt><dd><a href="${i(w(t.url))}" target="_blank" rel="noopener">${i(w(t.url))}</a>${x.env==="deployed"?" (deployed)":""}</dd>`:""}\n        ${w(t.design)?`<dt>Design</dt><dd><a href="${i(w(t.design))}" target="_blank" rel="noopener">${i(w(t.design))}</a></dd>`:""}\n        ${t.external?`<dt>Ticket</dt><dd>${w(t.external.url)?`<a href="${i(w(t.external.url))}" target="_blank" rel="noopener">${i(t.external.key)}</a>`:i(t.external.key)}${t.external.status?` \\xB7 ${i(t.external.status)}`:""}</dd>`:""}\n      </dl></section>\n      ${be(t)}\n      <details class="tech"><summary>Technical details</summary>\n        ${G?`<section><dl>${G}</dl></section>`:""}\n        ${xe(t)}\n      </details>\n    </div>\n    ${h?he(t,l):""}`;for(let[d,v]of n){let k=e.querySelector(`[data-keep="${d}"]`);k&&(k.value=v)}e.querySelector(".x").addEventListener("click",()=>I(null)),e.querySelectorAll("[data-act]").forEach(d=>d.addEventListener("click",()=>{d.dataset.act==="dismiss"&&!X(d)||z(t.id,d.dataset.act)})),e.querySelectorAll("textarea, input").forEach(d=>d.addEventListener("keydown",v=>v.stopPropagation())),e.querySelectorAll("[data-t]").forEach(d=>{d.addEventListener("change",()=>z(t.id,"triage")),d instanceof HTMLInputElement&&d.addEventListener("keydown",v=>v.key==="Enter"&&d.blur())});let P=e.querySelector("[data-batch]"),L=e.querySelector(".new-batch");P?.addEventListener("change",async()=>{if(P.value==="new"){L.hidden=!1,L.querySelector("input").focus();return}L.hidden=!0,await ne(t.id,P.value||null)});let A=L?.querySelector("[data-new-batch]"),B=!1,J=async()=>{let d=A.value.trim();if(!d||B)return;B=!0;let v=L.querySelector("[data-new-intent]").value;try{let k=await p("POST","/api/batches",{name:d,intent:v});r.batches=[k,...r.batches],L.hidden=!0,A.blur(),await ne(t.id,k.id)}catch(k){B=!1,u(k.message)}};A?.addEventListener("keydown",d=>{d.stopPropagation(),d.key==="Enter"&&J()}),A?.addEventListener("change",J),e.querySelectorAll("[data-zoom]").forEach(d=>d.addEventListener("click",()=>fe(d.dataset.zoom)))}function H(e,t,a){return t?`<figure><button class="zoom" data-zoom="${N(e,t)}" title="Enlarge"><img src="${N(e,t)}" alt=""></button><figcaption>${i(a)}</figcaption></figure>`:`<figure><div class="pending">no screenshot</div><figcaption>${i(a)}</figcaption></figure>`}function ge(e,t){let a=e.location==="done"?" (archived)":"";if(t)return{title:"Question for you",text:`${g()} asked something before going on. Answer below.`,tone:"ask"};if(e.intent==="review"&&e.status==="open")return e.suggestion?{title:`Suggestion \\xB7 ${e.suggestion.severity}`,text:`From ${e.suggestion.by==="checks"?"the automatic checks":`${g()}\'s UX review`}. Take it on, or dismiss it.`,tone:"suggest"}:{title:"Flagged for review",text:"Decide whether this becomes a change.",tone:"suggest"};switch(e.status){case"open":return e.start==="now"?{title:`Queued for ${g()}`,text:r.watcher?`${g()} starts on it next.`:`Starts as soon as a ${g()} session runs /ahemui:watch.`,tone:"open"}:{title:"In the backlog",text:"Waits for /ahemui:work, or start it now.",tone:"open"};case"in-progress":return{title:"In progress",text:`${e.claimed_by?i(e.claimed_by):g()} is working on it.`,tone:"doing"};case"review":return{title:"Ready for your review",text:"Compare before and after, then approve it or send it back.",tone:"review"};case"done":return{title:`Done${a}`,text:"",tone:"done"};default:return{title:`Won\'t fix${a}`,text:"",tone:"wontfix"}}}function me(e,t){return t?`<div class="answer"><label>Your answer</label><textarea data-keep="reply" placeholder="Answer ${g()}\'s question\\u2026"></textarea></div>`:e.status==="review"?`<div class="answer"><label>If it\'s not right yet</label><textarea data-keep="changes" placeholder="Say what still needs to change, then Send back"></textarea></div>`:""}function he(e,t){let a=(c,l,b="")=>`<button class="btn ${b}" data-act="${c}">${l}</button>`,n=r.watcher?.state==="working"?"Add to queue":`${U}Start now`,o="",s="";return e.intent==="review"&&e.status==="open"&&!t?(o=a("dismiss","Dismiss","quiet"),s=a("accept-later","Later")+a("accept-now","Do it","primary")):t?(o=a("dismiss","Dismiss","quiet"),s=a("reply","Send answer","primary")):e.status==="review"?(o=a("dismiss","Dismiss","quiet"),s=a("changes","Send back")+a("approve","Looks good \\u2713","primary")):e.status==="open"?(o=a("dismiss","Dismiss","quiet"),s=e.start==="now"?a("later","Move to backlog")+a("done","Mark done"):a("done","Mark done")+a("start",n,"primary")):e.status==="in-progress"?(o=a("dismiss","Dismiss","quiet"),s=a("reopen","Put back to open")+a("done","Mark done","primary")):e.location==="items"?s=a("reopen","Reopen")+a("archive","Archive","primary"):s=a("reopen","Reopen","primary"),`<div class="d-foot"><div>${o}</div><div class="acts">${s}</div></div>`}function fe(e){let t=document.createElement("div");t.className="lightbox",t.setAttribute("role","dialog"),t.setAttribute("aria-label","Screenshot"),t.innerHTML=`<img src="${i(e)}" alt=""><button class="lb-x" aria-label="Close">\\u2715</button>`;let a=()=>{t.remove(),removeEventListener("keydown",n,!0)},n=o=>{o.key==="Escape"&&(o.stopPropagation(),a())};t.addEventListener("click",a),addEventListener("keydown",n,!0),document.body.appendChild(t)}function be(e){if(!h){let a=[e.type,e.priority,e.area,...(e.labels??[]).map(n=>`#${n}`)].filter(Boolean).join(" \\xB7 ");return a?`<section><h3>Classification</h3><p>${i(a)}</p></section>`:""}let t=(a,n,o="\\u2014")=>`<option value="">${o}</option>${a.map(s=>`<option ${s===n?"selected":""}>${s}</option>`).join("")}`;return`<section><h3>Classification</h3><div class="triage">\n    <label>Type <select data-t="type">${t(re,e.type)}</select></label>\n    <label>Priority <select data-t="priority">${t(de,e.priority,"normal")}</select></label>\n    <label class="wide">Batch <select data-batch>\n      <option value="">No batch</option>\n      ${r.batches.map(a=>`<option value="${a.id}" ${a.id===e.batch?"selected":""}>${i(a.name)} (${a.intent==="review"?"for review":"changes"})</option>`).join("")}\n      <option value="new">New batch\\u2026</option>\n    </select></label>\n    <div class="new-batch wide" hidden>\n      <input data-new-batch placeholder="Batch name" maxlength="120">\n      <select data-new-intent><option value="action">Changes to make</option><option value="review">For review</option></select>\n    </div>\n    <label class="wide">Area <input data-t="area" value="${i(e.area??"")}" placeholder="Page \\u203A Section"></label>\n    <label class="wide">Labels <input data-t="labels" value="${i((e.labels??[]).join(", "))}" placeholder="mobile, dark-mode"></label>\n    <div class="saved-hint">Saved as you change it</div>\n  </div></section>`}function xe(e){let t=[],a=e.styles;a?.computed&&t.push(`<section><h3>Styles</h3><dl>${Object.entries(a.computed).map(([l,b])=>y(l,`${b}${a.tokens?.[l]?`  \\u2192  ${a.tokens[l]}`:""}`,!0)).join("")}${a.classes?y("classes",a.classes.join(" "),!0):""}</dl></section>`);let n=e.evidence;(n?.console?.length||n?.network?.length)&&t.push(`<section><h3>Errors before capture</h3><ul class="mono-list">${[...(n.console??[]).map(l=>`<li><b>console.${i(l.level)}</b> ${i(l.message)}</li>`),...(n.network??[]).map(l=>`<li><b>${i(l.method)} ${l.status||"failed"}</b> ${i(l.url)}</li>`)].join("")}</ul></section>`);let o=e.steps;o?.length&&t.push(`<section><h3>Steps before capture</h3><ol class="mono-list">${o.map(l=>`<li>${i(l.kind)} ${i(l.target??"")}${l.detail?` (${i(l.detail)})`:""}</li>`).join("")}</ol></section>`);let s=e.a11y;s?.length&&t.push(`<section><h3>Accessibility</h3><ul class="mono-list">${s.map(l=>`<li><b>${i(l.impact??"")}</b> ${i(l.id)}: ${i(l.help)}</li>`).join("")}</ul></section>`);let c=e.state;return c&&(c.props!==void 0||c.state!==void 0)&&t.push(`<section><h3>Component state${c.component?` \\xB7 ${i(c.component)}`:""}</h3><pre>${i(JSON.stringify({props:c.props,state:c.state},null,2))}</pre></section>`),t.join("")}async function z(e,t){if(t==="prune"){try{let{archived:s}=await p("POST","/api/prune",{});r.items=r.items.map(c=>s.includes(c.id)?{...c,location:"done"}:c),m(),u(`Archived ${s.length} finished item(s)`,async()=>{for(let c of s)await M(c)})}catch(s){u(s.message)}return}let a=r.items.find(s=>s.id===e);if(!a)return;let n=f(".drawer"),o=s=>n.querySelector(`[data-keep="${s}"]`)?.value.trim()??"";try{let s;switch(t){case"copy":return await navigator.clipboard.writeText(e),u("Copied");case"start":case"later":s=await p("POST",`/api/items/${e}/start`,{start:t==="start"?"now":"later"}),u(t==="later"?"Moved to the backlog":r.watcher?.state==="waiting"?`\\u26A1 ${g()} is starting on it`:r.watcher?"Added to the queue":`Queued; start /ahemui:watch in ${_()} to work it`);break;case"done":case"wontfix":{let c=a.status;s=await p("POST",`/api/items/${e}/resolve`,{status:t}),u(t==="wontfix"?"Marked won\'t fix":"Marked done",()=>M(e,c));break}case"reopen":s=await p("POST",`/api/items/${e}/reopen`,{});break;case"dismiss":{let c=a.status;s=await p("POST",`/api/items/${e}/dismiss`,{}),u("Dismissed",()=>M(e,c));break}case"accept-now":case"accept-later":{let c=a.batch??null;s=await p("POST",`/api/items/${e}/accept`,{start:t==="accept-now"?"now":"later"}),u(t==="accept-now"?`On ${g()}\'s queue`:"In the backlog as a change",async()=>{let l=await p("POST",`/api/items/${e}/batch`,{batch:c});r.items=r.items.map(b=>b.id===l.id?l:b),m()});break}case"archive":s=await p("POST",`/api/items/${e}/archive`,{}),u("Archived",()=>M(e));break;case"reply":if(!o("reply"))return u("Type an answer first");s=await p("POST",`/api/items/${e}/reply`,{text:o("reply")}),u(`Sent to ${g()} \\u2713`);break;case"approve":s=await p("POST",`/api/items/${e}/review`,{verdict:"approved"}),u("Approved \\u2713");break;case"changes":if(!o("changes"))return u("Say what still needs to change");s=await p("POST",`/api/items/${e}/review`,{verdict:"changes",comment:o("changes")}),u(`Sent back to ${g()}`);break;case"triage":{let c=b=>n.querySelector(`[data-t="${b}"]`).value.trim(),l=c("labels").split(",").map(b=>b.trim()).filter(Boolean);s=await p("POST",`/api/items/${e}/triage`,{type:c("type")||null,priority:c("priority")||null,area:c("area")||null,labels:l.length?l:null}),u("Classification saved");break}}s&&(n.querySelectorAll("[data-keep]").forEach(c=>c.value=""),r.items=r.items.map(c=>c.id===s.id?s:c),m())}catch(s){u(s.message)}}function y(e,t,a=!1){return t?`<dt>${i(e)}</dt><dd${a?\' class="mono"\':""}>${i(t)}</dd>`:""}function ve(e){return e.body.split(`\n`)[0].slice(0,140)}function we(e){let t=e[0]?.batch,a=t?r.batches.find(o=>o.id===t):void 0;if(!a)return"";if(a.intent==="review")return`<button class="btn grp-act" data-batch-act="to-changes" data-batch-id="${a.id}" title="Make these changes: the batch and its items become actionable">Make these changes</button>`;let n=e.filter(o=>o.status==="open"&&!o.needs_reply&&o.start!=="now").length;return n?`<button class="btn grp-act" data-batch-act="queue-all" data-batch-id="${a.id}" title="Queue every open item in this batch for ${g()}">${U}Queue all ${n}</button>`:""}async function ye(e,t){try{if(e==="to-changes"){let{batch:a,items:n}=await p("POST",`/api/batches/${t}`,{intent:"action"});r.batches=r.batches.map(o=>o.id===a.id?a:o),r.items=r.items.map(o=>n.find(s=>s.id===o.id)??o),m(),u(`${a.name} is now changes to make`,async()=>{let o=await p("POST",`/api/batches/${t}`,{intent:"review"});r.batches=r.batches.map(s=>s.id===o.batch.id?o.batch:s),r.items=r.items.map(s=>o.items.find(c=>c.id===s.id)??s),m()})}else if(e==="queue-all"){let a=r.items.filter(n=>n.batch===t&&n.status==="open"&&!n.needs_reply&&n.start!=="now").map(n=>n.id);for(let n of a){let o=await p("POST",`/api/items/${n}/start`,{start:"now"});r.items=r.items.map(s=>s.id===o.id?o:s)}m(),u(`Queued ${a.length} for ${g()}`,async()=>{for(let n of a){let o=await p("POST",`/api/items/${n}/start`,{start:"later"});r.items=r.items.map(s=>s.id===o.id?o:s)}m()})}}catch(a){u(a.message)}}function ce(e){if(!e.batch)return"No batch";let t=r.batches.find(a=>a.id===e.batch);return t?`${t.name} (${t.intent==="review"?"for review":"changes"} \\xB7 ${t.author})`:`Batch ${e.batch.slice(0,8)}`}function W(e,t){let a=e?.storyTitle||e?.routeName||e?.pageComponent?.replace(/(Page|View)$/,""),n=e?.routePattern??t??"?";return a?`${n} \\xB7 ${a}`:n}function $e(e){let t=e.split(/\\n\\n### (Note|Question|Reply|Feedback|Approved) \u2014 ([^\\n]+)\\n\\n/),a=[];for(let n=1;n+2<t.length+1;n+=3)a.push({kind:t[n],who:t[n+1].replace(/, \\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d$/,""),text:(t[n+2]??"").trim()});return{prompt:t[0],thread:a}}function ke(e){let t=(Date.now()-Date.parse(e))/1e3;return t<60?"just now":t<3600?`${Math.round(t/60)} min ago`:t<86400?`${Math.round(t/3600)} h ago`:`${Math.round(t/86400)} d ago`}var ae=0;function u(e,t){let a=f(".toast");if(a.textContent=e,a.classList.toggle("has-action",!!t),t){let n=document.createElement("button");n.className="toast-undo",n.textContent="Undo",n.addEventListener("click",async()=>{a.classList.remove("show"),await t().then(()=>u("Undone"),o=>u(`Couldn\'t undo: ${o.message}`))}),a.append(" ",n)}a.classList.add("show"),clearTimeout(ae),ae=window.setTimeout(()=>a.classList.remove("show"),t?6e3:2500)}async function ne(e,t){let a=r.items.find(n=>n.id===e);try{let n=await p("POST",`/api/items/${e}/batch`,{batch:t});r.items=r.items.map(s=>s.id===e?n:s),m();let o=r.batches.find(s=>s.id===t);u(o?`Moved to ${o.name}${o.intent==="review"?" (for review)":""}`:"Removed from its batch",async()=>{let s=await p("POST",`/api/items/${e}/batch`,{batch:a?.batch??null}),c=a?.start==="now"?await p("POST",`/api/items/${e}/start`,{start:"now"}):s;r.items=r.items.map(l=>l.id===e?c:l),m()})}catch(n){u(n.message)}}async function M(e,t){let a=await p("POST",`/api/items/${e}/restore`,t?{status:t}:{});r.items=r.items.map(n=>n.id===e?a:n),m()}function i(e){return e.replace(/[&<>"\']/g,t=>`&#${t.charCodeAt(0)};`)}le();m();h&&se();})();\n';
 
 // ../cli/src/git.ts
 import { execFileSync as execFileSync2 } from "node:child_process";
@@ -16210,6 +16254,7 @@ async function exportBoard(store, out = join2(store.dir, "backlog.html")) {
     generated: (/* @__PURE__ */ new Date()).toISOString(),
     items: await store.list({ includeDone: true }),
     batches: await store.listBatches(),
+    agent: (await store.config()).agent,
     base
   });
   await writeFile2(file, html);
@@ -16272,7 +16317,7 @@ async function updatePrefs(patch) {
 
 // ../cli/src/server.ts
 var MIME = { webp: "image/webp", png: "image/png", jpg: "image/jpeg" };
-var BUILD = true ? "20261010090724" : "dev";
+var BUILD = true ? "20261010103003" : "dev";
 async function serve(store, opts = {}) {
   const config = await store.config();
   config.devOrigins = [.../* @__PURE__ */ new Set([...config.devOrigins, ...opts.origins ?? []])];
@@ -16354,6 +16399,7 @@ async function serve(store, opts = {}) {
     }
   };
 }
+var EXTENSION_IDS = ["lfgapjkopjhahhdeeaodfnmodkjahhpl"];
 var HttpError = class extends Error {
   constructor(status, message) {
     super(message);
@@ -16363,7 +16409,8 @@ var HttpError = class extends Error {
 };
 function originAllowed(origin, config, self = []) {
   if (!origin) return true;
-  if (origin.startsWith("chrome-extension://")) return true;
+  const ext = /^chrome-extension:\/\/([a-p]{32})$/.exec(origin);
+  if (ext) return EXTENSION_IDS.includes(ext[1]) || (config.extensionIds ?? []).includes(ext[1]);
   return config.devOrigins.includes(origin) || self.includes(origin);
 }
 function hostAllowed(host) {
@@ -16461,7 +16508,7 @@ async function handle(store, config, self, req, res) {
     const body = await readJson(req, 16e3);
     const action2 = body.action;
     if (action2 !== "pause" && action2 !== "resume" && action2 !== "stop") throw new HttpError(400, "action must be pause, resume or stop");
-    if (action2 !== "resume" && !await store.watcher()) throw new HttpError(409, "no agent session is watching; run /ahemui:watch in Claude Code");
+    if (action2 !== "resume" && !await store.watcher()) throw new HttpError(409, "no agent session is watching; start one with /ahemui:watch");
     await store.setWatchControl(action2 === "pause" ? "paused" : action2 === "stop" ? "stop" : null, body.author ?? defaultAuthor());
     return send(res, 200, { watcher: await store.watcher() });
   }
@@ -16768,7 +16815,7 @@ usage:
   ahemui reply <id> <text>          answer the agent's question on an item
   ahemui approve <id> [--note <t>]  approve an item in review
   ahemui changes <id> --note <t>    send an item in review back with feedback
-  ahemui wait [--timeout <sec>] [--as <name>]
+  ahemui wait [--timeout <sec>] [--as <name>] [--agent <id>]
                                   block until "Start now" items arrive, print them, exit 0 (3 on timeout)
   ahemui unwatch                    clear the "agent is watching" presence
   ahemui update [--from <tgz>] [--force]
@@ -16816,7 +16863,7 @@ async function main(argv) {
   const [cmd, ...args] = positionals;
   if (o.version) {
     const v = true ? "0.4.0" : "dev";
-    return console.log(`ahemui ${v}${true ? ` (build ${"20261010090724"})` : ""}`);
+    return console.log(`ahemui ${v}${true ? ` (build ${"20261010103003"})` : ""}`);
   }
   if (!cmd || o.help) return console.log(HELP);
   process.env.AHEMUI_AUTHOR ||= defaultAuthor();
@@ -16913,7 +16960,7 @@ ${it.body}`);
       return console.log(summary(await store.addNote(id(), process.env.AHEMUI_AUTHOR, text)));
     }
     case "wait": {
-      const items = await waitForStartNow(store, o.as ?? process.env.AHEMUI_AUTHOR, o.timeout ? Number(o.timeout) * 1e3 : 0, o.agent ?? process.env.AHEMUI_AGENT);
+      const items = await waitForStartNow(store, o.as ?? process.env.AHEMUI_AUTHOR, o.timeout ? Number(o.timeout) * 1e3 : 0, o.agent ?? process.env.AHEMUI_AGENT ?? (await store.config()).agent);
       if (items === "stopped") {
         console.log("STOPPED watching was stopped from the browser");
         process.exit(4);
