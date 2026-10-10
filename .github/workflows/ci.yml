@@ -3,7 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+    # The marketing site deploys on its own (Cloudflare Pages); it doesn't need the product's build and tests.
+    paths-ignore: ["site/**"]
   pull_request:
+    paths-ignore: ["site/**"]
 
 permissions:
   contents: read
