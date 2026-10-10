@@ -529,3 +529,21 @@ h2 { padding-bottom: .12em; margin-bottom: calc(18px - .12em); }
 .mini-pin { position: absolute; right: -24px; top: -16px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--mark); border: 2px solid #fff; }
 .mini-pin svg { width: 10px; height: 10px; fill: #fff; }
 .beyond { flex-direction: column; gap: 14px; }
+
+/* ——— comparison cards: timeline steps, a step count, what-you-type as a chat bubble ——— */
+.vs-card { padding: 24px 26px; gap: 18px; }
+.vs-card .vs-label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0; }
+.vs-count { font: 600 11px var(--mono); letter-spacing: .04em; text-transform: none; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.vs-new .vs-count { color: var(--mark-2); border-color: color-mix(in srgb, var(--mark) 35%, var(--line)); background: color-mix(in srgb, var(--mark) 10%, transparent); }
+.vs-card .vs-steps { margin: 0; gap: 0; }
+.vs-card .vs-steps li { padding: 0 0 14px 38px; min-height: 26px; }
+.vs-card .vs-steps li:last-child { padding-bottom: 0; }
+.vs-card .vs-steps li::before { width: 26px; height: 26px; top: -1px; background: var(--bg2); }
+.vs-card .vs-steps li:not(:last-child)::after { content: ""; position: absolute; left: 12.5px; top: 27px; bottom: 1px; width: 1px; background: var(--line); }
+.vs-new .vs-steps li:not(:last-child)::after { background: color-mix(in srgb, var(--mark) 45%, var(--line)); }
+.vs-new .vs-steps li::before { background: var(--mark); border-color: var(--mark); color: #fff; box-shadow: 0 0 0 4px color-mix(in srgb, var(--mark) 16%, transparent); }
+.vs-say { margin-top: auto; display: grid; gap: 8px; }
+.vs-say .vs-box-head { margin: 4px 0 0; }
+.vs-bubble { position: relative; margin: 0; padding: 12px 14px; border-radius: 14px 14px 14px 4px; background: var(--bg2); border: 1px solid var(--line); font-size: 14.5px; line-height: 1.55; color: var(--muted); }
+.vs-new .vs-bubble { background: color-mix(in srgb, var(--mark) 12%, var(--panel)); border-color: color-mix(in srgb, var(--mark) 35%, var(--line)); color: var(--fg); font-size: 15.5px; }
+.vs-new .mini-page { margin: 2px 0 0; }
