@@ -95,48 +95,29 @@
         <h2>Stop explaining where things are.</h2>
         <p class="sub">A screenshot shows Claude what's wrong, not where it lives in your code. So you describe it, Claude searches and guesses, and you go round again. AhemUI hands over the exact file and line with the picture.</p>
         <div class="gains">
-          <div class="gain"><span class="g-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor" stroke="none"/></svg></span><h3>Quicker</h3><p>One sentence instead of a paragraph of directions. Claude starts in the right file instead of hunting for it.</p></div>
-          <div class="gain"><span class="g-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><h3>More precise</h3><p>The exact file, line, component and styles. No picking the wrong one of four "Deploy" buttons.</p></div>
-          <div class="gain"><span class="g-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/><path d="m16 16 2 2 4-4"/></svg></span><h3>More efficient</h3><p>Flag a dozen things without leaving the page, then let Claude work the batch. Review right where you spotted it.</p></div>
-          <div class="gain"><span class="g-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg></span><h3>Fewer tokens</h3><p>Claude reads the file it needs instead of searching the codebase, and fewer wrong guesses means fewer retries.</p></div>
+          <div class="gain"><span class="g-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor" stroke="none"/></svg></span><h3>Quicker</h3><p>One sentence, and Claude starts in the right file.</p></div>
+          <div class="gain"><span class="g-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></span><h3>More precise</h3><p>The exact file, line and component. No guessing which button.</p></div>
+          <div class="gain"><span class="g-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/><path d="m16 16 2 2 4-4"/></svg></span><h3>More efficient</h3><p>Flag a dozen things, then let Claude work the batch.</p></div>
+          <div class="gain"><span class="g-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 7v10l8 4 8-4V7z"/><path d="m4 7 8 4 8-4M12 11v10"/></svg></span><h3>Fewer tokens</h3><p>No searching the codebase, no retries after wrong guesses.</p></div>
         </div>
         <p class="vs-intro">The same fix, both ways</p>
         <div class="vs-grid">
           <article class="vs-card vs-old">
             <div class="vs-label">Screenshot and explain</div>
-            <ol class="vs-steps">
-              <li>Take a screenshot, crop it, paste it into Claude.</li>
-              <li>Describe where it is, in words.</li>
-              <li>Claude searches for "Deploy", finds four matches and picks one.</li>
-              <li>Reload, check, explain again when it's the wrong one.</li>
-              <li>Next tweak: start over. Nothing is tracked.</li>
-            </ol>
-            <div class="vs-box">
-              <div class="vs-box-head">What you type</div>
-              <p class="vs-prompt">"See screenshot. On the projects page, in the Mobile app card (the middle one), the Deploy button, not the one in the header, should be full width and say Deploy to production. I think it's in ProjectCard or maybe ProjectsPage?"</p>
-            </div>
+            <p class="vs-prompt">"See screenshot. On the projects page, in the Mobile app card (the middle one), the Deploy button, not the one in the header, should be full width and say Deploy to production. I think it's in ProjectCard or maybe ProjectsPage?"</p>
+            <p class="vs-then">Then Claude searches, picks one of four matches, and you explain again.</p>
           </article>
           <article class="vs-card vs-new">
             <div class="vs-label">Point at it</div>
-            <ol class="vs-steps">
-              <li>Circle the button and say what to change.</li>
-              <li>Claude opens <code>ProjectCard.vue:14</code> and fixes it. Check it on the page if you like.</li>
-            </ol>
-            <div class="vs-box">
-              <div class="vs-box-head">What you type</div>
-              <p class="vs-prompt">"Make this full width and say Deploy to production."</p>
-              <div class="vs-box-head">Claude also gets</div>
-              <div class="vs-chips"><span>ProjectCard.vue:14:5</span><span>/projects › Mobile app</span><span>screenshot</span></div>
-            </div>
+            <p class="vs-prompt">"Make this full width and say Deploy to production."</p>
+            <div class="vs-chips"><span>ProjectCard.vue:14:5</span><span>/projects › Mobile app</span><span>screenshot</span></div>
+            <p class="vs-then">Claude opens the right file and fixes it.</p>
           </article>
         </div>
         <div class="beyond">
-          <div>
-            <h3>Not just UI.</h3>
-            <p>It's called AhemUI, but the point is pointing. Circle a wrong total, a checkout step that fails, a confusing error or a slow list, and Claude starts in the code behind it, with the component's props and state, the failed requests and the console errors that came with it.</p>
-          </div>
+          <p><b>Not just UI.</b> Point at a wrong total, a failing step or a confusing error, and Claude gets the props, state and failed requests behind it.</p>
           <ul class="beyond-list" aria-label="Things you can point at">
-            <li>Wrong numbers</li><li>Broken flows</li><li>Error messages</li><li>Failing requests</li><li>Copy</li><li>Layout &amp; styles</li><li>Accessibility</li>
+            <li>Wrong numbers</li><li>Broken flows</li><li>Error messages</li><li>Failing requests</li><li>Copy</li><li>Layout &amp; styles</li>
           </ul>
         </div>
       </div>
