@@ -12,13 +12,12 @@ if ("IntersectionObserver" in window && !matchMedia("(prefers-reduced-motion: re
     { rootMargin: "0px 0px -8% 0px", threshold: 0.12 },
   );
   const groups = ".gains, .trio, .steps, .grid, .vs-grid, .flow, .ticks";
-  for (const el of document.querySelectorAll(`main > section:not(.hero) .wrap > *:not(${groups}), ${groups.split(", ").map((g) => g + " > *").join(", ")}`)) {
+  for (const el of document.querySelectorAll(`main > section:not(.hero):not(.final) .wrap > *:not(${groups}), ${groups.split(", ").map((g) => g + " > *").join(", ")}`)) {
     const row = el.parentElement.matches(groups) ? [...el.parentElement.children].indexOf(el) : 0;
     el.style.setProperty("--d", `${Math.min(row, 6) * 0.07}s`);
     el.classList.add("reveal");
     seen.observe(el);
   }
-  seen.observe(document.querySelector(".final"));
 } else {
   document.querySelector(".final")?.classList.add("in");
 }
@@ -263,4 +262,89 @@ function whileVisible(el, start, stop = () => {}) {
   };
   steps.classList.add("animated");
   whileVisible(steps, step, () => clearTimeout(timer));
+})();
+
+// ——— closing call: it starts bland; AhemUI circles it, asks for "more engaging", and the section restyles ———
+(() => {
+  const section = document.querySelector(".final");
+  const stage = section?.querySelector(".final-stage");
+  if (!stage) return;
+  const before = stage.querySelector(".final-before");
+  const lasso = stage.querySelector(".f-lasso");
+  const bubble = stage.querySelector(".f-bubble");
+  const typed = stage.querySelector(".f-typed");
+  const mark = stage.querySelector(".f-marker");
+  const toastEl = stage.querySelector(".f-toast");
+  const replay = stage.querySelector(".f-replay");
+  const ASK = "make this section more engaging";
+  const BOLT_SVG = '<svg viewBox="0 0 16 16" fill="currentColor"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>';
+  const CHECK_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 4.8"/></svg>';
+  const RING_SVG = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5"/></svg>';
+  if (reduced || !("IntersectionObserver" in window)) return section.classList.add("fixed");
+
+  const toast = (text) => {
+    toastEl.textContent = text;
+    toastEl.classList.add("show");
+    setTimeout(() => toastEl.classList.remove("show"), 1700);
+  };
+  const place = () => {
+    const s = stage.getBoundingClientRect();
+    const b = before.getBoundingClientRect();
+    const pad = 22;
+    const box = { x: b.left - s.left - pad, y: b.top - s.top - pad, w: b.width + pad * 2, h: b.height + pad * 2 };
+    Object.assign(lasso.style, { left: `${box.x}px`, top: `${box.y}px`, width: `${box.w}px`, height: `${box.h}px` });
+    Object.assign(mark.style, { left: `${box.x + box.w - 18}px`, top: `${box.y - 6}px` });
+    const bw = bubble.offsetWidth || 290;
+    Object.assign(bubble.style, { left: `${Math.max(0, Math.min(box.x + box.w / 2 - bw / 2, stage.clientWidth - bw))}px`, top: `${box.y + box.h + 8}px` });
+  };
+  let running = false;
+  const play = async () => {
+    if (running) return;
+    running = true;
+    replay.hidden = true;
+    section.classList.remove("fixed");
+    mark.className = "f-marker";
+    lasso.classList.remove("draw", "gone");
+    typed.textContent = "";
+    await sleep(500);
+    place();
+    lasso.classList.add("draw");
+    await sleep(1150);
+    bubble.classList.add("show");
+    for (const ch of ASK) {
+      typed.textContent += ch;
+      await sleep(42);
+    }
+    await sleep(450);
+    const go = bubble.querySelector(".go");
+    go.classList.add("press");
+    await sleep(200);
+    go.classList.remove("press");
+    bubble.classList.remove("show");
+    mark.innerHTML = BOLT_SVG;
+    mark.className = "f-marker show";
+    toast("⚡ Claude is starting on it");
+    await sleep(900);
+    mark.innerHTML = RING_SVG;
+    mark.className = "f-marker show doing";
+    await sleep(1300);
+    lasso.classList.add("gone");
+    section.classList.add("fixed");
+    await sleep(700);
+    mark.innerHTML = CHECK_SVG;
+    mark.className = "f-marker show done";
+    toast("Done ✓");
+    await sleep(2200);
+    mark.className = "f-marker";
+    replay.hidden = false;
+    running = false;
+  };
+  replay.addEventListener("click", play);
+  addEventListener("resize", () => running && place());
+  const io = new IntersectionObserver(([e]) => {
+    if (!e.isIntersecting) return;
+    io.disconnect();
+    play();
+  }, { threshold: 0.6 });
+  io.observe(stage);
 })();

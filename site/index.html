@@ -392,13 +392,30 @@ full width, call it "Deploy to production"</code></pre>
       </div>
     </section>
 
-    <section class="final">
-      <div class="wrap">
-        <h2><span class="ahem">Ahem.</span> Your <span class="circled">move.<svg class="scribble" viewBox="0 0 200 80" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M18 46 C 14 22, 62 7, 108 8 C 158 9, 195 24, 191 45 C 187 67, 134 77, 92 74 C 46 71, 7 61, 9 40 C 11 24, 42 13, 80 11"/></svg></span></h2>
-        <div class="cta center">
-          <a class="btn primary" href="#install">Install AhemUI</a>
-          <a class="btn" href="https://github.com/ahemui/ahemui" rel="noopener">Star on GitHub</a>
+    <section class="final" aria-label="Get started">
+      <div class="wrap final-stage">
+        <!-- before: deliberately bland; AhemUI "fixes" it when it scrolls into view -->
+        <div class="final-before" aria-hidden="true">
+          <h2>Get started</h2>
+          <p>Install AhemUI and start sending feedback to Claude Code.</p>
+          <p><a href="#install">Install AhemUI</a> &nbsp;|&nbsp; <a href="https://github.com/ahemui/ahemui" rel="noopener">GitHub</a></p>
         </div>
+        <div class="final-after">
+          <h2><span class="ahem">Ahem.</span> Your <span class="circled">move.<svg class="scribble" viewBox="0 0 200 80" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M18 46 C 14 22, 62 7, 108 8 C 158 9, 195 24, 191 45 C 187 67, 134 77, 92 74 C 46 71, 7 61, 9 40 C 11 24, 42 13, 80 11"/></svg></span></h2>
+          <div class="cta center">
+            <a class="btn primary" href="#install">Install AhemUI</a>
+            <a class="btn" href="https://github.com/ahemui/ahemui" rel="noopener">Star on GitHub</a>
+          </div>
+        </div>
+        <svg class="f-lasso" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M50 8 C 82 6, 98 30, 96 52 C 94 78, 70 94, 46 92 C 20 90, 4 72, 5 48 C 6 24, 26 10, 52 9"/></svg>
+        <div class="f-bubble" aria-hidden="true">
+          <div class="where">Final call to action · index.html</div>
+          <div class="field"><span class="f-typed"></span><span class="caret"></span></div>
+          <div class="bubble-foot"><span>Enter start now</span><span class="go"><svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg>Start now</span></div>
+        </div>
+        <div class="f-marker" aria-hidden="true"></div>
+        <div class="f-toast" aria-hidden="true"></div>
+        <button class="f-replay" type="button" hidden>↺ Replay</button>
       </div>
     </section>
   </main>

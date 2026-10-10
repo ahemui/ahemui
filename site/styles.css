@@ -579,3 +579,38 @@ h2 { padding-bottom: .12em; margin-bottom: calc(18px - .12em); }
 /* centred without transform: the scroll-in reveal animates transform and would undo it */
 .vs-badge, .js .vs-badge.reveal, .js .vs-badge.reveal.in { transform: none; left: calc(50% - 22px); top: calc(50% - 22px); }
 @media (max-width: 860px) { .vs-badge, .js .vs-badge.reveal, .js .vs-badge.reveal.in { left: auto; top: auto; } }
+
+/* ——— closing call: starts bland, then AhemUI fixes it in front of you ——— */
+.final-stage { position: relative; display: grid; place-items: center; min-height: 340px; }
+.final-before, .final-after { grid-area: 1 / 1; transition: opacity .55s ease, transform .55s ease, filter .55s ease; }
+/* the "before": what an unstyled page looks like */
+.final-before { font: 16px/1.4 "Times New Roman", Times, serif; color: var(--fg); text-align: center; padding: 18px 26px; }
+.final-before h2 { font: 700 26px/1.2 "Times New Roman", Times, serif; letter-spacing: 0; margin: 0 0 10px; background: none; -webkit-text-fill-color: currentColor; color: var(--fg); padding: 0; }
+.final-before p { margin: 0 0 8px; }
+.final-before a { color: #5a8dee; text-decoration: underline; }
+.js .final-after { opacity: 0; transform: scale(.96); filter: blur(6px); pointer-events: none; }
+.js .final.fixed .final-before { opacity: 0; transform: scale(1.03); filter: blur(6px); pointer-events: none; }
+.js .final.fixed .final-after { opacity: 1; transform: none; filter: none; pointer-events: auto; }
+html:not(.js) .final-before { display: none; }
+.js .final .scribble path, .js .final.in .scribble path { animation: none; stroke-dashoffset: 1; }
+.js .final.fixed .scribble path { animation: draw 1.1s cubic-bezier(.6, .1, .3, 1) .45s forwards; }
+
+.f-lasso { position: absolute; pointer-events: none; overflow: visible; opacity: 0; }
+.f-lasso path { fill: none; stroke: var(--mark); stroke-width: 2.6; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: 1; }
+.f-lasso.draw { opacity: 1; }
+.f-lasso.draw path { transition: stroke-dashoffset 1s ease-in-out; stroke-dashoffset: 0; }
+.f-lasso.gone { opacity: 0; transition: opacity .4s; }
+.f-bubble { position: absolute; width: 290px; padding: 10px; font-size: 12px; text-align: left; background: #16181d; color: #f3f4f6; border: 1px solid #343842; border-radius: 10px; box-shadow: 0 14px 40px rgba(0,0,0,.35); opacity: 0; transform: translateY(6px); transition: all .25s; pointer-events: none; z-index: 3; }
+.f-bubble.show { opacity: 1; transform: none; }
+.f-bubble .where { font: 10px var(--mono); color: #9ca3af; margin-bottom: 6px; }
+.f-bubble .field { min-height: 38px; }
+.f-marker { position: absolute; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; color: #fff; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.3); background: var(--open); opacity: 0; transform: scale(.4); transition: opacity .3s, transform .3s, background-color .3s; z-index: 3; }
+.f-marker svg { width: 13px; height: 13px; }
+.f-marker.show { opacity: 1; transform: scale(1); }
+.f-marker.doing { background: var(--doing); animation: pulse 1.4s infinite; }
+.f-marker.done { background: #16a34a; }
+.f-toast { position: absolute; left: 50%; bottom: 6px; transform: translate(-50%, 8px); background: #16181d; color: #f3f4f6; border: 1px solid #343842; padding: 7px 12px; border-radius: 8px; font-size: 12px; opacity: 0; transition: all .25s; white-space: nowrap; z-index: 3; }
+.f-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.f-replay { position: absolute; right: 0; bottom: 0; font: 600 12px var(--sans); color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; cursor: pointer; }
+.f-replay:hover { color: var(--fg); border-color: var(--mark); }
+@media (max-width: 640px) { .f-bubble { width: 240px; } .final-stage { min-height: 300px; } }
