@@ -547,3 +547,25 @@ h2 { padding-bottom: .12em; margin-bottom: calc(18px - .12em); }
 .vs-bubble { position: relative; margin: 0; padding: 12px 14px; border-radius: 14px 14px 14px 4px; background: var(--bg2); border: 1px solid var(--line); font-size: 14.5px; line-height: 1.55; color: var(--muted); }
 .vs-new .vs-bubble { background: color-mix(in srgb, var(--mark) 12%, var(--panel)); border-color: color-mix(in srgb, var(--mark) 35%, var(--line)); color: var(--fg); font-size: 15.5px; }
 .vs-new .mini-page { margin: 2px 0 0; }
+
+/* ——— comparison, with impact: the word count leads, a vs badge between the cards ——— */
+.vs-grid { position: relative; gap: 28px; }
+.vs-badge { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 2; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--line); font: 700 13px var(--mono); color: var(--muted); letter-spacing: .04em; }
+.vs-card { gap: 16px; }
+.vs-new { background: linear-gradient(180deg, color-mix(in srgb, var(--mark) 9%, var(--panel)), var(--panel) 55%); }
+.vs-stat { display: flex; align-items: baseline; gap: 12px; margin: 4px 0 -2px; }
+.vs-stat b { font-size: clamp(56px, 7vw, 84px); line-height: .9; font-weight: 800; letter-spacing: -0.05em; }
+.vs-stat span { font-size: 15px; color: var(--muted); }
+.vs-old .vs-stat b { color: color-mix(in srgb, var(--muted) 70%, var(--line)); }
+.vs-new .vs-stat b { background: linear-gradient(100deg, var(--mark), var(--mark-2)); -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .04em; }
+.vs-new .vs-stat span { color: var(--fg); }
+.vs-old .vs-bubble { font-size: 14px; }
+.vs-new .vs-bubble { font-size: 17px; font-weight: 500; }
+.vs-gets { display: grid; gap: 8px; }
+.vs-gets .vs-box-head { margin: 0; }
+.vs-card .vs-steps { margin-top: auto; padding-top: 16px; border-top: 1px dashed var(--line); }
+.vs-old .vs-steps li { color: var(--muted); }
+@media (max-width: 860px) { .vs-badge { position: static; transform: none; margin: -14px auto; } }
+.vs-wins { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
+.vs-wins li { position: relative; padding-left: 28px; font-size: 15px; font-weight: 600; color: var(--fg); }
+.vs-wins li::before { content: ""; position: absolute; left: 0; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: color-mix(in srgb, var(--mark) 18%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4.5 8.3 2.3 2.3 4.7-5' fill='none' stroke='%234f8cff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat; }

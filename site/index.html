@@ -104,6 +104,8 @@
         <div class="vs-grid">
           <article class="vs-card vs-old">
             <div class="vs-label">Screenshot and explain<span class="vs-count">5 steps · every time</span></div>
+            <div class="vs-stat"><b>40</b><span>words to say where it is</span></div>
+            <p class="vs-bubble">"See screenshot. On the projects page, in the Mobile app card (the middle one), the Deploy button, not the one in the header, should be full width and say Deploy to production. I think it's in ProjectCard or maybe ProjectsPage?"</p>
             <ol class="vs-steps">
               <li>Take a screenshot, crop it, paste it into Claude.</li>
               <li>Describe where it is, in words.</li>
@@ -111,26 +113,18 @@
               <li>Reload, check, explain again when it's the wrong one.</li>
               <li>Next tweak: start over. Nothing is tracked.</li>
             </ol>
-            <div class="vs-say">
-              <div class="vs-box-head">What you type</div>
-              <p class="vs-bubble">"See screenshot. On the projects page, in the Mobile app card (the middle one), the Deploy button, not the one in the header, should be full width and say Deploy to production. I think it's in ProjectCard or maybe ProjectsPage?"</p>
-            </div>
           </article>
+          <span class="vs-badge" aria-hidden="true">vs</span>
           <article class="vs-card vs-new">
             <div class="vs-label">Point at it<span class="vs-count">2 steps</span></div>
+            <div class="vs-stat"><b>9</b><span>words, because you pointed</span></div>
+            <p class="vs-bubble">"Make this full width and say Deploy to production."</p>
+            <div class="vs-gets"><span class="vs-box-head">Claude also gets</span><div class="vs-chips"><span>ProjectCard.vue:14:5</span><span>/projects › Mobile app</span><span>screenshot</span></div></div>
+            <ul class="vs-wins"><li>Right file, first time</li><li>Nothing to explain again</li><li>Tracked until you approve it</li></ul>
             <ol class="vs-steps">
               <li>Circle the button and say what to change.</li>
               <li>Claude opens <code>ProjectCard.vue:14</code> and fixes it. Check it on the page if you like.</li>
             </ol>
-            <div class="mini-page" aria-hidden="true">
-              <div class="mini-card"><b>Mobile app</b><small>Build passing</small><span class="mini-btn">Deploy<svg class="mini-loop" viewBox="0 0 200 80" preserveAspectRatio="none" aria-hidden="true"><path d="M18 46 C 14 22, 62 7, 108 8 C 158 9, 195 24, 191 45 C 187 67, 134 77, 92 74 C 46 71, 7 61, 9 40 C 11 24, 42 13, 80 11"/></svg><em class="mini-pin"><svg viewBox="0 0 16 16"><path d="M9.2 1L3 9.2h4.4L6.6 15 13 6.8H8.6z"/></svg></em></span></div>
-            </div>
-            <div class="vs-say">
-              <div class="vs-box-head">What you type</div>
-              <p class="vs-bubble">"Make this full width and say Deploy to production."</p>
-              <div class="vs-box-head">Claude also gets</div>
-              <div class="vs-chips"><span>ProjectCard.vue:14:5</span><span>/projects › Mobile app</span><span>screenshot</span></div>
-            </div>
           </article>
         </div>
         <div class="beyond">
