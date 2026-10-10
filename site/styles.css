@@ -59,7 +59,7 @@ section { padding: 88px 0; }
 /* nav */
 .nav { position: sticky; top: 0; z-index: 5; backdrop-filter: blur(12px); background: color-mix(in srgb, var(--bg) 78%, transparent); border-bottom: 1px solid var(--line); }
 .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 16px; }
-.logo { display: flex; align-items: center; gap: 9px; text-decoration: none; font: 800 21px var(--sans); letter-spacing: -0.025em; }
+.logo { display: flex; align-items: center; gap: 9px; text-decoration: none; font: 800 19px var(--sans); letter-spacing: -0.025em; }
 .logo b { color: var(--mark); }
 .nav nav { display: flex; gap: 22px; font-size: 15px; }
 .nav nav a { text-decoration: none; color: var(--muted); }
