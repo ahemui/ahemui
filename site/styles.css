@@ -569,3 +569,6 @@ h2 { padding-bottom: .12em; margin-bottom: calc(18px - .12em); }
 .vs-wins { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 8px; }
 .vs-wins li { position: relative; padding-left: 28px; font-size: 15px; font-weight: 600; color: var(--fg); }
 .vs-wins li::before { content: ""; position: absolute; left: 0; top: 2px; width: 18px; height: 18px; border-radius: 50%; background: color-mix(in srgb, var(--mark) 18%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m4.5 8.3 2.3 2.3 4.7-5' fill='none' stroke='%234f8cff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 14px no-repeat; }
+.vs-losses li { color: var(--muted); font-weight: 500; }
+.vs-losses li::before { background: color-mix(in srgb, var(--muted) 14%, transparent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m5.5 5.5 5 5m0-5-5 5' fill='none' stroke='%239aa0ae' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center / 14px no-repeat; }
+.vs-old .vs-losses { margin-top: 2px; }

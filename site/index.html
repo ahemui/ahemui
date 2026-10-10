@@ -104,12 +104,12 @@
         <div class="vs-grid">
           <article class="vs-card vs-old">
             <div class="vs-label">Screenshot and explain<span class="vs-count">5 steps · every time</span></div>
-            <div class="vs-stat"><b>40</b><span>words to say where it is</span></div>
-            <p class="vs-bubble">"See screenshot. On the projects page, in the Mobile app card (the middle one), the Deploy button, not the one in the header, should be full width and say Deploy to production. I think it's in ProjectCard or maybe ProjectsPage?"</p>
+            <p class="vs-bubble">"See screenshot. On the checkout page, in the order summary on the right, the total at the bottom, not the subtotal above it, should include tax. I think it's worked out in OrderSummary or maybe useCart?"</p>
+            <ul class="vs-wins vs-losses"><li>Claude guesses which total</li><li>Back and forth to correct it</li><li>Gone once the chat scrolls on</li></ul>
             <ol class="vs-steps">
               <li>Take a screenshot, crop it, paste it into Claude.</li>
               <li>Describe where it is, in words.</li>
-              <li>Claude searches for "Deploy", finds four matches and picks one.</li>
+              <li>Claude searches for "total", finds a dozen matches and picks one.</li>
               <li>Reload, check, explain again when it's the wrong one.</li>
               <li>Next tweak: start over. Nothing is tracked.</li>
             </ol>
@@ -117,13 +117,12 @@
           <span class="vs-badge" aria-hidden="true">vs</span>
           <article class="vs-card vs-new">
             <div class="vs-label">Point at it<span class="vs-count">2 steps</span></div>
-            <div class="vs-stat"><b>9</b><span>words, because you pointed</span></div>
-            <p class="vs-bubble">"Make this full width and say Deploy to production."</p>
-            <div class="vs-gets"><span class="vs-box-head">Claude also gets</span><div class="vs-chips"><span>ProjectCard.vue:14:5</span><span>/projects › Mobile app</span><span>screenshot</span></div></div>
+            <p class="vs-bubble">"This total should include tax."</p>
+            <div class="vs-gets"><span class="vs-box-head">Claude also gets</span><div class="vs-chips"><span>OrderSummary.vue:42:7</span><span>/checkout › Order summary</span><span>cart state</span></div></div>
             <ul class="vs-wins"><li>Right file, first time</li><li>Nothing to explain again</li><li>Tracked until you approve it</li></ul>
             <ol class="vs-steps">
-              <li>Circle the button and say what to change.</li>
-              <li>Claude opens <code>ProjectCard.vue:14</code> and fixes it. Check it on the page if you like.</li>
+              <li>Circle the total and say what's wrong.</li>
+              <li>Claude opens <code>OrderSummary.vue:42</code> and fixes it. Check it on the page if you like.</li>
             </ol>
           </article>
         </div>
