@@ -53,7 +53,7 @@ const typed = $("demo-typed");
 const pop = $("demo-pop");
 const toast = $("demo-toast");
 const term = $("demo-term");
-const REQUEST = 'Make this full width and say "Deploy to production"';
+const REQUEST = 'full width, call it "Deploy to production"';
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
