@@ -576,3 +576,6 @@ h2 { padding-bottom: .12em; margin-bottom: calc(18px - .12em); }
 .vs-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .vs-chips { min-width: 0; }
 @media (max-width: 860px) { .vs-grid { grid-template-columns: minmax(0, 1fr); } }
+/* centred without transform: the scroll-in reveal animates transform and would undo it */
+.vs-badge, .js .vs-badge.reveal, .js .vs-badge.reveal.in { transform: none; left: calc(50% - 22px); top: calc(50% - 22px); }
+@media (max-width: 860px) { .vs-badge, .js .vs-badge.reveal, .js .vs-badge.reveal.in { left: auto; top: auto; } }
