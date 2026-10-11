@@ -36,7 +36,15 @@ jobs:
       - run: npm test
       - run: npx --yes @anthropic-ai/claude-code plugin validate packages/claude-plugin
       - name: Publish ahemui to npm (with provenance)
-        run: npm publish ./packages/vite --provenance --access public
+        # Skipped when this version is already on npm (a first release published by hand, or a re-run), so the
+        # GitHub release and the extension zip still get made.
+        run: |
+          v=$(node -p "require('./packages/vite/package.json').version")
+          if npm view "ahemui@$v" version >/dev/null 2>&1; then
+            echo "ahemui@$v is already on npm; skipping publish"
+          else
+            npm publish ./packages/vite --provenance --access public
+          fi
       - name: Zip the extension (attached to the GitHub release; load it unpacked)
         run: cd packages/extension/dist && zip -r "../../../ahemui-extension-${GITHUB_REF_NAME}.zip" .
       - uses: softprops/action-gh-release@v2
