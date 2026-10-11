@@ -696,3 +696,8 @@ html:not(.js) .final-before { display: none; }
 .final-after .copy-pair { margin: 20px auto 0; }
 .copy-pair { grid-template-columns: minmax(0, 1fr); width: 100%; }
 .copy-pair .copyline { min-width: 0; }
+
+/* install: what the plugin runs, next to Claude's warning */
+.trust-note { margin: 12px 0 0; max-width: 520px; font-size: 14px; line-height: 1.55; color: var(--muted); }
+.trust-note b { color: var(--fg); font-weight: 600; }
+.trust-note a, .faq a { color: var(--mark-2); }

@@ -208,6 +208,21 @@ your backlog, reach your local server, or fake captures. A tiny main-world helpe
 On local dev with both the extension and the Vite plugin, the extension's overlay takes over, which gives real tab
 screenshots instead of re-rendering the DOM.
 
+## What gets installed
+
+When you install the Claude Code plugin, Claude warns that it "includes local MCP servers" and that this grants access
+to your computer. Claude shows that for every plugin with a local server, because it can't check what the server does.
+Here's what AhemUI's does:
+
+- **Skills:** twelve `/ahemui:*` commands, which are instructions for Claude in plain Markdown
+  (`packages/claude-plugin/skills/`).
+- **MCP server:** one small Node process (`packages/claude-plugin/src/mcp.ts`, bundled to `server/ahemui-mcp.mjs`) that
+  gives Claude the `ahemui_*` tools. It reads and writes the project's `.ahemui/` folder, runs `git` to read the current
+  branch name, can open the board in your browser, and talks only to AhemUI's own server on `127.0.0.1`. It makes no
+  internet requests.
+- **In your project** (`/ahemui:setup`): the `ahemui` npm package as a dev dependency, one line in your Vite config, and
+  the `.ahemui/` folder. The npm package is published with provenance from this repository's release workflow.
+
 ## Item format
 
 ```

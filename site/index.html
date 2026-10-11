@@ -402,6 +402,10 @@ full width, call it "Deploy to production"</code></pre>
             <h3>Add the plugin to Claude Code</h3>
             <div class="copyline" data-copy="/plugin marketplace add ahemui/ahemui"><code><span class="prompt">&gt;</span> /plugin marketplace add ahemui/ahemui</code><button type="button" aria-label="Copy command">Copy</button></div>
             <div class="copyline" data-copy="/plugin install ahemui@ahemui"><code><span class="prompt">&gt;</span> /plugin install ahemui@ahemui</code><button type="button" aria-label="Copy command">Copy</button></div>
+            <p class="trust-note"><b>Claude will warn that the plugin runs a local MCP server.</b> It shows that for every plugin
+              with one. AhemUI's is a small Node process that reads and writes your project's <code>.ahemui/</code> folder, runs
+              <code>git</code> to read the branch name, and talks only to AhemUI's own server on <code>127.0.0.1</code>, never the
+              internet. <a href="https://github.com/ahemui/ahemui/blob/main/packages/claude-plugin/src/mcp.ts" rel="noopener">Read the code</a>.</p>
           </li>
           <li>
             <h3>Set up your project</h3>
@@ -424,6 +428,7 @@ full width, call it "Deploy to production"</code></pre>
     <section class="faq">
       <div class="wrap">
         <h2>Questions, answered.</h2>
+        <details><summary>What does the Claude Code plugin install?</summary><p>Twelve <code>/ahemui:*</code> commands (instructions for Claude, in plain Markdown) and a local MCP server: a small Node process that gives Claude the <code>ahemui_*</code> tools. It reads and writes your project's <code>.ahemui/</code> folder, runs <code>git</code> to read the branch name, can open the board in your browser, and talks only to AhemUI's own server on <code>127.0.0.1</code>, never the internet. Claude warns about any plugin with a local server because it can't check what the server does; this one is open source (<a href="https://github.com/ahemui/ahemui/blob/main/packages/claude-plugin/src/mcp.ts" rel="noopener">mcp.ts</a>), and the npm package is published with provenance from this repository.</p></details>
         <details><summary>Does my code or data go anywhere?</summary><p>AhemUI itself sends nothing anywhere, and there's no AhemUI cloud. The server runs on <code>127.0.0.1</code> inside your dev server, and captures stay on your machine and in your repo. Your coding agent reads them like the rest of your code, so they're handled under its provider's terms (Anthropic's, for Claude Code), the same as anything else you show it.</p></details>
         <details><summary>Is it only for visual tweaks?</summary><p>No. Point at anything on the page: a wrong calculation, a flow that breaks, an error message, a request that fails. Each capture carries the component's props and state, failed network requests, console errors and the clicks that led there, so your agent can fix behaviour and data as well as layout.</p></details>
         <details><summary>Which frameworks does it support?</summary><p>Any framework: screenshots, selectors, page context, errors and styles work everywhere. On top of that, some frameworks give your agent the exact source location: Vue + Vite gives the template file and line, React ≤18 and Svelte give file and line from their dev builds, and React 19 gives component names.</p></details>
