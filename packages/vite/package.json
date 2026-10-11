@@ -1,6 +1,6 @@
 {
   "name": "ahemui",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Point at anything in your running app and your coding agent gets the exact file and line to fix it. Vite plugin, local server and CLI for AhemUI.",
   "type": "module",
   "main": "./dist/index.js",

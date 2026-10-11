@@ -5,6 +5,13 @@ follow [semantic versioning](https://semver.org/) (0.x: minor versions may chang
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-10-11
+
+- npm package: agent-neutral description and README (Claude Code today, Codex coming soon), more keywords.
+- npm package: the `ahemui` command's path is written the way npm expects (no publish warning).
+- Releases: the workflow skips the npm publish when that version is already on npm, so the GitHub release and the
+  extension zip are still made.
+
 ## [0.4.0] — 2026-10-10
 
 First public release.

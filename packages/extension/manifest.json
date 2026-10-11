@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AhemUI — visual feedback backlog",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Highlight parts of any web app (local, staging or prod) and queue changes for your coding agent.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxx+bxJq61t6k2Q+oEolDek21XD/d5GGB3w3HIcZ8vDlrMRcj3QOPVgXyvQgUp1g/KnywEkjCDdWS7//30oL3wsqfAIcgFbcRuvaspusqQFXFUajOQPSgm0RmQ1jo3mqyDEncTebYS12VHOfjd4adE12MFGrPdgXkLNXCf8uz3NzPTjnQI7kKIxS06N2zG69Tf5hdJ5QLIrDOtoFntEsURgANXRoaFq6YX+mB7+PuPj4qTO43xEAM0gSavVl8NCVBlOCB+hYpg/RnyVNNc3P4QNMxnEB/h6g4bRnTHODd7ENDupCJdcOlC0TC2p2I1FXIFoQVWU6BMoHgQNjGWn9kbQIDAQAB",
   "minimum_chrome_version": "111",

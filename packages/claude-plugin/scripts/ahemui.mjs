@@ -16317,7 +16317,7 @@ async function updatePrefs(patch) {
 
 // ../cli/src/server.ts
 var MIME = { webp: "image/webp", png: "image/png", jpg: "image/jpeg" };
-var BUILD = true ? "20261010103003" : "dev";
+var BUILD = true ? "20261011063424" : "dev";
 async function serve(store, opts = {}) {
   const config = await store.config();
   config.devOrigins = [.../* @__PURE__ */ new Set([...config.devOrigins, ...opts.origins ?? []])];
@@ -16862,8 +16862,8 @@ async function main(argv) {
   const { values: o, positionals } = parseArgs({ args: argv, options: OPTIONS, allowPositionals: true });
   const [cmd, ...args] = positionals;
   if (o.version) {
-    const v = true ? "0.4.0" : "dev";
-    return console.log(`ahemui ${v}${true ? ` (build ${"20261010103003"})` : ""}`);
+    const v = true ? "0.4.1" : "dev";
+    return console.log(`ahemui ${v}${true ? ` (build ${"20261011063424"})` : ""}`);
   }
   if (!cmd || o.help) return console.log(HELP);
   process.env.AHEMUI_AUTHOR ||= defaultAuthor();
