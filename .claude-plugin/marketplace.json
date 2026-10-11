@@ -7,7 +7,7 @@
     {
       "name": "ahemui",
       "source": "./packages/claude-plugin",
-      "description": "Visual UI feedback backlog for Claude Code (Vue + Vite)."
+      "description": "Point at anything in your running app and Claude gets the exact file and line to fix it. Vite apps: Vue, React, Svelte."
     }
   ],
   "metadata": {

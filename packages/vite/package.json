@@ -1,7 +1,7 @@
 {
   "name": "ahemui",
   "version": "0.4.0",
-  "description": "AhemUI: capture visual UI feedback in the browser into a repo-committed backlog for Claude Code.",
+  "description": "Point at anything in your running app and your coding agent gets the exact file and line to fix it. Vite plugin, local server and CLI for AhemUI.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -41,7 +41,13 @@
   "keywords": [
     "vite-plugin",
     "vue",
+    "react",
+    "svelte",
+    "coding-agent",
+    "ai-agent",
     "claude-code",
+    "codex",
+    "mcp",
     "ui-feedback",
     "visual-feedback",
     "backlog"

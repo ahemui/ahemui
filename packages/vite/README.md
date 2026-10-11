@@ -1,8 +1,9 @@
 # ahemui
 
-Point at your running UI, say what's off, and let [Claude Code](https://claude.com/claude-code) fix it.
-This package is AhemUI's Vite plugin, local server and CLI in one. Most people install it through the Claude Code
-plugin's `/ahemui:setup`, which also creates the `.ahemui/` backlog in your repo.
+Point at anything in your running app, say what's off, and your coding agent gets the exact file and line to fix it,
+now or in a batch. This package is AhemUI's Vite plugin, local server and CLI in one. Most people install it through
+the agent plugin's setup command ([Claude Code](https://claude.com/claude-code) today: `/ahemui:setup`; Codex coming
+soon), which also creates the `.ahemui/` backlog in your repo.
 
 ```bash
 npm i -D ahemui
@@ -17,7 +18,7 @@ export default { plugins: [vue(), ahemui()] };
 ```
 
 Run `vite dev`, press **Alt+Shift+S**, circle something and type what should change. Items land in `.ahemui/items/`
-as Markdown with the source file and line, a screenshot and page context, ready for Claude Code.
+as Markdown with the source file and line, a screenshot and page context, ready for your agent.
 
 | Stack | Source file:line |
 |---|---|
@@ -29,4 +30,4 @@ as Markdown with the source file and line, a screenshot and page context, ready 
 The plugin only runs in `vite dev`; production builds are untouched. It listens on `127.0.0.1` only and sends nothing
 anywhere else.
 
-Docs, the Claude Code plugin and the browser extension: **https://ahemui.com** · Source: https://github.com/ahemui/ahemui
+Docs, the agent plugins and the browser extension: **https://ahemui.com** · Source: https://github.com/ahemui/ahemui
