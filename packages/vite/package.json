@@ -12,7 +12,7 @@
     }
   },
   "bin": {
-    "ahemui": "./dist/cli.js"
+    "ahemui": "dist/cli.js"
   },
   "files": [
     "dist"
