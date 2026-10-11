@@ -688,3 +688,11 @@ html:not(.js) .final-before { display: none; }
 @media (max-width: 960px) { .agents { grid-template-columns: 1fr; max-width: 560px; margin-inline: auto; } }
 .agents { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr); }
 @media (max-width: 960px) { .agents { grid-template-columns: minmax(0, 1fr); } }
+
+/* the two plugin commands, add then install, as one block */
+.copy-pair { display: grid; gap: 8px; max-width: 520px; margin: 22px auto 0; }
+.copy-pair .copyline { margin: 0; max-width: none; }
+.agent .copy-pair { margin: auto 0 0; max-width: none; }
+.final-after .copy-pair { margin: 20px auto 0; }
+.copy-pair { grid-template-columns: minmax(0, 1fr); width: 100%; }
+.copy-pair .copyline { min-width: 0; }
